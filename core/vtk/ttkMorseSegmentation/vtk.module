@@ -1,0 +1,4 @@
+NAME
+  ttkMorseSegmentation
+DEPENDS
+  ttkAlgorithm

@@ -1,0 +1,9 @@
+NAME
+  ttkMorseSegmentation
+SOURCES
+  ttkMorseSegmentation.cpp
+HEADERS
+  ttkMorseSegmentation.h
+DEPENDS
+  morseSegmentation
+  ttkAlgorithm
