@@ -1,13 +1,13 @@
 /// \ingroup base
-/// \class ttk::PathCompression
+/// \class ttk::PathCompressionDistributedTest
 /// \author Michael Will <mswill@rhrk.uni-kl.de>
 /// \date 2022.
 ///
-/// This module defines the %PathCompression class that computes for each vertex of a
+/// This module defines the %PathCompressionDistributedTest class that computes for each vertex of a
 /// triangulation the vertices to which ascending and descending manifolds it belongs.
 ///
 /// \b Related \b publication: \n
-/// 'PathCompression'
+/// 'PathCompressionDistributedTest'
 /// Jonas Lukasczyk and Julien Tierny.
 /// TTK Publications.
 /// 2021.
@@ -24,17 +24,17 @@
 namespace ttk {
 
   /**
-   * The PathCompression class provides methods to compute for each vertex of a
+   * The PathCompressionDistributedTest class provides methods to compute for each vertex of a
    * triangulation the vertices to which ascending and descending manifolds it belongs.
    */
-  class PathCompression : virtual public Debug {
+  class PathCompressionDistributedTest : virtual public Debug {
 
   public:
-    PathCompression();
+    PathCompressionDistributedTest();
     
     int preconditionTriangulation(
       ttk::AbstractTriangulation *triangulation) const {
-      return triangulation->preconditionVertexNeighbors();
+      return triangulation->preconditionVertexNeighbors() + triangulation->preconditionBoundaryVertices();
     }
 
     std::vector<int> compressArray(const std::vector<int>& input) const {
@@ -51,7 +51,7 @@ namespace ttk {
         }
         output[i] = uniquesMap[input[i]];
       }
-      this->printMsg("#Unique Segmentations with new method: " + std::to_string(counter), 1, compressTimer.getElapsedTime()); 
+      this->printMsg("#Unique Segmentations: " + std::to_string(counter), 1, compressTimer.getElapsedTime()); 
       return output;
     }
 
@@ -198,7 +198,7 @@ namespace ttk {
       return 1; // return success
     }
 
-  }; // PathCompression class
+  }; // PathCompressionDistributedTest class
 
 
 

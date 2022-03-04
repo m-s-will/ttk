@@ -1,9 +1,0 @@
-NAME
-  ttkRankArray
-SOURCES
-  ttkRankArray.cpp
-HEADERS
-  ttkRankArray.h
-DEPENDS
-  rankArray
-  ttkAlgorithm

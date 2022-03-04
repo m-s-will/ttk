@@ -1,20 +1,22 @@
-#include <ttkRankArray.h>
+#include <ttkPathCompressionDistributedTest.h>
 
 #include <vtkInformation.h>
 
 #include <vtkDataArray.h>
+#include <vtkIntArray.h>
 #include <vtkDataSet.h>
 #include <vtkObjectFactory.h>
 #include <vtkPointData.h>
 #include <vtkSmartPointer.h>
-#include <vtkMPIController.h>
+#include <vtkGhostCellsGenerator.h>
+#include <vtkGenerateGlobalIds.h>
 
 #include <ttkMacros.h>
 #include <ttkUtils.h>
 
 // A VTK macro that enables the instantiation of this class via ::New()
 // You do not have to modify this
-vtkStandardNewMacro(ttkRankArray);
+vtkStandardNewMacro(ttkPathCompressionDistributedTest);
 
 /**
  * TODO 7: Implement the filter constructor and destructor in the cpp file.
@@ -28,9 +30,12 @@ vtkStandardNewMacro(ttkRankArray);
  * explicitly, by for example allocating memory on the heap that needs
  * to be freed when the filter is destroyed.
  */
-ttkRankArray::ttkRankArray() {
+ttkPathCompressionDistributedTest::ttkPathCompressionDistributedTest() {
   this->SetNumberOfInputPorts(1);
   this->SetNumberOfOutputPorts(1);
+}
+
+ttkPathCompressionDistributedTest::~ttkPathCompressionDistributedTest() {
 }
 
 /**
@@ -40,7 +45,7 @@ ttkRankArray::ttkRankArray() {
  * filter by adding the vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE() key to
  * the port information.
  */
-int ttkRankArray::FillInputPortInformation(int port, vtkInformation *info) {
+int ttkPathCompressionDistributedTest::FillInputPortInformation(int port, vtkInformation *info) {
   if(port == 0) {
     info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkDataSet");
     return 1;
@@ -63,11 +68,12 @@ int ttkRankArray::FillInputPortInformation(int port, vtkInformation *info) {
  * Note: prior to the execution of the RequestData method the pipeline will
  * initialize empty output data objects based on this information.
  */
-int ttkRankArray::FillOutputPortInformation(int port, vtkInformation *info) {
+int ttkPathCompressionDistributedTest::FillOutputPortInformation(int port, vtkInformation *info) {
   if(port == 0) {
     info->Set(ttkAlgorithm::SAME_DATA_TYPE_AS_INPUT_PORT(), 0);
     return 1;
   }
+
   return 0;
 }
 
@@ -84,10 +90,10 @@ int ttkRankArray::FillOutputPortInformation(int port, vtkInformation *info) {
  *     2) The output objects are already initialized based on the information
  *        provided by the FillOutputPortInformation method.
  */
-int ttkRankArray::RequestData(vtkInformation *ttkNotUsed(request),
+int ttkPathCompressionDistributedTest::RequestData(vtkInformation *ttkNotUsed(request),
                                vtkInformationVector **inputVector,
                                vtkInformationVector *outputVector) {
-
+  this->printMsg("Request data called!");
   // Get input object from input vector
   // Note: has to be a vtkDataSet as required by FillInputPortInformation
   vtkDataSet *inputDataSet = vtkDataSet::GetData(inputVector[0]);
@@ -135,12 +141,15 @@ int ttkRankArray::RequestData(vtkInformation *ttkNotUsed(request),
   //                GetInputArrayToProcess(3, inputVector)
   //
   //       If this filter is run within ParaView, then the UI will automatically
-  //       call SetInputArrayToProcess (see RankArray.xml file).
+  //       call SetInputArrayToProcess (see PathCompressionDistributedTest.xml file).
   //
   //       During the RequestData execution one can then retrieve an actual
   //       array with the method "GetInputArrayToProcess".
-  vtkDataArray *inputArray = this->GetInputArrayToProcess(0, inputVector);
-  if(!inputArray) {
+  //vtkDataArray *inputArray = this->GetInputArrayToProcess(0, inputVector);
+
+  auto order = ttkAlgorithm::GetOrderArray(
+    inputDataSet, 0);
+  if(!order) {
     this->printErr("Unable to retrieve input array.");
     return 0;
   }
@@ -151,56 +160,112 @@ int ttkRankArray::RequestData(vtkInformation *ttkNotUsed(request),
     this->printErr("Input array needs to be a point data array.");
     return 0;
   }
-  if(inputArray->GetNumberOfComponents() != 1) {
+  
+  if(order->GetNumberOfComponents() != 1) {
     this->printErr("Input array needs to be a scalar array.");
     return 0;
   }
 
   // If all checks pass then log which array is going to be processed.
-  this->printMsg("Starting computation...");
-  this->printMsg("  Scalar Array: " + std::string(inputArray->GetName()));
+  this->printMsg("Starting computation!");
+  this->printMsg("  Scalar Array: " + std::string(order->GetName()));
 
   // Create an output array that has the same data type as the input array
   // Note: vtkSmartPointers are well documented
   //       (https://vtk.org/Wiki/VTK/Tutorials/SmartPointers)
-  vtkSmartPointer<vtkDataArray> outputArray
-    = vtkSmartPointer<vtkDataArray>::Take(inputArray->NewInstance());
-  outputArray->SetName(this->OutputArrayName.data()); // set array name
-  outputArray->SetNumberOfComponents(4); // a vertex can belong to at most 4 ranks, if they overlap in this vertex
-  outputArray->SetNumberOfTuples(inputArray->GetNumberOfTuples());
+  vtkSmartPointer<vtkIntArray> descendingManifold
+    = vtkSmartPointer<vtkIntArray>::New();
+  descendingManifold->SetName("DescendingManifold"); // set array name
+  descendingManifold->SetNumberOfComponents(1); // only one component per tuple
+  descendingManifold->SetNumberOfTuples(order->GetNumberOfTuples());
 
+  vtkSmartPointer<vtkIntArray> ascendingManifold
+    = vtkSmartPointer<vtkIntArray>::New();
+  ascendingManifold->SetName("AscendingManifold"); // set array name
+  ascendingManifold->SetNumberOfComponents(1); // only one component per tuple
+  ascendingManifold->SetNumberOfTuples(order->GetNumberOfTuples());
+
+  this->printMsg("  Output Array 1: " + std::string(descendingManifold->GetName()));
+  this->printMsg("  Output Array 2: " + std::string(ascendingManifold->GetName()));
+
+  vtkSmartPointer<vtkIntArray> ttkGhostLayer
+    = vtkSmartPointer<vtkIntArray>::New();
+  ttkGhostLayer->SetName("ghostLayer"); // set array name
+  ttkGhostLayer->SetNumberOfComponents(1); // only one component per tuple
+  ttkGhostLayer->SetNumberOfTuples(order->GetNumberOfTuples());
+  ttkGhostLayer->Fill(0);
+
+  // generate globalIds which we need for multiple steps
+  vtkNew<vtkGenerateGlobalIds> globalIdGenerator;  
+  globalIdGenerator->SetInputDataObject(inputDataSet);
+  globalIdGenerator->Update();
+
+  vtkDataArray *globalIds = vtkDataSet::SafeDownCast(globalIdGenerator->GetOutput())->GetPointData()->GetScalars("GlobalPointIds");
   // Get ttk::triangulation of the input vtkDataSet (will create one if one does
   // not exist already).
   ttk::Triangulation *triangulation
-    = ttkAlgorithm::GetTriangulation(inputDataSet);
+    = ttkAlgorithm::GetTriangulation(vtkDataSet::SafeDownCast(globalIdGenerator->GetOutput()));
   if(!triangulation)
     return 0;
 
   // Precondition the triangulation (e.g., enable fetching of vertex neighbors)
   this->preconditionTriangulation(triangulation); // implemented in base class
 
-  vtkNew<vtkMPIController> controller;
-  controller->Initialize();
+  // create a ghost cell layer from VTK ghostcells (level 1 and level 2 ghost cells), this extends the dataset
+  int nVertices = triangulation->getNumberOfVertices();
+  vtkSmartPointer<vtkIntArray> ttkBoundaryVertices
+    = vtkSmartPointer<vtkIntArray>::New();
+  ttkBoundaryVertices->SetName("boundaryVertices"); // set array name
+  ttkBoundaryVertices->SetNumberOfComponents(1); // only one component per tuple
+  ttkBoundaryVertices->SetNumberOfTuples(nVertices);
+  for (int i = 0; i < nVertices; i++){
+    if (triangulation->isVertexOnBoundary(i)){
+      ttkBoundaryVertices->SetComponent(i, 0, 1);
+    } else {
+      ttkBoundaryVertices->SetComponent(i, 0, 0);
+    }
+  }
 
-  int numProcs = controller->GetNumberOfProcesses();
-  int rank = controller->GetLocalProcessId();
+  vtkNew<vtkGhostCellsGenerator> generator;
+  generator->SetNumberOfGhostLayers(1);
+  generator->BuildIfRequiredOff();
+  generator->SetInputData(globalIdGenerator->GetOutput());
+  generator->Update();
 
-  this->printMsg("Nr of procs: " + std::string(numProcs));
-  this->printMsg("Rank: " + std::string(rank));
+  vtkDataSet *vtkGhostLayer = vtkDataSet::SafeDownCast(generator->GetOutput());
+  vtkPointData *vtkGhostPoints = vtkGhostLayer->GetPointData();
+
+  vtkDataArray *vtkGhostPointValues = vtkGhostPoints->GetScalars("vtkGhostType");
+  vtkDataArray *vtkGhostPointIds = vtkGhostPoints->GetScalars("GlobalPointIds");
+  // compute only the level 2 ghost cells, by checking which vertices are a ghost cell and are not on the boundary of the initial part
+  // and set the corresponding values of ttkGhostLayer to 1
 
 
+  for (int i = 0; i < vtkGhostPointValues->GetNumberOfTuples(); i++){
+    if (vtkGhostPointValues->GetComponent(i, 0) == 1){
+      int globalId = vtkGhostPointIds->GetComponent(i, 0);
+      if (ttkBoundaryVertices->GetComponent(globalId, 0) != 1){
+        ttkGhostLayer->SetComponent(i, 0, 1);
+      }
+    }
+  }
+
+  /*
   // Templatize over the different input array data types and call the base code
   int status = 0; // this integer checks if the base code returns an error
-  ttkVtkTemplateMacro(inputArray->GetDataType(), triangulation->getType(),
-                      (status = this->computeAverages<VTK_TT, TTK_TT>(
-                         (VTK_TT *)ttkUtils::GetVoidPointer(outputArray),
-                         (VTK_TT *)ttkUtils::GetVoidPointer(inputArray),
-                         (TTK_TT *)triangulation->getData())));
+  ttkTypeMacroIT(order->GetDataType(), triangulation->getType(),
+                      (status = this->computeCompression<T0, T1>(
+                         ttkUtils::GetPointer<int>(descendingManifold),
+                         ttkUtils::GetPointer<int>(ascendingManifold),
+                         ttkUtils::GetPointer<T0>(order),
+                         (T1 *)triangulation->getData())));
+
+
 
   // On error cancel filter execution
   if(status != 1)
     return 0;
-
+  */
   // Get output vtkDataSet (which was already instantiated based on the
   // information provided by FillOutputPortInformation)
   vtkDataSet *outputDataSet = vtkDataSet::GetData(outputVector, 0);
@@ -209,9 +274,13 @@ int ttkRankArray::RequestData(vtkInformation *ttkNotUsed(request),
   outputDataSet->ShallowCopy(inputDataSet);
 
   // add to the output point data the computed output array
-  outputDataSet->GetPointData()->AddArray(outputArray);
+  outputDataSet->GetPointData()->AddArray(descendingManifold);
+  outputDataSet->GetPointData()->AddArray(ascendingManifold);
+  outputDataSet->GetPointData()->AddArray(ttkGhostLayer);
+  outputDataSet->GetPointData()->AddArray(ttkBoundaryVertices);
+  outputDataSet->GetPointData()->AddArray(globalIds);
 
-  controller->Finalize();
+  
   // return success
   return 1;
 }

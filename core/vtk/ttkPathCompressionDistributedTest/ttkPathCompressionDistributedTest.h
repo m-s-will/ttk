@@ -1,15 +1,11 @@
-/// TODO 4: Provide your information and **update** the documentation (in
-/// particular regarding the order convention if input arrays need to be
-/// specified with the standard VTK call SetInputArrayToProcess()).
-///
 /// \ingroup vtk
-/// \class ttkRankArray
-/// \author Your Name Here <your.email@address.here>
-/// \date The Date Here.
+/// \class ttkPathCompressionDistributedTest
+/// \author Michael Will <mswill@rhrk.uni-kl.de>
+/// \date 2022.
 ///
-/// \brief TTK VTK-filter that wraps the ttk::RankArray module.
+/// \brief TTK VTK-filter that wraps the ttk::PathCompressionDistributedTest module.
 ///
-/// This VTK filter uses the ttk::RankArray module to compute an averaging of
+/// This VTK filter uses the ttk::PathCompressionDistributedTest module to compute an averaging of
 /// the data values of an input point data array defined on the input
 /// vtkDataSet.
 ///
@@ -28,18 +24,18 @@
 /// \param arrayName (DYNAMIC: string identifier of the input array)
 ///
 /// See the corresponding standalone program for a usage example:
-///   - standalone/RankArray/main.cpp
+///   - standalone/PathCompressionDistributedTest/main.cpp
 ///
 /// See the related ParaView example state files for usage examples within a
 /// VTK pipeline.
 ///
-/// \sa ttk::RankArray
+/// \sa ttk::PathCompressionDistributedTest
 /// \sa ttkAlgorithm
 
 #pragma once
 
 // VTK Module
-#include <ttkRankArrayModule.h>
+#include <ttkPathCompressionDistributedTestModule.h>
 
 // VTK Includes
 #include <ttkAlgorithm.h>
@@ -60,49 +56,38 @@
  * the vtk.module file would need to be extended to
  *
  * NAME
- *   ttkRankArray
+ *   ttkPathCompressionDistributedTest
  * DEPENDS
  *   ttkAlgorithm
  *   VTK::FiltersSources
  */
 
 // TTK Base Includes
-#include <RankArray.h>
+#include <PathCompressionDistributedTest.h>
 
-class TTKRANKARRAY_EXPORT ttkRankArray
+class TTKPATHCOMPRESSIONDISTRIBUTEDTEST_EXPORT ttkPathCompressionDistributedTest
   : public ttkAlgorithm // we inherit from the generic ttkAlgorithm class
   ,
-    protected ttk::RankArray // and we inherit from the base class
+    protected ttk::PathCompressionDistributedTest // and we inherit from the base class
 {
-private:
-  /**
-   * TODO 5: Add all filter parameters only as private member variables and
-   *         initialize them here.
-   */
-  std::string OutputArrayName{"RankArray"};
 
 public:
-  /**
-   * TODO 6: Automatically generate getters and setters of filter
-   *         parameters via vtkMacros.
-   */
-  vtkSetMacro(OutputArrayName, const std::string &);
-  vtkGetMacro(OutputArrayName, std::string);
+
 
   /**
    * This static method and the macro below are VTK conventions on how to
    * instantiate VTK objects. You don't have to modify this.
    */
-  static ttkRankArray *New();
-  vtkTypeMacro(ttkRankArray, ttkAlgorithm);
+  static ttkPathCompressionDistributedTest *New();
+  vtkTypeMacro(ttkPathCompressionDistributedTest, ttkAlgorithm);
 
 protected:
   /**
    * TODO 7: Implement the filter constructor and destructor
    *         (see cpp file)
    */
-  ttkRankArray();
-  virtual ~ttkRankArray() override = default;
+  ttkPathCompressionDistributedTest();
+  ~ttkPathCompressionDistributedTest() override;
 
   /**
    * TODO 8: Specify the input data type of each input port

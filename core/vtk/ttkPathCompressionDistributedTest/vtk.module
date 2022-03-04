@@ -1,0 +1,6 @@
+NAME
+  ttkPathCompressionDistributedTest
+DEPENDS
+  ttkAlgorithm
+  VTK::ParallelMPI
+  VTK::FiltersParallelDIY2
