@@ -10,6 +10,10 @@
 #include <vtkSmartPointer.h>
 #include <vtkGhostCellsGenerator.h>
 #include <vtkGenerateGlobalIds.h>
+#include <vtkExtractSelection.h>
+#include <vtkSelection.h>
+#include <vtkSelectionNode.h>
+#include <vtkIdTypeArray.h>
 
 #include <ttkMacros.h>
 #include <ttkUtils.h>
@@ -188,30 +192,26 @@ int ttkPathCompressionDistributedTest::RequestData(vtkInformation *ttkNotUsed(re
   this->printMsg("  Output Array 1: " + std::string(descendingManifold->GetName()));
   this->printMsg("  Output Array 2: " + std::string(ascendingManifold->GetName()));
 
-  vtkSmartPointer<vtkIntArray> ttkGhostLayer
-    = vtkSmartPointer<vtkIntArray>::New();
-  ttkGhostLayer->SetName("ghostLayer"); // set array name
-  ttkGhostLayer->SetNumberOfComponents(1); // only one component per tuple
-  ttkGhostLayer->SetNumberOfTuples(order->GetNumberOfTuples());
-  ttkGhostLayer->Fill(0);
+  
 
   // generate globalIds which we need for multiple steps
-  vtkNew<vtkGenerateGlobalIds> globalIdGenerator;  
+  auto globalIdGenerator = vtkSmartPointer<vtkGenerateGlobalIds>::New();  
   globalIdGenerator->SetInputDataObject(inputDataSet);
   globalIdGenerator->Update();
 
-  vtkDataArray *globalIds = vtkDataSet::SafeDownCast(globalIdGenerator->GetOutput())->GetPointData()->GetScalars("GlobalPointIds");
+  vtkDataSet *dataSetWithGlobalIds = vtkDataSet::SafeDownCast(globalIdGenerator->GetOutput());
   // Get ttk::triangulation of the input vtkDataSet (will create one if one does
   // not exist already).
   ttk::Triangulation *triangulation
-    = ttkAlgorithm::GetTriangulation(vtkDataSet::SafeDownCast(globalIdGenerator->GetOutput()));
+    = ttkAlgorithm::GetTriangulation(dataSetWithGlobalIds);
   if(!triangulation)
     return 0;
 
   // Precondition the triangulation (e.g., enable fetching of vertex neighbors)
   this->preconditionTriangulation(triangulation); // implemented in base class
 
-  // create a ghost cell layer from VTK ghostcells (level 1 and level 2 ghost cells), this extends the dataset
+
+  // get the boundary vertices
   int nVertices = triangulation->getNumberOfVertices();
   vtkSmartPointer<vtkIntArray> ttkBoundaryVertices
     = vtkSmartPointer<vtkIntArray>::New();
@@ -226,30 +226,40 @@ int ttkPathCompressionDistributedTest::RequestData(vtkInformation *ttkNotUsed(re
     }
   }
 
-  vtkNew<vtkGhostCellsGenerator> generator;
+  dataSetWithGlobalIds->GetPointData()->AddArray(ttkBoundaryVertices);
+  this->printMsg("ttkBoundaryVertices added");
+
+  // create a ghost cell layer from VTK ghostcells (level 1 and level 2 ghost cells), this extends the dataset
+  auto generator = vtkSmartPointer<vtkGhostCellsGenerator>::New();
   generator->SetNumberOfGhostLayers(1);
   generator->BuildIfRequiredOff();
-  generator->SetInputData(globalIdGenerator->GetOutput());
+  generator->SetInputData(dataSetWithGlobalIds);
   generator->Update();
 
   vtkDataSet *vtkGhostLayer = vtkDataSet::SafeDownCast(generator->GetOutput());
   vtkPointData *vtkGhostPoints = vtkGhostLayer->GetPointData();
-
   vtkDataArray *vtkGhostPointValues = vtkGhostPoints->GetScalars("vtkGhostType");
-  vtkDataArray *vtkGhostPointIds = vtkGhostPoints->GetScalars("GlobalPointIds");
-  // compute only the level 2 ghost cells, by checking which vertices are a ghost cell and are not on the boundary of the initial part
-  // and set the corresponding values of ttkGhostLayer to 1
+  vtkDataArray *ttkboundaryPointValues = vtkGhostPoints->GetScalars("boundaryVertices");
 
 
+  vtkSmartPointer<vtkIntArray> ttkGhostLayer
+    = vtkSmartPointer<vtkIntArray>::New();
+  ttkGhostLayer->SetName("ghostLayer"); // set array name
+  ttkGhostLayer->SetNumberOfComponents(1); // only one component per tuple
+  ttkGhostLayer->SetNumberOfTuples(vtkGhostPointValues->GetNumberOfTuples());
+  ttkGhostLayer->Fill(0);
+
+  
   for (int i = 0; i < vtkGhostPointValues->GetNumberOfTuples(); i++){
     if (vtkGhostPointValues->GetComponent(i, 0) == 1){
-      int globalId = vtkGhostPointIds->GetComponent(i, 0);
-      if (ttkBoundaryVertices->GetComponent(globalId, 0) != 1){
+      if (ttkboundaryPointValues->GetComponent(i, 0) != 1){
         ttkGhostLayer->SetComponent(i, 0, 1);
       }
     }
   }
 
+  
+  
   /*
   // Templatize over the different input array data types and call the base code
   int status = 0; // this integer checks if the base code returns an error
@@ -266,19 +276,19 @@ int ttkPathCompressionDistributedTest::RequestData(vtkInformation *ttkNotUsed(re
   if(status != 1)
     return 0;
   */
+
   // Get output vtkDataSet (which was already instantiated based on the
   // information provided by FillOutputPortInformation)
   vtkDataSet *outputDataSet = vtkDataSet::GetData(outputVector, 0);
 
   // make a SHALLOW copy of the input
-  outputDataSet->ShallowCopy(inputDataSet);
+  outputDataSet->ShallowCopy(vtkGhostLayer);
 
   // add to the output point data the computed output array
-  outputDataSet->GetPointData()->AddArray(descendingManifold);
-  outputDataSet->GetPointData()->AddArray(ascendingManifold);
+  //outputDataSet->GetPointData()->AddArray(descendingManifold);
+  //outputDataSet->GetPointData()->AddArray(ascendingManifold);
   outputDataSet->GetPointData()->AddArray(ttkGhostLayer);
-  outputDataSet->GetPointData()->AddArray(ttkBoundaryVertices);
-  outputDataSet->GetPointData()->AddArray(globalIds);
+
 
   
   // return success
