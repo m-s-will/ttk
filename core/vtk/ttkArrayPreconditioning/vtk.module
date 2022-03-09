@@ -2,3 +2,4 @@ NAME
   ttkArrayPreconditioning
 DEPENDS
   ttkAlgorithm
+  VTK::ParallelMPI

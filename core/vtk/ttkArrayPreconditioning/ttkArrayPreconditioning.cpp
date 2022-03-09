@@ -10,7 +10,7 @@
 #include <vtkInformation.h>
 #include <vtkIntArray.h>
 #include <vtkPointData.h>
-
+#include <vtkMPIController.h>
 #include <regex>
 
 vtkStandardNewMacro(ttkArrayPreconditioning);
@@ -83,6 +83,62 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
       }
     }
   }
+
+  bool globalPointIdsExist = false;
+  bool ghostCellsExist = false;
+  for (auto scalarArray : scalarArrays) {
+    std::string arrayName = std::string(scalarArray->GetName());
+    if (arrayName == "GlobalPointIds") globalPointIdsExist = true;
+    if (arrayName == "vtkGhostType") ghostCellsExist = true;
+  }
+
+  if (globalPointIdsExist && ghostCellsExist){
+    this->printMsg("Global Point Ids and Ghost Cells exist, therefore we are in distributed mode!");
+    for(auto scalarArray : scalarArrays) {
+      std::string arrayName = std::string(scalarArray->GetName());
+      if (arrayName != "GlobalPointIds" && arrayName != "vtkGhostType"){
+        auto vtkglobalPointIds = pointData->GetGlobalIds();
+        vtkMPIController *controller = vtkMPIController::SafeDownCast(vtkMPIController::GetGlobalController());
+        int numProcs = controller->GetNumberOfProcesses();
+        int rank = controller->GetLocalProcessId();
+        this->printMsg("#Ranks " + std::to_string(numProcs) + ", this is rank " + std::to_string(rank));
+
+        // sort the scalar array distributed first by the scalar value itself, then by the global id
+
+        std::vector<std::tuple<double, int, int>> sortingValues;
+
+        for (int i = 0; i < nVertices; i++){
+          double scalarValue = scalarArray->GetComponent(i, 0);
+          int globalId = vtkglobalPointIds->GetComponent(i, 0);
+          int localId = i;
+          sortingValues.emplace_back(scalarValue, globalId, localId);
+        }
+        auto element0 = sortingValues[0];
+        this->printMsg("#Elements in Vector " + std::to_string(sortingValues.size()) + ", first values are " + std::to_string(std::get<0>(element0)) + " " + std::to_string(std::get<1>(element0)) + " " + std::to_string(std::get<2>(element0)));
+
+        // sort the vector of this rank, first by their scalarvalue and if they are the same, by their globalId
+        std::sort(sortingValues.begin(), sortingValues.end(),
+        [&](const std::tuple<double, int, int> a, const std::tuple<double, int, int> b) {
+          return (std::get<0>(a) < std::get<0>(b))
+                 || (std::get<0>(a) == std::get<0>(a) && std::get<1>(a) < std::get<1>(b));
+        });
+
+        this->printMsg("#Elements in Vector " + std::to_string(sortingValues.size()) + ", first values are " + std::to_string(std::get<0>(element0)) + " " + std::to_string(std::get<1>(element0)) + " " + std::to_string(std::get<2>(element0)));
+
+        // when all are done sorting, rank 0 requests the highest values and merges them
+
+      }
+        
+      //output->GetPointData()->AddArray(orderArray);
+      //this->printMsg("Generated order array for scalar array `" + std::string{scalarArray->GetName()} + "'");
+
+    }
+
+    return 1;
+  }
+
+
+  
 
   for(auto scalarArray : scalarArrays) {
     vtkNew<ttkSimplexIdTypeArray> orderArray{};
