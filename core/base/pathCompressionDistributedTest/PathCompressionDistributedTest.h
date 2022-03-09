@@ -62,6 +62,7 @@ namespace ttk {
     int computeCompression(int *descendingManifold,
                            int *ascendingManifold,
                         const dataType *inputData,
+                        const dataType *ghostLayer,
                         const triangulationType *triangulation) const {
       // start global timer
       ttk::Timer globalTimer;
@@ -90,7 +91,7 @@ namespace ttk {
                        this->threadNumber_);
 
         int nVertices = triangulation->getNumberOfVertices();
-
+        
         std::vector<int> previousDesc(nVertices);
         std::vector<int> currentDesc(nVertices);        
         std::vector<int> previousAsc(nVertices);
@@ -110,18 +111,22 @@ namespace ttk {
           // we do not need to check for equality, because we use the order array
           previousDesc[i] = i;
           previousAsc[i] = i;
-          for(int j = 0; j < nNeighbors; j++) {
-            triangulation->getVertexNeighbor(i, j, neighborId);
-          
-            // and for the largest neighbor to get to the ascending manifold
-            if (inputData[neighborId] > largest){
-              previousAsc[i] = neighborId;
-              largest = inputData[neighborId];      
-            }
-            // we're checking for the smallest neighbor to get the descending manifold
-            if (inputData[neighborId] <= smallest){
-              previousDesc[i] = neighborId;
-              smallest = inputData[neighborId];
+
+          // if ghostLayer is 0, we don't need to strictly point to ourselves, but to the largest neightbor
+          if (ghostLayer[i] == 0) {
+            for(int j = 0; j < nNeighbors; j++) {
+              triangulation->getVertexNeighbor(i, j, neighborId);
+            
+              // and for the largest neighbor to get to the ascending manifold
+              if (inputData[neighborId] > largest){
+                previousAsc[i] = neighborId;
+                largest = inputData[neighborId];      
+              }
+              // we're checking for the smallest neighbor to get the descending manifold
+              if (inputData[neighborId] <= smallest){
+                previousDesc[i] = neighborId;
+                smallest = inputData[neighborId];
+              }
             }
           }
         }
