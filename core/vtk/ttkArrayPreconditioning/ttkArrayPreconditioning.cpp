@@ -59,7 +59,7 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
   output->ShallowCopy(input);
 
   auto pointData = input->GetPointData();
-  auto nVertices = input->GetNumberOfPoints();
+  int nVertices = input->GetNumberOfPoints();
 
   std::vector<vtkDataArray *> scalarArrays{};
 
@@ -94,27 +94,36 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
 
   if (globalPointIdsExist && ghostCellsExist){
     this->printMsg("Global Point Ids and Ghost Cells exist, therefore we are in distributed mode!");
+    auto vtkglobalPointIds = pointData->GetGlobalIds();
+    auto vtkGhostCells = pointData->GetArray("vtkGhostType");
+    vtkMPIController *controller = vtkMPIController::SafeDownCast(vtkMPIController::GetGlobalController());
+    int numProcs = controller->GetNumberOfProcesses();
+    int rank = controller->GetLocalProcessId();
+    int intTag = 100;
+    int tupleTag = 101;
+    this->printMsg("#Ranks " + std::to_string(numProcs) + ", this is rank " + std::to_string(rank));
+
+    // add the order array for every scalar array, except the ghostcells and the global ids
     for(auto scalarArray : scalarArrays) {
       std::string arrayName = std::string(scalarArray->GetName());
       if (arrayName != "GlobalPointIds" && arrayName != "vtkGhostType"){
-        auto vtkglobalPointIds = pointData->GetGlobalIds();
-        vtkMPIController *controller = vtkMPIController::SafeDownCast(vtkMPIController::GetGlobalController());
-        int numProcs = controller->GetNumberOfProcesses();
-        int rank = controller->GetLocalProcessId();
-        this->printMsg("#Ranks " + std::to_string(numProcs) + ", this is rank " + std::to_string(rank));
 
         // sort the scalar array distributed first by the scalar value itself, then by the global id
-
         std::vector<std::tuple<double, int, int>> sortingValues;
 
         for (int i = 0; i < nVertices; i++){
-          double scalarValue = scalarArray->GetComponent(i, 0);
-          int globalId = vtkglobalPointIds->GetComponent(i, 0);
-          int localId = i;
-          sortingValues.emplace_back(scalarValue, globalId, localId);
+          if (vtkGhostCells->GetComponent(i, 0) == 0){
+            double scalarValue = scalarArray->GetComponent(i, 0);
+            int globalId = vtkglobalPointIds->GetComponent(i, 0);
+            int localId = i;
+            sortingValues.emplace_back(scalarValue, globalId, localId);
+          }
         }
         auto element0 = sortingValues[0];
-        this->printMsg("#Elements in Vector " + std::to_string(sortingValues.size()) + ", first values are " + std::to_string(std::get<0>(element0)) + " " + std::to_string(std::get<1>(element0)) + " " + std::to_string(std::get<2>(element0)));
+        this->printMsg("Rank " +  std::to_string(rank)
+                      + " #Elements in Vector " + std::to_string(sortingValues.size()) 
+                      + ", first values before sort are " + std::to_string(std::get<0>(element0)) 
+                      + " " + std::to_string(std::get<1>(element0)) + " " + std::to_string(std::get<2>(element0)));
 
         // sort the vector of this rank, first by their scalarvalue and if they are the same, by their globalId
         std::sort(sortingValues.begin(), sortingValues.end(),
@@ -122,10 +131,34 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
           return (std::get<0>(a) < std::get<0>(b))
                  || (std::get<0>(a) == std::get<0>(a) && std::get<1>(a) < std::get<1>(b));
         });
-
-        this->printMsg("#Elements in Vector " + std::to_string(sortingValues.size()) + ", first values are " + std::to_string(std::get<0>(element0)) + " " + std::to_string(std::get<1>(element0)) + " " + std::to_string(std::get<2>(element0)));
+        element0 = sortingValues[0];
+        this->printMsg("Rank " +  std::to_string(rank)
+                      + " #Elements in Vector " + std::to_string(sortingValues.size()) 
+                      + ", first values after sort are " + std::to_string(std::get<0>(element0)) + " " 
+                      + std::to_string(std::get<1>(element0)) + " " + std::to_string(std::get<2>(element0)));
 
         // when all are done sorting, rank 0 requests the highest values and merges them
+        controller->Barrier();
+        if (rank == 0){
+            this->printMsg("Rank 0 starts merging");
+            int totalSize = 0;
+            // get the nVertices from each rank, add them to get the complete size of the dataset 
+            for (int i = 0; i < numProcs; i++){
+              if (i == 0){
+                totalSize +=sortingValues.size();
+              } else{
+                int receivedSize;
+                vtkIdType values = 1;
+                controller->Receive(&receivedSize, values, i, intTag);
+                totalSize += receivedSize;
+              }
+            }
+            this->printMsg("Total amount of distributed points: " + std::to_string(totalSize)); 
+        } else {
+          vtkIdType values = 1;
+          int nValues = sortingValues.size();
+          controller->Send(&nValues, values, 0, intTag);
+        }
 
       }
         
