@@ -7,6 +7,28 @@
 
 namespace ttk {
 
+  inline std::vector<std::tuple<double, int, int>> populateVector(const size_t nVerts,
+                    const double *const scalars,
+                    const int *const globalIds,
+                    const int *const ghostCells) {
+    std::vector<std::tuple<double, int, int>> outVector;
+    for (int i = 0; i < nVerts; i++){
+      if (ghostCells[i] == 0){
+        double scalarValue = scalars[i];
+        int globalId = globalIds[i];
+        int localId = i;
+        outVector.emplace_back(scalarValue, globalId, localId);
+      }
+    }
+    return outVector;
+  }
+
+
+  inline void sortVerticesDistributed(std::vector<std::tuple<double, int, int>> &values) {
+    std::sort(values.begin(), values.end());
+  }
+
+
   /**
    * @brief Sort vertices according to scalars disambiguated by offsets
    *

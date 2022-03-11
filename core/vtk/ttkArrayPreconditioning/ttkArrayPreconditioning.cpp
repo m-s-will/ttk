@@ -105,12 +105,30 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
 
     // add the order array for every scalar array, except the ghostcells and the global ids
     for(auto scalarArray : scalarArrays) {
+
       std::string arrayName = std::string(scalarArray->GetName());
       if (arrayName != "GlobalPointIds" && arrayName != "vtkGhostType"){
 
         // sort the scalar array distributed first by the scalar value itself, then by the global id
-        std::vector<std::tuple<double, int, int>> sortingValues;
+        //std::vector<std::tuple<scalarArray->GetDataType(), int, int>> sortingValues;
 
+        std::vector<std::tuple<double, int, int>> sortingValues;
+        sortingValues = ttk::populateVector(nVertices,
+                          ttkUtils::GetPointer<double>(scalarArray),
+                          ttkUtils::GetPointer<int>(vtkglobalPointIds),
+                          ttkUtils::GetPointer<int>(vtkGhostCells));
+        /*
+        switch(scalarArray->GetDataType()) {
+          vtkTemplateMacro(ttk::populateVector(
+            nVertices, 
+            static_cast<VTK_TT *>(ttkUtils::GetVoidPointer(scalarArray)),
+            static_cast<int *>(ttkUtils::GetVoidPointer(vtkglobalPointIds)),
+            static_cast<int *>(ttkUtils::GetVoidPointer(vtkGhostCells)),
+            sortingValues));
+        }*/
+
+
+        /*
         for (int i = 0; i < nVertices; i++){
           if (vtkGhostCells->GetComponent(i, 0) == 0){
             double scalarValue = scalarArray->GetComponent(i, 0);
@@ -118,7 +136,7 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
             int localId = i;
             sortingValues.emplace_back(scalarValue, globalId, localId);
           }
-        }
+        }*/
         auto element0 = sortingValues[0];
         this->printMsg("Rank " +  std::to_string(rank)
                       + " #Elements in Vector " + std::to_string(sortingValues.size()) 
@@ -126,11 +144,17 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
                       + " " + std::to_string(std::get<1>(element0)) + " " + std::to_string(std::get<2>(element0)));
 
         // sort the vector of this rank, first by their scalarvalue and if they are the same, by their globalId
+        /*
         std::sort(sortingValues.begin(), sortingValues.end(),
         [&](const std::tuple<double, int, int> a, const std::tuple<double, int, int> b) {
           return (std::get<0>(a) < std::get<0>(b))
                  || (std::get<0>(a) == std::get<0>(a) && std::get<1>(a) < std::get<1>(b));
         });
+        */
+
+        ttk::sortVerticesDistributed(sortingValues);
+        
+
         element0 = sortingValues[0];
         this->printMsg("Rank " +  std::to_string(rank)
                       + " #Elements in Vector " + std::to_string(sortingValues.size()) 
