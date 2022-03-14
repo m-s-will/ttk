@@ -1,21 +1,23 @@
 #pragma once
 
 #include <BaseClass.h>
+#include <iostream>
 
 #include <algorithm>
 #include <vector>
 
 namespace ttk {
-
-  inline std::vector<std::tuple<double, int, int>> populateVector(const size_t nVerts,
-                    const double *const scalars,
-                    const int *const globalIds,
-                    const int *const ghostCells) {
-    std::vector<std::tuple<double, int, int>> outVector;
+  template <typename scalarType>
+  std::vector<std::tuple<float, ttk::SimplexId, int>> populateVector(const size_t nVerts,
+                    const float *const scalars,
+                    const ttk::SimplexId *const globalIds,
+                    const char *const ghostCells) {
+    std::vector<std::tuple<float, ttk::SimplexId, int>> outVector;
     for (int i = 0; i < nVerts; i++){
-      if (ghostCells[i] == 0){
-        double scalarValue = scalars[i];
-        int globalId = globalIds[i];
+      std::cout << "Ghostcell: " << std::to_string(ghostCells[i]) << std::endl; 
+      if ((int)ghostCells[i] == 0){
+        float scalarValue = scalars[i];
+        ttk::SimplexId globalId = globalIds[i];
         int localId = i;
         outVector.emplace_back(scalarValue, globalId, localId);
       }
@@ -23,8 +25,8 @@ namespace ttk {
     return outVector;
   }
 
-
-  inline void sortVerticesDistributed(std::vector<std::tuple<double, int, int>> &values) {
+  template <typename scalarType>
+  void sortVerticesDistributed(std::vector<std::tuple<scalarType, int, int>> &values) {
     std::sort(values.begin(), values.end());
   }
 

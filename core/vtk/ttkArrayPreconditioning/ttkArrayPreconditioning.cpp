@@ -84,39 +84,35 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
     }
   }
 
-  bool globalPointIdsExist = false;
-  bool ghostCellsExist = false;
-  for (auto scalarArray : scalarArrays) {
-    std::string arrayName = std::string(scalarArray->GetName());
-    if (arrayName == "GlobalPointIds") globalPointIdsExist = true;
-    if (arrayName == "vtkGhostType") ghostCellsExist = true;
-  }
-
-  if (globalPointIdsExist && ghostCellsExist){
-    this->printMsg("Global Point Ids and Ghost Cells exist, therefore we are in distributed mode!");
-    auto vtkglobalPointIds = pointData->GetGlobalIds();
-    auto vtkGhostCells = pointData->GetArray("vtkGhostType");
+  auto vtkglobalPointIds = pointData->GetGlobalIds();
+  auto vtkGhostCells = pointData->GetArray("vtkGhostType");
+  if (vtkglobalPointIds != nullptr && vtkGhostCells != nullptr){
     vtkMPIController *controller = vtkMPIController::SafeDownCast(vtkMPIController::GetGlobalController());
     int numProcs = controller->GetNumberOfProcesses();
     int rank = controller->GetLocalProcessId();
     int intTag = 100;
     int tupleTag = 101;
+    if (rank == 0) this->printMsg("Global Point Ids and Ghost Cells exist, therefore we are in distributed mode!");
+
     this->printMsg("#Ranks " + std::to_string(numProcs) + ", this is rank " + std::to_string(rank));
 
     // add the order array for every scalar array, except the ghostcells and the global ids
     for(auto scalarArray : scalarArrays) {
-
       std::string arrayName = std::string(scalarArray->GetName());
       if (arrayName != "GlobalPointIds" && arrayName != "vtkGhostType"){
-
+                
+        if (rank == 0) this->printMsg("Arrayname: " + arrayName);
+        if (rank == 0) this->printMsg("Arraytype: " + std::to_string(scalarArray->GetDataType()));
+        this->printMsg("#Points: " + std::to_string(nVertices));
         // sort the scalar array distributed first by the scalar value itself, then by the global id
         //std::vector<std::tuple<scalarArray->GetDataType(), int, int>> sortingValues;
-
-        std::vector<std::tuple<double, int, int>> sortingValues;
-        sortingValues = ttk::populateVector(nVertices,
-                          ttkUtils::GetPointer<double>(scalarArray),
-                          ttkUtils::GetPointer<int>(vtkglobalPointIds),
-                          ttkUtils::GetPointer<int>(vtkGhostCells));
+        
+        std::vector<std::tuple<float, ttk::SimplexId, int>> sortingValues;
+        ttkTypeMacroA(scalarArray->GetDataType(), 
+                      (sortingValues = ttk::populateVector<T0>(nVertices,
+                          ttkUtils::GetPointer<float>(scalarArray),
+                          ttkUtils::GetPointer<ttk::SimplexId>(vtkglobalPointIds),
+                          ttkUtils::GetPointer<char>(vtkGhostCells))));
         /*
         switch(scalarArray->GetDataType()) {
           vtkTemplateMacro(ttk::populateVector(
@@ -139,7 +135,7 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
         }*/
         auto element0 = sortingValues[0];
         this->printMsg("Rank " +  std::to_string(rank)
-                      + " #Elements in Vector " + std::to_string(sortingValues.size()) 
+                      + ", #Elements in Vector " + std::to_string(sortingValues.size()) 
                       + ", first values before sort are " + std::to_string(std::get<0>(element0)) 
                       + " " + std::to_string(std::get<1>(element0)) + " " + std::to_string(std::get<2>(element0)));
 
@@ -152,12 +148,12 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
         });
         */
 
-        ttk::sortVerticesDistributed(sortingValues);
+        ttkTypeMacroA(scalarArray->GetDataType(), ttk::sortVerticesDistributed<float>(sortingValues));
         
 
         element0 = sortingValues[0];
         this->printMsg("Rank " +  std::to_string(rank)
-                      + " #Elements in Vector " + std::to_string(sortingValues.size()) 
+                      + ", #Elements in Vector " + std::to_string(sortingValues.size()) 
                       + ", first values after sort are " + std::to_string(std::get<0>(element0)) + " " 
                       + std::to_string(std::get<1>(element0)) + " " + std::to_string(std::get<2>(element0)));
 
@@ -178,6 +174,15 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
               }
             }
             this->printMsg("Total amount of distributed points: " + std::to_string(totalSize)); 
+  	  	    std::vector<std::tuple<float, int, int>> finalValues;
+            /*
+            while (finalValues.size() < totalSize){
+              //request points from the different ranks 
+
+            }*/
+          
+
+
         } else {
           vtkIdType values = 1;
           int nValues = sortingValues.size();
