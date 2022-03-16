@@ -2,6 +2,7 @@
 #include <ttkArrayPreconditioning.h>
 #include <ttkMacros.h>
 #include <ttkUtils.h>
+#include <mpi.h>
 
 #include <vtkCommand.h>
 #include <vtkDataArray.h>
@@ -88,10 +89,21 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
   auto vtkGhostCells = pointData->GetArray("vtkGhostType");
   if (vtkglobalPointIds != nullptr && vtkGhostCells != nullptr){
     vtkMPIController *controller = vtkMPIController::SafeDownCast(vtkMPIController::GetGlobalController());
+    MPI_Datatype mpi_values;
+    const int nitems = 3;
+    int blocklengths[3] = {1, 1, 1};
+    MPI_Datatype types[3] = {MPI_FLOAT, MPI_INT, MPI_INT};
+    MPI_Aint offsets[3];
+    offsets[0] = offsetof(ttk::value, scalar);
+    offsets[1] = offsetof(ttk::value, globalId);
+    offsets[2] = offsetof(ttk::value, localId);
+    MPI_Type_create_struct(nitems, blocklengths, offsets, types, &mpi_values);
+    MPI_Type_commit(&mpi_values);
+
     int numProcs = controller->GetNumberOfProcesses();
     int rank = controller->GetLocalProcessId();
     int intTag = 100;
-    int tupleTag = 101;
+    int structTag = 101;
     if (rank == 0) this->printMsg("Global Point Ids and Ghost Cells exist, therefore we are in distributed mode!");
 
     this->printMsg("#Ranks " + std::to_string(numProcs) + ", this is rank " + std::to_string(rank));
@@ -107,12 +119,19 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
         // sort the scalar array distributed first by the scalar value itself, then by the global id
         //std::vector<std::tuple<scalarArray->GetDataType(), int, int>> sortingValues;
         
-        std::vector<std::tuple<float, ttk::SimplexId, int>> sortingValues;
+        std::vector<ttk::value> sortingValues;
+        /*
         ttkTypeMacroA(scalarArray->GetDataType(), 
                       (sortingValues = ttk::populateVector<T0>(nVertices,
                           ttkUtils::GetPointer<float>(scalarArray),
                           ttkUtils::GetPointer<ttk::SimplexId>(vtkglobalPointIds),
-                          ttkUtils::GetPointer<char>(vtkGhostCells))));
+                          ttkUtils::GetPointer<char>(vtkGhostCells))));*/
+
+        sortingValues = ttk::populateVector(nVertices,
+                          ttkUtils::GetPointer<float>(scalarArray),
+                          ttkUtils::GetPointer<ttk::SimplexId>(vtkglobalPointIds),
+                          ttkUtils::GetPointer<char>(vtkGhostCells));
+                      
         /*
         switch(scalarArray->GetDataType()) {
           vtkTemplateMacro(ttk::populateVector(
@@ -136,8 +155,8 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
         auto element0 = sortingValues[0];
         this->printMsg("Rank " +  std::to_string(rank)
                       + ", #Elements in Vector " + std::to_string(sortingValues.size()) 
-                      + ", first values before sort are " + std::to_string(std::get<0>(element0)) 
-                      + " " + std::to_string(std::get<1>(element0)) + " " + std::to_string(std::get<2>(element0)));
+                      + ", first values before sort are " + std::to_string(element0.scalar) + " " 
+                      + std::to_string(element0.globalId) + " " + std::to_string(element0.localId));
 
         // sort the vector of this rank, first by their scalarvalue and if they are the same, by their globalId
         /*
@@ -148,17 +167,18 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
         });
         */
 
-        ttkTypeMacroA(scalarArray->GetDataType(), ttk::sortVerticesDistributed<float>(sortingValues));
-        
+        //ttkTypeMacroA(scalarArray->GetDataType(), ttk::sortVerticesDistributed<T0>(sortingValues));
+        ttk::sortVerticesDistributed(sortingValues);
 
         element0 = sortingValues[0];
         this->printMsg("Rank " +  std::to_string(rank)
                       + ", #Elements in Vector " + std::to_string(sortingValues.size()) 
-                      + ", first values after sort are " + std::to_string(std::get<0>(element0)) + " " 
-                      + std::to_string(std::get<1>(element0)) + " " + std::to_string(std::get<2>(element0)));
+                      + ", first values after sort are " + std::to_string(element0.scalar) + " " 
+                      + std::to_string(element0.globalId) + " " + std::to_string(element0.localId));
 
         // when all are done sorting, rank 0 requests the highest values and merges them
         controller->Barrier();
+        //int BurstSize = SetBurstSize();
         if (rank == 0){
             this->printMsg("Rank 0 starts merging");
             int totalSize = 0;
@@ -174,7 +194,29 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
               }
             }
             this->printMsg("Total amount of distributed points: " + std::to_string(totalSize)); 
-  	  	    std::vector<std::tuple<float, int, int>> finalValues;
+  	  	    std::vector<std::vector<ttk::value>> finalValues;
+            //finalValues.resize(nVertices, {0,0,0});
+
+
+            for (int i = 0; i < numProcs; i++){
+              if (i == 0){
+                std::vector<ttk::value> sendValues = ttk::returnVectorForBurstsize(sortingValues, BurstSize);
+                finalValues.push_back(sendValues);
+              } else{
+                std::vector<ttk::value> receivedValues;
+                receivedValues.resize(BurstSize, {0,0,0});
+                MPI_Recv(receivedValues.data(), BurstSize, mpi_values, i, structTag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                finalValues.push_back(receivedValues);
+              }
+            }
+            this->printMsg("Size of finalValues: " + std::to_string(finalValues.size()));
+            this->printMsg("Size of first vector in finalValues: " + std::to_string(finalValues[0].size()));
+
+            // initally gather #BurstSize of elements from each rank
+            //controller->Gather(sendValues.data(), finalValues.data(), BurstSize, 0);
+            //MPI_Gather(sendValues.data(), BurstSize, mpi_values, finalValues.data(), BurstSize, mpi_values, 0, MPI_COMM_WORLD);
+            //finalValues.resize(BurstSize * numProcs);
+
             /*
             while (finalValues.size() < totalSize){
               //request points from the different ranks 
@@ -187,6 +229,10 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
           vtkIdType values = 1;
           int nValues = sortingValues.size();
           controller->Send(&nValues, values, 0, intTag);
+          std::vector<ttk::value> sendValues = ttk::returnVectorForBurstsize(sortingValues, BurstSize);
+          MPI_Send(sendValues.data(), BurstSize, mpi_values, 0, structTag, MPI_COMM_WORLD);
+          //ttkTypeMacroA(scalarArray->GetDataType(), sendValues = ttk::returnVectorForBurstsize<T0>(sortingValues, BurstSize));
+
         }
 
       }

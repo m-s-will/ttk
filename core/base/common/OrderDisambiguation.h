@@ -7,17 +7,30 @@
 #include <vector>
 
 namespace ttk {
-  template <typename scalarType>
-  std::vector<std::tuple<float, ttk::SimplexId, int>> populateVector(const size_t nVerts,
+
+  struct value{
+    float scalar;
+    SimplexId globalId;
+    int localId;
+
+    value(float _scalar, SimplexId _globalId, int _localId) 
+        : scalar(_scalar)
+        , globalId(_globalId)
+        , localId(_localId) 
+    {}
+    
+  };
+
+  inline std::vector<value> populateVector(const size_t nVerts,
                     const float *const scalars,
-                    const ttk::SimplexId *const globalIds,
+                    const SimplexId *const globalIds,
                     const char *const ghostCells) {
-    std::vector<std::tuple<float, ttk::SimplexId, int>> outVector;
+    std::vector<value> outVector;
     for (int i = 0; i < nVerts; i++){
-      std::cout << "Ghostcell: " << std::to_string(ghostCells[i]) << std::endl; 
       if ((int)ghostCells[i] == 0){
         float scalarValue = scalars[i];
-        ttk::SimplexId globalId = globalIds[i];
+        SimplexId globalId = globalIds[i];
+        std::cout << "GlobalId: " << std::to_string(globalId) << std::endl; 
         int localId = i;
         outVector.emplace_back(scalarValue, globalId, localId);
       }
@@ -25,11 +38,28 @@ namespace ttk {
     return outVector;
   }
 
-  template <typename scalarType>
-  void sortVerticesDistributed(std::vector<std::tuple<scalarType, int, int>> &values) {
-    std::sort(values.begin(), values.end());
+  inline void sortVerticesDistributed(std::vector<value> &values) {
+    std::sort(values.begin(), values.end(), [](value v1, value v2){
+      return (v1.scalar < v2.scalar)
+                 || (v1.scalar == v2.scalar && v1.globalId < v2.globalId);
+    });
   }
 
+
+  // send the highest burstSize values and decrease the vector by that amount
+  // check if there are actually that many elements in the vector
+  inline std::vector<value> returnVectorForBurstsize(std::vector<value> &values, int burstSize) {
+    std::vector<value> outVector;
+    if(burstSize > values.size()){
+      outVector = {values.begin(), values.end()};
+      values.clear(); 
+    } else {
+      outVector = {values.end() - burstSize, values.end()};
+      values.erase(values.end() - burstSize, values.end());
+    }
+
+    return outVector;
+  }
 
   /**
    * @brief Sort vertices according to scalars disambiguated by offsets
