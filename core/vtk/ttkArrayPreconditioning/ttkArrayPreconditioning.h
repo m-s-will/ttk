@@ -27,6 +27,8 @@
 
 #include <vtkDataArraySelection.h>
 #include <vtkNew.h>
+#include <mpi.h>
+
 
 class TTKARRAYPRECONDITIONING_EXPORT ttkArrayPreconditioning
   : public ttkAlgorithm {
@@ -56,6 +58,11 @@ protected:
   int RequestData(vtkInformation *request,
                   vtkInformationVector **inputVector,
                   vtkInformationVector *outputVector) override;
+  void ReceiveAndAddToVector(int burstSize, 
+                            MPI_Datatype mpi_values, 
+                            int rankFrom, 
+                            int tag, 
+                            std::vector<std::vector<ttk::value>> &unsortedReceivedValues);
 
 private:
   vtkNew<vtkDataArraySelection> ArraySelection{};
