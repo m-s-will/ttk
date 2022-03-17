@@ -12,11 +12,12 @@ namespace ttk {
     float scalar;
     SimplexId globalId;
     int localId;
+    int ordering = 0;
 
     value(float _scalar, SimplexId _globalId, int _localId) 
         : scalar(_scalar)
         , globalId(_globalId)
-        , localId(_localId) 
+        , localId(_localId)
     {}
     
   };
@@ -26,7 +27,7 @@ namespace ttk {
                     const SimplexId *const globalIds,
                     const char *const ghostCells) {
     std::vector<value> outVector;
-    for (int i = 0; i < nVerts; i++){
+    for (size_t i = 0; i < nVerts; i++){
       if ((int)ghostCells[i] == 0){
         float scalarValue = scalars[i];
         SimplexId globalId = globalIds[i];
@@ -48,7 +49,7 @@ namespace ttk {
 
   // send the highest burstSize values and decrease the vector by that amount
   // check if there are actually that many elements in the vector
-  inline std::vector<value> returnVectorForBurstsize(std::vector<value> &values, int burstSize) {
+  inline std::vector<value> returnVectorForBurstsize(std::vector<value> &values, size_t burstSize) {
     std::vector<value> outVector;
     if(burstSize > values.size()){
       outVector = {values.begin(), values.end()};

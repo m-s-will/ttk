@@ -131,16 +131,9 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
         if (rank == 0) this->printMsg("Arrayname: " + arrayName);
         if (rank == 0) this->printMsg("Arraytype: " + std::to_string(scalarArray->GetDataType()));
         this->printMsg("#Points: " + std::to_string(nVertices));
-        // sort the scalar array distributed first by the scalar value itself, then by the global id
-        //std::vector<std::tuple<scalarArray->GetDataType(), int, int>> sortingValues;
         
         std::vector<ttk::value> sortingValues;
-        /*
-        ttkTypeMacroA(scalarArray->GetDataType(), 
-                      (sortingValues = ttk::populateVector<T0>(nVertices,
-                          ttkUtils::GetPointer<float>(scalarArray),
-                          ttkUtils::GetPointer<ttk::SimplexId>(vtkglobalPointIds),
-                          ttkUtils::GetPointer<char>(vtkGhostCells))));*/
+        
 
         sortingValues = ttk::populateVector(nVertices,
                           ttkUtils::GetPointer<float>(scalarArray),
@@ -155,7 +148,7 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
                       + std::to_string(element0.globalId) + " " + std::to_string(element0.localId));
 
      
-        //ttkTypeMacroA(scalarArray->GetDataType(), ttk::sortVerticesDistributed<T0>(sortingValues));
+        // sort the scalar array distributed first by the scalar value itself, then by the global id
         ttk::sortVerticesDistributed(sortingValues);
 
         element0 = sortingValues[0];
@@ -166,10 +159,10 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
 
         // when all are done sorting, rank 0 requests the highest values and merges them
         controller->Barrier();
-        //int BurstSize = SetBurstSize();
+        std::vector<ttk::value> orderedValuesForRank;
         if (rank == 0){
             this->printMsg("Rank 0 starts merging");
-            int totalSize = 0;
+            size_t totalSize = 0;
             // get the nVertices from each rank, add them to get the complete size of the dataset 
             for (int i = 0; i < numProcs; i++){
               if (i == 0){
@@ -182,9 +175,13 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
               }
             }
             this->printMsg("Total amount of distributed points: " + std::to_string(totalSize)); 
+            int currentOrder = totalSize;
   	  	    std::vector<ttk::value> finalValues;
             std::vector<std::vector<ttk::value>> unsortedReceivedValues;
             unsortedReceivedValues.resize(numProcs);
+            std::vector<std::vector<ttk::value>> orderResendValues;
+            orderResendValues.resize(numProcs);
+
 
             // receive the first batch of values
             for (int i = 0; i < numProcs; i++){
@@ -193,17 +190,6 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
                 unsortedReceivedValues[i] = ownValues;
               } else{
                 this->ReceiveAndAddToVector(BurstSize, mpi_values, i, structTag, unsortedReceivedValues);
-                /*
-                std::vector<ttk::value> receivedValues;
-                // be prepared to receive burstsize of elements, resize after receiving to the correct size
-                receivedValues.resize(BurstSize, {0,0,0});
-                MPI_Status status;
-                int amount;
-                MPI_Recv(receivedValues.data(), BurstSize, mpi_values, i, structTag, MPI_COMM_WORLD, &status);
-                MPI_Get_count(&status, mpi_values, &amount);
-                //this->printMsg("Received " + std::to_string(amount) + " values from rank " + std::to_string(i));
-                receivedValues.resize(amount, {0,0,0});
-                unsortedReceivedValues[rankIdOfMaxScalar] = receivedValues;*/
               }
             }
             this->printMsg("Size of unsortedReceivedValues: " + std::to_string(unsortedReceivedValues.size()));
@@ -232,21 +218,30 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
               }
 
               // move the struct from the unsortedReceivedValues subvector to the finalValues vector to get an ordering
-              finalValues.push_back(unsortedReceivedValues[rankIdOfMaxScalar].back());
+              ttk::value currentValue = unsortedReceivedValues[rankIdOfMaxScalar].back();
+              currentValue.ordering = currentOrder;
+              currentOrder--;
+              orderResendValues[rankIdOfMaxScalar].push_back(currentValue);
+              finalValues.push_back(currentValue);
               unsortedReceivedValues[rankIdOfMaxScalar].pop_back();
               if (unsortedReceivedValues[rankIdOfMaxScalar].size() == 0){
                 this->printMsg("Vector for Rank " + std::to_string(rankIdOfMaxScalar) + " is empty, we either need to receive more or are done");
                 
                 if (rankIdOfMaxScalar == 0){
+                  // append the ordered values to the correct vector
+                  orderedValuesForRank.insert(orderedValuesForRank.end(), orderResendValues[rankIdOfMaxScalar].begin(), orderResendValues[rankIdOfMaxScalar].end());
+                  orderResendValues[rankIdOfMaxScalar].clear();
                   if (sortingValues.size() > 0){
                     std::vector<ttk::value> ownValues = ttk::returnVectorForBurstsize(sortingValues, BurstSize);
                     unsortedReceivedValues[rankIdOfMaxScalar] = ownValues;
+                  } else {
+                    this->printMsg("We are done with rank 0!");
                   }
                 } else {
-                  //receive more values from rank, send ordering to the rank
-                  int number = -1;
-                  // send to the finished rank that we want more, TODO: atm it only sends a single number, send a correct ordering
-                  MPI_Send(&number, 1, MPI_INT, rankIdOfMaxScalar, intTag, MPI_COMM_WORLD);
+                  // receive more values from rank, send ordering to the rank
+                  // send to the finished rank that we want more
+                  MPI_Send(orderResendValues[rankIdOfMaxScalar].data(), orderResendValues[rankIdOfMaxScalar].size(), mpi_values, rankIdOfMaxScalar, structTag, MPI_COMM_WORLD);
+                  orderResendValues[rankIdOfMaxScalar].clear();
                   //check if there are more values to be received. If so, receive them
                   bool moreVals = false;
                   MPI_Recv(&moreVals, 1, MPI_CXX_BOOL, rankIdOfMaxScalar, boolTag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -257,32 +252,30 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
                     this->printMsg("We are done with rank " + std::to_string(rankIdOfMaxScalar));
                   }
                 }
-                /*
-                std::vector<ttk::value> receivedValues;
-                // be prepared to receive burstsize of elements, resize after receiving to the correct size
-                receivedValues.resize(BurstSize, {0,0,0});
-                MPI_Status status;
-                int amount;
-                MPI_Recv(receivedValues.data(), BurstSize, mpi_values, rankIdOfMaxScalar, structTag, MPI_COMM_WORLD, &status);
-                MPI_Get_count(&status, mpi_values, &amount);
-                receivedValues.resize(amount, {0,0,0});
-                unsortedReceivedValues[rankIdOfMaxScalar] = receivedValues;*/
-
               }
             }
 
             this->printMsg("Finished with sorting, max value is " + std::to_string(finalValues[0].scalar) + ", min value is " + std::to_string(finalValues.back().scalar));
 
         } else {
-          vtkIdType values = 1;
           int nValues = sortingValues.size();
-          controller->Send(&nValues, values, 0, intTag);
+          controller->Send(&nValues, 1, 0, intTag);
+
           // send the next burstsize values and then wait for an answer from the root rank
           while (sortingValues.size() > 0){
             std::vector<ttk::value> sendValues = ttk::returnVectorForBurstsize(sortingValues, BurstSize);
             MPI_Send(sendValues.data(), sendValues.size(), mpi_values, 0, structTag, MPI_COMM_WORLD);
-            int number = -1;
-            MPI_Recv(&number, 1, MPI_INT, 0, intTag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            std::vector<ttk::value> receivedValues;
+
+            // be prepared to receive burstsize of elements, resize after receiving to the correct size
+            receivedValues.resize(BurstSize, {0,0,0});
+            MPI_Status status;
+            int amount;
+            MPI_Recv(receivedValues.data(), BurstSize, mpi_values, 0, structTag, MPI_COMM_WORLD, &status);
+            MPI_Get_count(&status, mpi_values, &amount);
+            receivedValues.resize(amount, {0,0,0});
+            orderedValuesForRank.insert(orderedValuesForRank.end(), receivedValues.begin(), receivedValues.end());
+
             // afterwards send to root if there are still values to be sent
             bool moreVals = sortingValues.size() > 0;
             MPI_Send(&moreVals, 1, MPI_CXX_BOOL, 0, boolTag, MPI_COMM_WORLD);
@@ -290,11 +283,17 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
 
 
         }
+        controller->Barrier();
+        auto firstElement = orderedValuesForRank[0];
+        this->printMsg("Rank " + std::to_string(rank) + " first scalar: " + std::to_string(firstElement.scalar) + ", Ordering: " + std::to_string(firstElement.ordering));
+        vtkNew<ttkSimplexIdTypeArray> orderArray{};
+        orderArray->SetName(this->GetOrderArrayName(scalarArray).data());
+        orderArray->SetNumberOfComponents(1);
+        orderArray->SetNumberOfTuples(nVertices);
 
+        // every rank now has an orderedValuesForRank array with the points sorted in descending order and their correct order
+        // now we need to transform this to a correct vtk orderarray and append it
       }
-        
-      //output->GetPointData()->AddArray(orderArray);
-      //this->printMsg("Generated order array for scalar array `" + std::string{scalarArray->GetName()} + "'");
 
     }
 
