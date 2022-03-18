@@ -30,7 +30,7 @@ namespace ttk {
     for (size_t i = 0; i < nVerts; i++){
       if ((int)ghostCells[i] == 0){
         float scalarValue = scalars[i];
-        int globalId = globalIds[i];
+        long int globalId = globalIds[i];
         int localId = i;
         outVector.emplace_back(scalarValue, globalId, localId);
       }

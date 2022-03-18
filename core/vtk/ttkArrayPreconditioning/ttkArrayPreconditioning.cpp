@@ -112,7 +112,7 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
     offsets[0] = offsetof(ttk::value, scalar);
     offsets[1] = offsetof(ttk::value, globalId);
     offsets[2] = offsetof(ttk::value, localId);
-    offsets[2] = offsetof(ttk::value, ordering);
+    offsets[3] = offsetof(ttk::value, ordering);
     MPI_Type_create_struct(nitems, blocklengths, offsets, types, &mpi_values);
     MPI_Type_commit(&mpi_values);
 
