@@ -10,11 +10,11 @@ namespace ttk {
 
   struct value{
     float scalar;
-    SimplexId globalId;
+    long int globalId;
     int localId;
     int ordering = 0;
 
-    value(float _scalar, SimplexId _globalId, int _localId) 
+    value(float _scalar, long int _globalId, int _localId) 
         : scalar(_scalar)
         , globalId(_globalId)
         , localId(_localId)
@@ -24,14 +24,13 @@ namespace ttk {
 
   inline std::vector<value> populateVector(const size_t nVerts,
                     const float *const scalars,
-                    const SimplexId *const globalIds,
+                    const long int *const globalIds,
                     const char *const ghostCells) {
     std::vector<value> outVector;
     for (size_t i = 0; i < nVerts; i++){
       if ((int)ghostCells[i] == 0){
         float scalarValue = scalars[i];
-        SimplexId globalId = globalIds[i];
-        std::cout << "GlobalId: " << std::to_string(globalId) << std::endl; 
+        int globalId = globalIds[i];
         int localId = i;
         outVector.emplace_back(scalarValue, globalId, localId);
       }

@@ -13,6 +13,7 @@
 #include <vtkPointData.h>
 #include <vtkMPIController.h>
 #include <regex>
+#include <unordered_map>
 
 vtkStandardNewMacro(ttkArrayPreconditioning);
 
@@ -104,13 +105,14 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
   if (vtkglobalPointIds != nullptr && vtkGhostCells != nullptr){
     vtkMPIController *controller = vtkMPIController::SafeDownCast(vtkMPIController::GetGlobalController());
     MPI_Datatype mpi_values;
-    const int nitems = 3;
-    int blocklengths[3] = {1, 1, 1};
-    MPI_Datatype types[3] = {MPI_FLOAT, MPI_INT, MPI_INT};
-    MPI_Aint offsets[3];
+    const int nitems = 4;
+    int blocklengths[4] = {1, 1, 1, 1};
+    MPI_Datatype types[4] = {MPI_FLOAT, MPI_LONG, MPI_INT, MPI_INT};
+    MPI_Aint offsets[4];
     offsets[0] = offsetof(ttk::value, scalar);
     offsets[1] = offsetof(ttk::value, globalId);
     offsets[2] = offsetof(ttk::value, localId);
+    offsets[2] = offsetof(ttk::value, ordering);
     MPI_Type_create_struct(nitems, blocklengths, offsets, types, &mpi_values);
     MPI_Type_commit(&mpi_values);
 
@@ -133,14 +135,12 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
         this->printMsg("#Points: " + std::to_string(nVertices));
         
         std::vector<ttk::value> sortingValues;
-        
-
-        sortingValues = ttk::populateVector(nVertices,
+          sortingValues = ttk::populateVector(nVertices,
                           ttkUtils::GetPointer<float>(scalarArray),
-                          ttkUtils::GetPointer<ttk::SimplexId>(vtkglobalPointIds),
+                          ttkUtils::GetPointer<long int>(vtkglobalPointIds),
                           ttkUtils::GetPointer<char>(vtkGhostCells));
-                      
-        
+           
+        controller->Barrier();
         auto element0 = sortingValues[0];
         this->printMsg("Rank " +  std::to_string(rank)
                       + ", #Elements in Vector " + std::to_string(sortingValues.size()) 
@@ -159,10 +159,11 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
 
         // when all are done sorting, rank 0 requests the highest values and merges them
         controller->Barrier();
-        std::vector<ttk::value> orderedValuesForRank;
+        std::vector<ttk::value> orderedValuesForRank;  	  	    
+        std::vector<ttk::value> finalValues;
+        size_t totalSize = 0;
         if (rank == 0){
             this->printMsg("Rank 0 starts merging");
-            size_t totalSize = 0;
             // get the nVertices from each rank, add them to get the complete size of the dataset 
             for (int i = 0; i < numProcs; i++){
               if (i == 0){
@@ -174,9 +175,9 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
                 totalSize += receivedSize;
               }
             }
+            MPI_Bcast(&totalSize, 1, MPI_INT, 0, MPI_COMM_WORLD);
             this->printMsg("Total amount of distributed points: " + std::to_string(totalSize)); 
             int currentOrder = totalSize;
-  	  	    std::vector<ttk::value> finalValues;
             std::vector<std::vector<ttk::value>> unsortedReceivedValues;
             unsortedReceivedValues.resize(numProcs);
             std::vector<std::vector<ttk::value>> orderResendValues;
@@ -256,10 +257,11 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
             }
 
             this->printMsg("Finished with sorting, max value is " + std::to_string(finalValues[0].scalar) + ", min value is " + std::to_string(finalValues.back().scalar));
-
         } else {
           int nValues = sortingValues.size();
           controller->Send(&nValues, 1, 0, intTag);
+          MPI_Bcast(&totalSize, 1, MPI_INT, 0, MPI_COMM_WORLD);
+          finalValues.resize(totalSize, {0,0,0});
 
           // send the next burstsize values and then wait for an answer from the root rank
           while (sortingValues.size() > 0){
@@ -283,16 +285,31 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
 
 
         }
+
+        // all ranks do the following
         controller->Barrier();
-        auto firstElement = orderedValuesForRank[0];
-        this->printMsg("Rank " + std::to_string(rank) + " first scalar: " + std::to_string(firstElement.scalar) + ", Ordering: " + std::to_string(firstElement.ordering));
+        MPI_Bcast(finalValues.data(), totalSize, mpi_values, 0, MPI_COMM_WORLD);
+        std::unordered_map<float, int> orderMap;
+        for (size_t i = 0; i < totalSize; i++){
+          float scalarVal = finalValues[i].scalar;
+          int orderVal = totalSize - i;
+          this->printMsg("Rank " + std::to_string(rank) + " Scalar " + std::to_string(scalarVal) + " Order " + std::to_string(orderVal));
+          orderMap[scalarVal] = orderVal;
+        }
+        // every rank now has an orderedValuesForRank array with the points sorted in descending order and their correct order
+        // now we need to transform this to a correct vtk orderarray and append it
+
         vtkNew<ttkSimplexIdTypeArray> orderArray{};
         orderArray->SetName(this->GetOrderArrayName(scalarArray).data());
         orderArray->SetNumberOfComponents(1);
         orderArray->SetNumberOfTuples(nVertices);
+        for (int i = 0; i < nVertices; i++){
+          float scalarVal = scalarArray->GetComponent(i, 0);
+          int orderVal = orderMap[scalarVal];
+          orderArray->SetComponent(i, 0, orderVal);
+        }
+        output->GetPointData()->AddArray(orderArray);
 
-        // every rank now has an orderedValuesForRank array with the points sorted in descending order and their correct order
-        // now we need to transform this to a correct vtk orderarray and append it
       }
 
     }
