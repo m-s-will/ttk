@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <vector>
+#include <unordered_map>
 
 namespace ttk {
 
@@ -22,6 +23,9 @@ namespace ttk {
     
   };
 
+  // creates a vector of value structs based on the given pointers
+  // only takes values of vertices which mainly belong to the current rank
+  // ( so only vertices which are no ghost cells)
   inline std::vector<value> populateVector(const size_t nVerts,
                     const float *const scalars,
                     const long int *const globalIds,
@@ -38,6 +42,7 @@ namespace ttk {
     return outVector;
   }
 
+  // orders an value vector first by their scalar value and then by global id
   inline void sortVerticesDistributed(std::vector<value> &values) {
     std::sort(values.begin(), values.end(), [](value v1, value v2){
       return (v1.scalar < v2.scalar)
@@ -59,6 +64,17 @@ namespace ttk {
     }
 
     return outVector;
+  }
+
+  // takes in an ordered (as defined above) vector of values and creates an ordermap for each scalar value
+  inline std::unordered_map<float, int> buildOrderMap(std::vector<value> &values, size_t totalSize){
+    std::unordered_map<float, int> orderMap;
+    for (size_t i = 0; i < totalSize; i++){
+      float scalarVal = values[i].scalar;
+      int orderVal = totalSize - i;
+      orderMap[scalarVal] = orderVal;
+    }
+    return orderMap;
   }
 
   /**
