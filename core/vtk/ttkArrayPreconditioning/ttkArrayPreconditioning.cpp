@@ -100,9 +100,9 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
     }
   }
 
-  auto vtkglobalPointIds = pointData->GetGlobalIds();
+  auto vtkGlobalPointIds = pointData->GetGlobalIds();
   auto vtkGhostCells = pointData->GetArray("vtkGhostType");
-  if (vtkglobalPointIds != nullptr && vtkGhostCells != nullptr){
+  if (vtkGlobalPointIds != nullptr && vtkGhostCells != nullptr){
     vtkMPIController *controller = vtkMPIController::SafeDownCast(vtkMPIController::GetGlobalController());
     MPI_Datatype mpi_values;
     const int nitems = 4;
@@ -136,7 +136,7 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
         std::vector<ttk::value> sortingValues;
         sortingValues = ttk::populateVector(nVertices,
                         ttkUtils::GetPointer<float>(scalarArray),
-                        ttkUtils::GetPointer<long int>(vtkglobalPointIds),
+                        ttkUtils::GetPointer<long int>(vtkGlobalPointIds),
                         ttkUtils::GetPointer<char>(vtkGhostCells));
           
              
