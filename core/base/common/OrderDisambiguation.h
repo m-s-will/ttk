@@ -67,15 +67,45 @@ namespace ttk {
   }
 
   // takes in an ordered (as defined above) vector of values and creates an ordermap for each scalar value
-  inline std::unordered_map<float, int> buildOrderMap(std::vector<value> &values, size_t totalSize){
+  inline std::unordered_map<float, int> buildOrderMap(std::vector<value> &values, 
+                                                      size_t totalSize){
     std::unordered_map<float, int> orderMap;
+
+    // omp only creates larger overhead because orderMap needs to accessed critically
     for (size_t i = 0; i < totalSize; i++){
       float scalarVal = values[i].scalar;
-      int orderVal = totalSize - i;
+      int orderVal = totalSize - i - 1;
       orderMap[scalarVal] = orderVal;
     }
     return orderMap;
   }
+
+/**
+   * @brief Sort vertices according to scalars disambiguated by offsets
+   *
+   * @param[in] nVerts number of vertices
+   * @param[in] scalars array of size nVerts, the scalar values which we want to order
+   * @param[in] orderMap map which maps scalar values to a defined order
+   * @param[out] order array of size nVerts, computed order of vertices
+   * @param[in] nThreads number of parallel threads
+   */
+   inline void buildOrderArray(const size_t nVerts,
+                    const float *const scalars,
+                    std::unordered_map<float, int> &orderMap,
+                    SimplexId *const order,
+                    const int nThreads){
+
+      TTK_FORCE_USE(nThreads);
+
+#ifdef TTK_ENABLE_OPENMP
+#pragma omp parallel for num_threads(nThreads)
+#endif // TTK_ENABLE_OPENMP
+    for(size_t i = 0; i < nVerts; ++i) {
+      order[i] = orderMap[scalars[i]];
+    }
+  }
+  
+
 
   /**
    * @brief Sort vertices according to scalars disambiguated by offsets

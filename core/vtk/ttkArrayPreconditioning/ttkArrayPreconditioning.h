@@ -68,5 +68,5 @@ private:
   vtkNew<vtkDataArraySelection> ArraySelection{};
   bool SelectFieldsWithRegexp{false};
   std::string RegexpString{".*"};
-  int BurstSize{1};
+  int BurstSize{100};
 };

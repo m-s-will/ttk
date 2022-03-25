@@ -82,7 +82,7 @@
         </Documentation>
       </StringVectorProperty>
 
-      <IntVectorProperty name="BurstSize" label="BurstSize" number_of_elements="1" default_values="1" command="SetBurstSize" >
+      <IntVectorProperty name="BurstSize" label="BurstSize" number_of_elements="1" default_values="100" command="SetBurstSize" >
                 <Documentation>Controls how many elements are sent from the ranks at once.</Documentation>
       </IntVectorProperty>
 

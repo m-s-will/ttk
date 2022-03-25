@@ -170,7 +170,7 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
             }
             MPI_Bcast(&totalSize, 1, MPI_INT, 0, MPI_COMM_WORLD);
             this->printMsg("Total amount of distributed points: " + std::to_string(totalSize)); 
-            int currentOrder = totalSize;
+            int currentOrder = totalSize - 1;
             std::vector<std::vector<ttk::value>> unsortedReceivedValues;
             unsortedReceivedValues.resize(numProcs);
             std::vector<std::vector<ttk::value>> orderResendValues;
@@ -295,11 +295,14 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
         orderArray->SetName(this->GetOrderArrayName(scalarArray).data());
         orderArray->SetNumberOfComponents(1);
         orderArray->SetNumberOfTuples(nVertices);
-        for (int i = 0; i < nVertices; i++){
-          float scalarVal = scalarArray->GetComponent(i, 0);
-          int orderVal = orderMap[scalarVal];
-          orderArray->SetComponent(i, 0, orderVal);
-        }
+
+        ttk::buildOrderArray(nVertices, 
+                            ttkUtils::GetPointer<float>(scalarArray),
+                            orderMap,
+                            ttkUtils::GetPointer<ttk::SimplexId>(orderArray),
+                            this->threadNumber_);
+
+
         output->GetPointData()->AddArray(orderArray);
         this->printMsg("Generated order array for scalar array `"
                    + std::string{scalarArray->GetName()} + "', rank " + std::to_string(rank), 

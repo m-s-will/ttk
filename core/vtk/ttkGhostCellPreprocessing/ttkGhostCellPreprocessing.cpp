@@ -12,8 +12,10 @@
 #include <vtkPointData.h>
 #include <vtkMPIController.h>
 #include <unordered_map>
+#include <unordered_set>
 
 vtkStandardNewMacro(ttkGhostCellPreprocessing);
+using IT = long long int;
 
 ttkGhostCellPreprocessing::ttkGhostCellPreprocessing() {
   this->SetNumberOfInputPorts(1);
@@ -61,7 +63,7 @@ int ttkGhostCellPreprocessing::RequestData(vtkInformation *ttkNotUsed(request),
   output->ShallowCopy(input);
 
   auto pointData = input->GetPointData();
-  int nVertices = input->GetNumberOfPoints();
+  IT nVertices = input->GetNumberOfPoints();
 
   
 
@@ -74,22 +76,23 @@ int ttkGhostCellPreprocessing::RequestData(vtkInformation *ttkNotUsed(request),
     if (rank == 0) this->printMsg("Global Point Ids and Ghost Cells exist, therefore we can continue!");
     this->printMsg("#Ranks " + std::to_string(numProcs) + ", this is rank " + std::to_string(rank));
     this->printMsg("#Points: " + std::to_string(nVertices));
+    MPI_Datatype MIT = MPI_LONG_LONG;
 
     vtkNew<vtkIntArray> rankArray{};
     rankArray->SetName("RankArray");
     rankArray->SetNumberOfComponents(1);
     rankArray->SetNumberOfTuples(nVertices);
-    std::vector<int> currentRankUnknownIds;
-    std::vector<std::vector<int>> allUnknownIds(numProcs);
-    std::unordered_map<int, int> idToRankMap;
-    std::unordered_map<int, int> gIdToLocalMap;
+    std::vector<IT> currentRankUnknownIds;
+    std::vector<std::vector<IT>> allUnknownIds(numProcs);
+    std::unordered_set<IT> gIdSet;
+    std::unordered_map<IT, IT> gIdToLocalMap;
     for (int i = 0; i < nVertices; i++){
-      int ghostCellVal = vtkGhostCells->GetComponent(i, 0);
-      int globalId = vtkGlobalPointIds->GetComponent(i, 0);
+      IT ghostCellVal = vtkGhostCells->GetComponent(i, 0);
+      IT globalId = vtkGlobalPointIds->GetComponent(i, 0);
       if (ghostCellVal == 0){
         // if the ghost cell value is 0, then this vertex mainly belongs to this rank
         rankArray->SetComponent(i, 0, rank);
-        idToRankMap[globalId] = rank;
+        gIdSet.insert(globalId);
       } else{
         // otherwise the vertex belongs to another rank and we need to find out to which one
         // this needs to be done by broadcasting the global id and hoping for some other rank to answer
@@ -98,46 +101,54 @@ int ttkGhostCellPreprocessing::RequestData(vtkInformation *ttkNotUsed(request),
       }
     }
     allUnknownIds[rank] = currentRankUnknownIds;
-    int sizeOfCurrentRank;
+    IT sizeOfCurrentRank;
     // first each rank gets the information which rank needs which globalid
     for (int r = 0; r < numProcs; r++){
       if (r == rank) sizeOfCurrentRank = currentRankUnknownIds.size();
-      MPI_Bcast(&sizeOfCurrentRank, 1, MPI_INT, r, MPI_COMM_WORLD);
+      MPI_Bcast(&sizeOfCurrentRank, 1, MIT, r, MPI_COMM_WORLD);
       allUnknownIds[r].resize(sizeOfCurrentRank);
       //this->printMsg("This is rank " + std::to_string(rank) + ", rank " + std::to_string(r) + " needs values for " + std::to_string(sizeOfCurrentRank) + " vertices.");
-      MPI_Bcast(allUnknownIds[r].data(), sizeOfCurrentRank, MPI_INT, r, MPI_COMM_WORLD);
+      MPI_Bcast(allUnknownIds[r].data(), sizeOfCurrentRank, MIT, r, MPI_COMM_WORLD);
     }
     
     // then we check if the needed globalid values are present in the local globalid map
     // if so, we send the rank value to the requesting rank
     for (int r = 0; r < numProcs; r++){
-      for (int gId : allUnknownIds[r]){
-        if (idToRankMap.count(gId)){
-          //send the value back
-          MPI_Send(&gId, 1, MPI_INT, r, 101, MPI_COMM_WORLD);
+      std::vector<IT> gIdsToSend; 
+      for (IT gId : allUnknownIds[r]){
+        if (gIdSet.count(gId)){
+          //add the value to the vector which will be sent
+          gIdsToSend.push_back(gId);
         }
       }
+      //send whole vector of data
+      MPI_Send(gIdsToSend.data(), gIdsToSend.size(), MIT, r, 101, MPI_COMM_WORLD);
+
     }
 
-    // when we receive values, fill the map further, to get values for other ranks more quickly?
-    // only exactly 1 send / recv operation per value?
-    // MPI_Recv (value blala)
-    // save where the value should have been? Struct?
-    // rankArray->SetComponent(which one?, 0, value);
-    // idToRankMap[globalId] = value;
-
-    for (size_t i = 0; i < allUnknownIds[rank].size(); i++){
-      int receivedGlobal;
+    // receive a variable amount of values from different ranks
+    size_t i = 0;
+    while (i < allUnknownIds[rank].size()){
+      std::vector<IT> receivedGlobals;
+      receivedGlobals.resize(allUnknownIds[rank].size());
       MPI_Status status;
-      MPI_Recv(&receivedGlobal, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+      int amount;
+      MPI_Recv(receivedGlobals.data(), allUnknownIds[rank].size(), MIT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
       int sourceRank = status.MPI_SOURCE;
-      int localVal = gIdToLocalMap[receivedGlobal];
-      rankArray->SetComponent(localVal, 0, sourceRank);
+      MPI_Get_count(&status, MIT, &amount);
+      receivedGlobals.resize(amount);
+      for (IT receivedGlobal : receivedGlobals){
+        IT localVal = gIdToLocalMap[receivedGlobal];
+        rankArray->SetComponent(localVal, 0, sourceRank);
+        i++;
+      }
     }
 
 
     output->GetPointData()->AddArray(rankArray);
 
+    this->printMsg("Preprocessed RankArray", 1.0,
+                 tm.getElapsedTime(), this->threadNumber_);
 
 
     return 1;
