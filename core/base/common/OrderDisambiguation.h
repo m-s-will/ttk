@@ -7,15 +7,16 @@
 #include <vector>
 #include <unordered_map>
 
+using IT = long long int;
 namespace ttk {
 
   struct value{
     float scalar;
-    long int globalId;
+    IT globalId;
     int localId;
     int ordering = 0;
 
-    value(float _scalar, long int _globalId, int _localId) 
+    value(float _scalar, IT _globalId, int _localId) 
         : scalar(_scalar)
         , globalId(_globalId)
         , localId(_localId)
@@ -28,13 +29,13 @@ namespace ttk {
   // ( so only vertices which are no ghost cells)
   inline std::vector<value> populateVector(const size_t nVerts,
                     const float *const scalars,
-                    const long int *const globalIds,
+                    const IT *const globalIds,
                     const char *const ghostCells) {
     std::vector<value> outVector;
     for (size_t i = 0; i < nVerts; i++){
       if ((int)ghostCells[i] == 0){
         float scalarValue = scalars[i];
-        long int globalId = globalIds[i];
+        IT globalId = globalIds[i];
         int localId = i;
         outVector.emplace_back(scalarValue, globalId, localId);
       }

@@ -16,6 +16,7 @@
 #include <unordered_map>
 
 vtkStandardNewMacro(ttkArrayPreconditioning);
+using IT = long long int;
 
 ttkArrayPreconditioning::ttkArrayPreconditioning() {
   this->SetNumberOfInputPorts(1);
@@ -136,7 +137,7 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
         std::vector<ttk::value> sortingValues;
         sortingValues = ttk::populateVector(nVertices,
                         ttkUtils::GetPointer<float>(scalarArray),
-                        ttkUtils::GetPointer<long int>(vtkGlobalPointIds),
+                        ttkUtils::GetPointer<IT>(vtkGlobalPointIds),
                         ttkUtils::GetPointer<char>(vtkGhostCells));
           
              
@@ -191,12 +192,15 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
               //take the current maximum scalar over all ranks 
               int rankIdOfMaxScalar = -1;
               float maxScalar = -FLT_MAX;
+              IT maxGId = -1;
               for (int i = 0; i < numProcs; i++){
                 if (unsortedReceivedValues[i].size() > 0){
                   int thisId = i;
                   float thisScalar = unsortedReceivedValues[i].back().scalar;
-                  if (thisScalar > maxScalar){
+                  IT thisGId = unsortedReceivedValues[i].back().globalId;
+                  if (thisScalar > maxScalar || thisScalar == maxScalar && thisGId > maxGId){
                     maxScalar = thisScalar;
+                    maxGId = thisGId;
                     rankIdOfMaxScalar = thisId;
                   }
                 }
