@@ -13,10 +13,10 @@ namespace ttk {
   struct value{
     float scalar;
     IT globalId;
-    int localId;
-    int ordering = 0;
+    IT localId;
+    IT ordering = 0;
 
-    value(float _scalar, IT _globalId, int _localId) 
+    value(float _scalar, IT _globalId, IT _localId) 
         : scalar(_scalar)
         , globalId(_globalId)
         , localId(_localId)
@@ -27,20 +27,25 @@ namespace ttk {
   // creates a vector of value structs based on the given pointers
   // only takes values of vertices which mainly belong to the current rank
   // ( so only vertices which are no ghost cells)
-  inline std::vector<value> populateVector(const size_t nVerts,
+  inline std::tuple<std::vector<value>, std::vector<IT>, std::unordered_map<IT, IT>> populateVector(const size_t nVerts,
                     const float *const scalars,
                     const IT *const globalIds,
                     const char *const ghostCells) {
-    std::vector<value> outVector;
+    std::vector<value> valuesToSortVector;
+    std::vector<IT> gidsToGetVector;
+    std::unordered_map<IT, IT> gidToLidMap;
     for (size_t i = 0; i < nVerts; i++){
+      IT globalId = globalIds[i];
+      IT localId = i;
+      gidToLidMap[globalId] = localId;
       if ((int)ghostCells[i] == 0){
         float scalarValue = scalars[i];
-        IT globalId = globalIds[i];
-        int localId = i;
-        outVector.emplace_back(scalarValue, globalId, localId);
+        valuesToSortVector.emplace_back(scalarValue, globalId, localId);
+      } else {
+        gidsToGetVector.push_back(globalId);
       }
     }
-    return outVector;
+    return std::make_tuple(valuesToSortVector, gidsToGetVector, gidToLidMap);
   }
 
   // orders an value vector first by their scalar value and then by global id
@@ -68,14 +73,14 @@ namespace ttk {
   }
 
   // takes in an ordered (as defined above) vector of values and creates an ordermap for each scalar value
-  inline std::unordered_map<float, int> buildOrderMap(std::vector<value> &values, 
+  inline std::unordered_map<float, IT> buildOrderMap(std::vector<value> &values, 
                                                       size_t totalSize){
-    std::unordered_map<float, int> orderMap;
+    std::unordered_map<float, IT> orderMap;
 
     // omp only creates larger overhead because orderMap needs to accessed critically
     for (size_t i = 0; i < totalSize; i++){
       float scalarVal = values[i].scalar;
-      int orderVal = totalSize - i - 1;
+      IT orderVal = totalSize - i - 1;
       orderMap[scalarVal] = orderVal;
     }
     return orderMap;
@@ -92,7 +97,7 @@ namespace ttk {
    */
    inline void buildOrderArray(const size_t nVerts,
                     const float *const scalars,
-                    std::unordered_map<float, int> &orderMap,
+                    std::unordered_map<float, IT> &orderMap,
                     SimplexId *const order,
                     const int nThreads){
 
@@ -103,6 +108,32 @@ namespace ttk {
 #endif // TTK_ENABLE_OPENMP
     for(size_t i = 0; i < nVerts; ++i) {
       order[i] = orderMap[scalars[i]];
+    }
+  }
+
+
+  /**
+   * @brief Sort vertices according to scalars disambiguated by offsets
+   *
+   * @param[in] nInts number of long ints, as globalid / order pairs
+   * @param[in] orderedValuesForRank array of size nInts, the actual pairs
+   * @param[in] gidToLidMap map which maps scalar values to a defined order
+   * @param[out] order array of size nVerts, computed order of vertices, this procedure doesn't fill it completely
+   * @param[in] nThreads number of parallel threads
+   */
+   inline void buildArrayForReceivedData(const size_t nInts,
+                    const IT *const orderedValuesForRank,
+                    std::unordered_map<IT, IT> &gidToLidMap,
+                    SimplexId *const order,
+                    const int nThreads){
+
+      TTK_FORCE_USE(nThreads);
+
+#ifdef TTK_ENABLE_OPENMP
+#pragma omp parallel for num_threads(nThreads)
+#endif // TTK_ENABLE_OPENMP
+    for(size_t i = 0; i < nInts; i+=2) {
+      order[gidToLidMap[orderedValuesForRank[i]]] = orderedValuesForRank[i+1];
     }
   }
   
