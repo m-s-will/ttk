@@ -128,7 +128,7 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
     // add the order array for every scalar array, except the ghostcells and the global ids
     for(auto scalarArray : scalarArrays) {
       std::string arrayName = std::string(scalarArray->GetName());
-      if (arrayName != "GlobalPointIds" && arrayName != "vtkGhostType"){
+      if (arrayName != "GlobalPointIds" && arrayName != "vtkGhostType" && arrayName != "RankArray"){
                 
         if (rank == 0) this->printMsg("Arrayname: " + arrayName);
         if (rank == 0) this->printMsg("Arraytype: " + std::to_string(scalarArray->GetDataType()));
@@ -311,7 +311,9 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
 
 
         // we still need to get the data for the ghostcells from their ranks
-
+        auto rankArray = pointData->GetArray("RankArray");
+        auto neighbors = ttk::getNeighbors(nVertices, rank, ttkUtils::GetPointer<int>(rankArray));
+        //this->printMsg("Neighbors for rank " + std::to_string(rank) + ": " + std::to_string(neighbors));
         /*for (int i = 0; i < numProcs; i++){
           MPI_Send()
         }*/

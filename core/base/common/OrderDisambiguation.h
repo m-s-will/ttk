@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 
 using IT = long long int;
 namespace ttk {
@@ -137,6 +138,18 @@ namespace ttk {
     }
   }
   
+
+  inline std::unordered_set<int> getNeighbors(const size_t nVertices, const int ownRank, const int *const rankArray){
+    std::unordered_set<int> neighbors;
+    for (size_t i = 0; i < nVertices; i++){
+      int value = rankArray[i];
+      if (value != ownRank) neighbors.emplace(value);
+    }
+    std::cout << "Neighbors for rank " << std::to_string(ownRank) << "are:";
+    for (auto x: neighbors) std::cout << " " << std::to_string(x);
+    std::cout << std::endl;
+    return neighbors;
+  }
 
 
   /**
