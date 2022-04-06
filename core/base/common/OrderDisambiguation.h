@@ -117,7 +117,7 @@ namespace ttk {
    * @brief Sort vertices according to scalars disambiguated by offsets
    *
    * @param[in] nInts number of long ints, as globalid / order pairs
-   * @param[in] orderedValuesForRank array of size nInts, the actual pairs
+   * @param[in] orderedValuesForRank array of size nInts, the actual pairs, [i] = gId, [i+1] = order
    * @param[in] gidToLidMap map which maps scalar values to a defined order
    * @param[out] order array of size nVerts, computed order of vertices, this procedure doesn't fill it completely
    * @param[in] nThreads number of parallel threads
@@ -150,8 +150,47 @@ namespace ttk {
     std::cout << std::endl;
     return neighbors;
   }
+  // returns a vector of gid vectors, one vector for each neighbor
+  // this shows us where we need to get the order for these gids from
+  inline std::vector<std::vector<IT>> getGIdForNeighbors(const size_t nGIds,
+                                                        const size_t nNeighbors,
+                                                        std::vector<IT> &gidsToGetVector,
+                                                        std::unordered_set<int> &neighbors,
+                                                        std::unordered_map<IT, IT> &gidToLidMap,
+                                                        const int *const rankArray)
+  {
+    std::vector<std::vector<IT>> outVector;
+    outVector.resize(nNeighbors);
+    for (size_t i = 0; i < nGIds; i++){
+      IT gId = gidsToGetVector[i];
+      IT lId = gidToLidMap[gId];
+      int rankForGId = rankArray[lId];
+      auto distance = std::distance(neighbors.begin(), neighbors.find(rankForGId));
+      outVector[distance].push_back(gId);
+    }
+    return outVector;
+  }
 
-
+  inline std::vector<IT> getOrderForGIds(const size_t nGIds,
+                    const IT *const gIds,
+                    std::unordered_map<IT, IT> &gidToLidMap,
+                    const SimplexId *const order,
+                    const int nThreads)
+  {
+    std::vector<IT> outVector;
+    outVector.resize(nGIds * 2);
+#ifdef TTK_ENABLE_OPENMP
+#pragma omp parallel for num_threads(nThreads)
+#endif // TTK_ENABLE_OPENMP
+    for (size_t i = 0; i < nGIds; i++){
+      IT gId = gIds[i];
+      IT lId = gidToLidMap[gId];
+      SimplexId orderForThisGId = order[lId];
+      outVector[i] = gId;
+      outVector[i+1] = orderForThisGId;
+    }
+    return outVector;
+  }
   /**
    * @brief Sort vertices according to scalars disambiguated by offsets
    *
