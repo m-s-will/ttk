@@ -76,7 +76,7 @@ int ttkGhostCellPreprocessing::RequestData(vtkInformation *ttkNotUsed(request),
     if (rank == 0) this->printMsg("Global Point Ids and Ghost Cells exist, therefore we can continue!");
     this->printMsg("#Ranks " + std::to_string(numProcs) + ", this is rank " + std::to_string(rank));
     this->printMsg("#Points: " + std::to_string(nVertices));
-    MPI_Datatype MIT = MPI_LONG_LONG;
+    MPI_Datatype MIT = MPI_LONG_LONG_INT;
 
     vtkNew<vtkIntArray> rankArray{};
     rankArray->SetName("RankArray");

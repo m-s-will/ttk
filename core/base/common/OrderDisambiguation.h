@@ -145,9 +145,6 @@ namespace ttk {
       int value = rankArray[i];
       if (value != ownRank) neighbors.emplace(value);
     }
-    std::cout << "Neighbors for rank " << std::to_string(ownRank) << "are:";
-    for (auto x: neighbors) std::cout << " " << std::to_string(x);
-    std::cout << std::endl;
     return neighbors;
   }
   // returns a vector of gid vectors, one vector for each neighbor
@@ -186,8 +183,8 @@ namespace ttk {
       IT gId = gIds[i];
       IT lId = gidToLidMap[gId];
       SimplexId orderForThisGId = order[lId];
-      outVector[i] = gId;
-      outVector[i+1] = orderForThisGId;
+      outVector[2*i] = gId;
+      outVector[2*i+1] = orderForThisGId;
     }
     return outVector;
   }

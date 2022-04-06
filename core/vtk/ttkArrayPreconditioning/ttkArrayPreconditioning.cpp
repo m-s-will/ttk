@@ -103,12 +103,14 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
 
   auto vtkGlobalPointIds = pointData->GetGlobalIds();
   auto vtkGhostCells = pointData->GetArray("vtkGhostType");
-  if (vtkGlobalPointIds != nullptr && vtkGhostCells != nullptr){
+  auto rankArray = pointData->GetArray("RankArray");
+  if (vtkGlobalPointIds != nullptr && vtkGhostCells != nullptr && rankArray != nullptr){
     vtkMPIController *controller = vtkMPIController::SafeDownCast(vtkMPIController::GetGlobalController());
     MPI_Datatype mpi_values;
     const int nitems = 4;
     int blocklengths[4] = {1, 1, 1, 1};
-    MPI_Datatype types[4] = {MPI_FLOAT, MPI_LONG, MPI_LONG, MPI_LONG};
+    MPI_Datatype MIT = MPI_LONG_LONG_INT;
+    MPI_Datatype types[4] = {MPI_FLOAT, MIT, MIT, MIT};
     MPI_Aint offsets[4];
     offsets[0] = offsetof(ttk::value, scalar);
     offsets[1] = offsetof(ttk::value, globalId);
@@ -122,7 +124,7 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
     int intTag = 100;
     int structTag = 101;
     int boolTag = 102;
-    if (rank == 0) this->printMsg("Global Point Ids and Ghost Cells exist, therefore we are in distributed mode!");
+    if (rank == 0) this->printMsg("Global Point Ids, Ghost Cells and RankArray exist, therefore we are in distributed mode!");
     this->printMsg("#Ranks " + std::to_string(numProcs) + ", this is rank " + std::to_string(rank));
 
     // add the order array for every scalar array, except the ghostcells and the global ids
@@ -171,7 +173,7 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
                 totalSize += receivedSize;
               }
             }
-            MPI_Bcast(&totalSize, 1, MPI_LONG, 0, MPI_COMM_WORLD);
+            MPI_Bcast(&totalSize, 1, MIT, 0, MPI_COMM_WORLD);
             this->printMsg("Total amount of distributed points: " + std::to_string(totalSize)); 
             IT currentOrder = totalSize - 1;
             std::vector<std::vector<ttk::value>> unsortedReceivedValues;
@@ -214,7 +216,6 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
 
               // move the struct from the unsortedReceivedValues subvector to the finalValues vector to get an ordering
               ttk::value currentValue = unsortedReceivedValues[rankIdOfMaxScalar].back();
-              currentValue.ordering = currentOrder;
               // we send the globalId and the the order via one send command, therefore we need to check two concurrent values at the same time later on
               orderResendValues[rankIdOfMaxScalar].push_back(currentValue.globalId);
               orderResendValues[rankIdOfMaxScalar].push_back(currentOrder);
@@ -237,7 +238,7 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
                 } else {
                   // receive more values from rank, send ordering to the rank
                   // send to the finished rank that we want more
-                  MPI_Send(orderResendValues[rankIdOfMaxScalar].data(), orderResendValues[rankIdOfMaxScalar].size(), MPI_LONG, rankIdOfMaxScalar, intTag, MPI_COMM_WORLD);
+                  MPI_Send(orderResendValues[rankIdOfMaxScalar].data(), orderResendValues[rankIdOfMaxScalar].size(), MIT, rankIdOfMaxScalar, intTag, MPI_COMM_WORLD);
                   orderResendValues[rankIdOfMaxScalar].clear();
                   //check if there are more values to be received. If so, receive them
                   bool moreVals = false;
@@ -256,7 +257,7 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
         } else {
           IT nValues = sortingValues.size();
           controller->Send(&nValues, 1, 0, intTag);
-          MPI_Bcast(&totalSize, 1, MPI_LONG, 0, MPI_COMM_WORLD);
+          MPI_Bcast(&totalSize, 1, MIT, 0, MPI_COMM_WORLD);
           finalValues.resize(totalSize, {0,0,0});
 
           // send the next burstsize values and then wait for an answer from the root rank
@@ -269,8 +270,8 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
             receivedValues.resize(BurstSize*2);
             MPI_Status status;
             int amount;
-            MPI_Recv(receivedValues.data(), BurstSize*2, MPI_LONG, 0, intTag, MPI_COMM_WORLD, &status);
-            MPI_Get_count(&status, MPI_LONG, &amount);
+            MPI_Recv(receivedValues.data(), BurstSize*2, MIT, 0, intTag, MPI_COMM_WORLD, &status);
+            MPI_Get_count(&status, MIT, &amount);
             receivedValues.resize(amount);
             orderedValuesForRank.insert(orderedValuesForRank.end(), receivedValues.begin(), receivedValues.end());
 
@@ -311,7 +312,6 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
 
 
         // we still need to get the data for the ghostcells from their ranks
-        auto rankArray = pointData->GetArray("RankArray");
         auto neighbors = ttk::getNeighbors(nVertices, rank, ttkUtils::GetPointer<int>(rankArray));
         auto gIdForNeighbors = ttk::getGIdForNeighbors(gidsToGetVector.size(),
                                                       neighbors.size(), 
@@ -320,52 +320,50 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
                                                       gidToLidMap, 
                                                       ttkUtils::GetPointer<int>(rankArray));
         MPI_Request req;
+        std::vector<size_t> sizesToSend;
+        sizesToSend.resize(gIdForNeighbors.size());
         for (size_t i = 0; i < gIdForNeighbors.size(); i++){
           auto iter = neighbors.begin();
           std::advance(iter, i);
           int rankToSend = *iter;
           std::vector<IT> gIdToSend = gIdForNeighbors[i];
-          size_t sizeToSend = gIdToSend.size();
-          this->printMsg("Rank " + std::to_string(rank) + " asking for " + std::to_string(sizeToSend) + " values from rank " + std::to_string(rankToSend));
+          sizesToSend[i] = gIdToSend.size();
           // we need to send to all neighbors how many we will send them, 
           // and then send the values to neighbors where the amount > 0
           // first we Isend everything we need to the neighbors
-          this->printMsg("Rank " + std::to_string(rank) + " Isend for sizeToSend to rank " + std::to_string(rankToSend));
-          MPI_Isend(&sizeToSend, 1, MPI_LONG, rankToSend, intTag, MPI_COMM_WORLD, &req);
+          MPI_Isend(&sizesToSend[i], 1, MIT, rankToSend, intTag, MPI_COMM_WORLD, &req);
           MPI_Request_free(&req);
-          if (sizeToSend > 0){
-            this->printMsg("Rank " + std::to_string(rank) + " Isend for gIds to rank " + std::to_string(rankToSend);
-            MPI_Isend(gIdToSend.data(), sizeToSend, MPI_LONG, rankToSend, intTag, MPI_COMM_WORLD, &req);
+          if (sizesToSend[i] > 0){
+            MPI_Isend(gIdForNeighbors[i].data(), sizesToSend[i], MIT, rankToSend, intTag, MPI_COMM_WORLD, &req);
             MPI_Request_free(&req);
           }
         }
 
         // then we blockingly receive from our neighbors
+        std::vector<std::vector<IT>> ordersToSend;
+        ordersToSend.resize(neighbors.size());
         for (size_t i = 0; i < neighbors.size(); i++){
           auto iter = neighbors.begin();
           std::advance(iter, i);
           int rankToRecv = *iter;
           size_t sizeToRecv;
-          this->printMsg("Rank " + std::to_string(rank) + " Recv for sizeToSend from rank " + std::to_string(rankToRecv));
-          MPI_Recv(&sizeToRecv, 1, MPI_LONG, rankToRecv, intTag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+          MPI_Recv(&sizeToRecv, 1, MIT, rankToRecv, intTag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
           if (sizeToRecv > 0){
             std::vector<IT> gIdToRecv;
-            this->printMsg("Rank " + std::to_string(rank) + " Recv for gIds from rank " + std::to_string(rankToRecv));
-            MPI_Recv(gIdToRecv.data(), sizeToRecv, MPI_LONG, rankToRecv, intTag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            gIdToRecv.resize(sizeToRecv);
+            MPI_Recv(gIdToRecv.data(), sizeToRecv, MIT, rankToRecv, intTag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-          // prepare what they need
-          std::vector<IT> ordersToSend = ttk::getOrderForGIds(gIdToRecv.size(), 
-                                                              gIdToRecv.data(), 
-                                                              gidToLidMap, 
-                                                              ttkUtils::GetPointer<ttk::SimplexId>(orderArray),
-                                                              this->threadNumber_);                                                    
+            // prepare what they need
+            ordersToSend[i] = ttk::getOrderForGIds(gIdToRecv.size(), 
+                                                    gIdToRecv.data(), 
+                                                    gidToLidMap, 
+                                                    ttkUtils::GetPointer<ttk::SimplexId>(orderArray),
+                                                    this->threadNumber_);                                                    
 
-          // Isend it to them
-          this->printMsg("Rank " + std::to_string(rank) + " Isend for order to rank " + std::to_string(rankToRecv));
-          MPI_Isend(ordersToSend.data(), ordersToSend.size(), MPI_LONG, rankToRecv, intTag, MPI_COMM_WORLD, &req);
-          MPI_Request_free(&req);
-
+            // Isend it to them
+            MPI_Isend(ordersToSend[i].data(), ordersToSend[i].size(), MIT, rankToRecv, intTag, MPI_COMM_WORLD, &req);
+            MPI_Request_free(&req);
           }
         }
 
@@ -377,11 +375,11 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
           auto iter = neighbors.begin();
           std::advance(iter, i);
           int rankToRecvOrder = *iter;
-          std::vector<IT> ordersToRecv = gIdForNeighbors[i];
-          auto sizeToRecvOrder = ordersToRecv.size();
+          auto sizeToRecvOrder = gIdForNeighbors[i].size()  * 2;
+          std::vector<IT> ordersToRecv;
+          ordersToRecv.resize(sizeToRecvOrder);
           if (sizeToRecvOrder > 0){
-            this->printMsg("Rank " + std::to_string(rank) + " Recv for order from rank " + std::to_string(rankToRecvOrder));
-            MPI_Recv(ordersToRecv.data(), sizeToRecvOrder, MPI_LONG, rankToRecvOrder, intTag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MPI_Recv(ordersToRecv.data(), sizeToRecvOrder, MIT, rankToRecvOrder, intTag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             
             // and add it to our orderarray
             ttk::buildArrayForReceivedData(ordersToRecv.size(), 
