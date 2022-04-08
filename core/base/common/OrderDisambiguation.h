@@ -63,10 +63,10 @@ namespace ttk {
   inline std::vector<value> returnVectorForBurstsize(std::vector<value> &values, size_t burstSize) {
     std::vector<value> outVector;
     if(burstSize > values.size()){
-      outVector = {values.begin(), values.end()};
+      outVector.assign(values.begin(), values.end());
       values.clear(); 
     } else {
-      outVector = {values.end() - burstSize, values.end()};
+      outVector.assign(values.end() - burstSize, values.end());
       values.erase(values.end() - burstSize, values.end());
     }
 

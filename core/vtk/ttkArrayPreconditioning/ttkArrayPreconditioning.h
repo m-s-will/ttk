@@ -58,10 +58,10 @@ protected:
   int RequestData(vtkInformation *request,
                   vtkInformationVector **inputVector,
                   vtkInformationVector *outputVector) override;
-  void ReceiveAndAddToVector(int burstSize, 
-                            MPI_Datatype mpi_values, 
+  void ReceiveAndAddToVector(MPI_Datatype mpi_values, 
                             int rankFrom, 
-                            int tag, 
+                            int structTag, 
+                            int intTag, 
                             std::vector<std::vector<ttk::value>> &unsortedReceivedValues);
 
 private:
