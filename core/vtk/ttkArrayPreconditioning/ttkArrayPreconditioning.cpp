@@ -53,9 +53,8 @@ void ttkArrayPreconditioning::ReceiveAndAddToVector(MPI_Datatype mpi_values, int
   int amount;
   MPI_Recv(&amount, 1, MPI_INT, rankFrom, intTag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
   receivedValues.resize(amount, {0,0,0});
+  this->printMsg("Receiving " + std::to_string(amount) + " values from rank " + std::to_string(rankFrom));
   MPI_Recv(receivedValues.data(), amount, mpi_values, rankFrom, structTag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-  if (amount == 0) this->printMsg("Received zero values from Rank " + std::to_string(rankFrom) + ", first scalar is " + std::to_string(receivedValues[0].scalar));
-  this->printMsg("Received " + std::to_string(amount) + " values from rank " + std::to_string(rankFrom));
   unsortedReceivedValues[rankFrom] = receivedValues;
 }
 
@@ -157,7 +156,7 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
         std::vector<IT> orderedValuesForRank;
         std::vector<ttk::value> finalValues;
         ttk::Timer mergeTimer;
-        IT totalSize = 0;
+        size_t totalSize = 0;
         if (rank == 0){
             this->printMsg("Rank 0 starts merging");
             // get the nVertices from each rank, add them to get the complete size of the dataset 
@@ -214,7 +213,7 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
               // move the struct from the unsortedReceivedValues subvector to the finalValues vector to get an ordering
               ttk::value currentValue = unsortedReceivedValues[rankIdOfMaxScalar].back();
               // we send the globalId and the the order via one send command, therefore we need to check two concurrent values at the same time later on
-              this->printMsg("Current GlobalId is " + std::to_string(currentValue.globalId) + " from rank " + std::to_string(rankIdOfMaxScalar));
+              //this->printMsg("Current GlobalId is " + std::to_string(currentValue.globalId) + " from rank " + std::to_string(rankIdOfMaxScalar));
               orderResendValues[rankIdOfMaxScalar].push_back(currentValue.globalId);
               orderResendValues[rankIdOfMaxScalar].push_back(currentOrder);
               currentOrder--;

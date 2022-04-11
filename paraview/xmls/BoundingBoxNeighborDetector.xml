@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ServerManagerConfiguration>
+  <ProxyGroup name="filters">
+    <SourceProxy name="ttkBoundingBoxNeighborDetector" class="ttkBoundingBoxNeighborDetector" label="TTK BoundingBoxNeighborDetector">
+      <Documentation long_help="BoundingBoxNeighborDetector Long" short_help="BoundingBoxNeighborDetector Short">This filter is creates a bounding box around the vertices of each rank and uses those to compute neighbor relations.</Documentation>
+
+      <!-- INPUT DATA OBJECTS -->
+      <InputProperty name="Input" command="SetInputConnection">
+        <ProxyGroupDomain name="groups">
+          <Group name="sources" />
+          <Group name="filters" />
+        </ProxyGroupDomain>
+        <DataTypeDomain name="input_type">
+          <DataType value="vtkDataSet" />
+        </DataTypeDomain>
+        <Documentation>A vtkDataSet that has some vertices whose geometric position can be used to compute the bounding boxes.</Documentation>
+      </InputProperty>
+
+      <!-- INPUT PARAMETER WIDGETS -->
+
+      <!-- OUTPUT PARAMETER WIDGETS -->
+
+      <!-- A string parameter that controls the name of the output array -->
+      <StringVectorProperty name="OutputArrayName" label="Output Array Name" command="SetOutputArrayName" number_of_elements="1" default_values="Neighbors" />
+
+      <!-- Create a UI group that contains all output parameter widgets (here only one) -->
+      <PropertyGroup panel_widget="Line" label="Output options">
+        <Property name="OutputArrayName" />
+      </PropertyGroup>
+
+      <!-- DEBUG -->
+      ${DEBUG_WIDGETS}
+
+      <!-- MENU CATEGORY -->
+      <Hints>
+        <ShowInMenu category="TTK - Misc" />
+      </Hints>
+    </SourceProxy>
+  </ProxyGroup>
+</ServerManagerConfiguration>

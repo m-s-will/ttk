@@ -1,0 +1,9 @@
+NAME
+  ttkBoundingBoxNeighborDetector
+SOURCES
+  ttkBoundingBoxNeighborDetector.cpp
+HEADERS
+  ttkBoundingBoxNeighborDetector.h
+DEPENDS
+  boundingBoxNeighborDetector
+  ttkAlgorithm
