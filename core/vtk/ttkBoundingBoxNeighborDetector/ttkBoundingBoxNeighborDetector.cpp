@@ -106,7 +106,7 @@ int ttkBoundingBoxNeighborDetector::RequestData(vtkInformation *ttkNotUsed(reque
   if(!inputDataSet)
     return 0;
 
-  auto pointData = inputDataSet->GetPointData();
+  //auto pointData = inputDataSet->GetPointData();
   //int nVertices = inputDataSet->GetNumberOfPoints();
 
   // If all checks pass then log which array is going to be processed.
@@ -114,31 +114,24 @@ int ttkBoundingBoxNeighborDetector::RequestData(vtkInformation *ttkNotUsed(reque
 
 
 
-
-  auto vtkGlobalPointIds = pointData->GetGlobalIds();
-
-  if (vtkGlobalPointIds != nullptr){
+  int flag_i;
+  MPI_Initialized(&flag_i);
+  if (flag_i){
     int numProcs;
     int rank;
     MPI_Comm_size(MPI_COMM_WORLD, &numProcs);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    if (rank == 0) this->printMsg("Global Point Ids exist, therefore we are in distributed mode!");
+    if (rank == 0) this->printMsg("MPI is initialized, therefore we are in distributed mode!");
     this->printMsg("#Ranks " + std::to_string(numProcs) + ", this is rank " + std::to_string(rank));
     double* boundingBox = inputDataSet->GetBounds();
-    std::vector<double *> rankBoundingBoxes(numProcs, nullptr);
+    std::vector<double *> rankBoundingBoxes(numProcs);
     rankBoundingBoxes[rank] = boundingBox;
     for (int r = 0; r < numProcs; r++){
+      if (r != rank) rankBoundingBoxes[r] = (double *)malloc(6 * sizeof(double));
       MPI_Bcast(rankBoundingBoxes[r], 6, MPI_DOUBLE, r, MPI_COMM_WORLD);
-    }
+    } 
 
-    if (rank == 0){
-      for (int r = 0; r < numProcs; r++){
-        this->printMsg("Rank " + std::to_string(r) + ", xmin=" + std::to_string(rankBoundingBoxes[r][0])+", xmax=" + std::to_string(rankBoundingBoxes[r][1]));
-        this->printMsg("Rank " + std::to_string(r) + ", ymin=" + std::to_string(rankBoundingBoxes[r][2])+", ymax=" + std::to_string(rankBoundingBoxes[r][3]));
-        this->printMsg("Rank " + std::to_string(r) + ", zmin=" + std::to_string(rankBoundingBoxes[r][4])+", zmax=" + std::to_string(rankBoundingBoxes[r][5]));
-      }
-    }
-    std::vector<int> neighbors;
+    
     //double epsilon = std::numeric_limits<double>::epsilon();
     double epsilon = 0.0001;
     // inflate our own bounding box by epsilon
@@ -146,19 +139,20 @@ int ttkBoundingBoxNeighborDetector::RequestData(vtkInformation *ttkNotUsed(reque
       if (i % 2 == 0) boundingBox[i]-=epsilon;
       if (i % 2 == 1) boundingBox[i]+=epsilon;
     }
-
+    std::vector<int> neighbors;
     for (int i = 0; i < numProcs; i++){
       if (i != rank){
         double* theirBoundingBox = rankBoundingBoxes[i];
         if (checkForIntersection(boundingBox, theirBoundingBox)){
           this->printMsg("Rank " + std::to_string(rank) + " is neighbors with Rank " + std::to_string(i));
+          neighbors.push_back(i);
         }
         
       }
     }
     
   } else {
-    this->printMsg("Global Point Ids don't exist, aborting!");
+    this->printMsg("MPI is not initialized, please run with mpirun!");
   }
 
 
