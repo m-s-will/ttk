@@ -7,6 +7,8 @@
 #include <vtkObjectFactory.h>
 #include <vtkPointData.h>
 #include <vtkSmartPointer.h>
+#include <vtkIntArray.h>
+
 #include <mpi.h>
 #include <limits>
 
@@ -140,6 +142,8 @@ int ttkBoundingBoxNeighborDetector::RequestData(vtkInformation *ttkNotUsed(reque
       if (i % 2 == 1) boundingBox[i]+=epsilon;
     }
     std::vector<int> neighbors;
+    // the first value of the neighbors-array is the rank from which is originating
+    neighbors.push_back(rank);
     for (int i = 0; i < numProcs; i++){
       if (i != rank){
         double* theirBoundingBox = rankBoundingBoxes[i];
@@ -149,12 +153,18 @@ int ttkBoundingBoxNeighborDetector::RequestData(vtkInformation *ttkNotUsed(reque
         }
         
       }
+
+      // all ranks send data to rank 0 and that rank adds to fielddata?
+      vtkNew<vtkIntArray> neighborsArray{};
+      neighborsArray->SetName("Neighbors");
+      neighborsArray->SetNumberOfComponents(neighbors.size());
+      neighborsArray->InsertNextTuple((float*)neighbors.data());
+      inputDataSet->GetFieldData()->AddArray(neighborsArray);
     }
     
   } else {
     this->printMsg("MPI is not initialized, please run with mpirun!");
   }
-
 
 
 
