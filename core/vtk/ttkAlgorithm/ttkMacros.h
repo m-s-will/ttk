@@ -46,6 +46,19 @@ using ttkSimplexIdTypeArray = vtkIntArray;
   }                                                       \
   vtkSetEnumMacro(name, enumType);
 
+#ifdef TTK_REDUCE_TEMPLATE_INSTANTIATIONS
+// reduced list of template instantiations by redefining vtkTemplateMacro
+#include <vtkSetGet.h>
+#ifdef vtkTemplateMacro
+#undef vtkTemplateMacro
+#define vtkTemplateMacro(call)                    \
+  vtkTemplateMacroCase(VTK_DOUBLE, double, call); \
+  vtkTemplateMacroCase(VTK_FLOAT, float, call);   \
+  vtkTemplateMacroCase(VTK_INT, int, call);       \
+  vtkTemplateMacroCase(VTK_LONG_LONG, long long, call);
+#endif // vtkTemplateMacro
+#endif // TTK_REDUCE_TEMPLATE_INSTANTIATIONS
+
 #define ttkVtkTemplateMacroCase(                         \
   dataType, triangulationType, triangulationClass, call) \
   case triangulationType: {                              \
@@ -58,9 +71,15 @@ using ttkSimplexIdTypeArray = vtkIntArray;
     ttkVtkTemplateMacroCase(dataType, ttk::Triangulation::Type::EXPLICIT, \
                             ttk::ExplicitTriangulation, call);            \
     ttkVtkTemplateMacroCase(dataType, ttk::Triangulation::Type::IMPLICIT, \
-                            ttk::ImplicitTriangulation, call);            \
+                            ttk::ImplicitNoPreconditions, call);          \
+    ttkVtkTemplateMacroCase(dataType,                                     \
+                            ttk::Triangulation::Type::HYBRID_IMPLICIT,    \
+                            ttk::ImplicitWithPreconditions, call);        \
     ttkVtkTemplateMacroCase(dataType, ttk::Triangulation::Type::PERIODIC, \
-                            ttk::PeriodicImplicitTriangulation, call);    \
+                            ttk::PeriodicNoPreconditions, call);          \
+    ttkVtkTemplateMacroCase(dataType,                                     \
+                            ttk::Triangulation::Type::HYBRID_PERIODIC,    \
+                            ttk::PeriodicWithPreconditions, call);        \
     ttkVtkTemplateMacroCase(dataType, ttk::Triangulation::Type::COMPACT,  \
                             ttk::CompactTriangulation, call);             \
   }
