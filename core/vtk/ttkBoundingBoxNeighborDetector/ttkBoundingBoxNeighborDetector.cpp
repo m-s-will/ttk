@@ -141,7 +141,7 @@ int ttkBoundingBoxNeighborDetector::RequestData(vtkInformation *ttkNotUsed(reque
       if (i % 2 == 0) boundingBox[i]-=epsilon;
       if (i % 2 == 1) boundingBox[i]+=epsilon;
     }
-    std::vector<int> neighbors;
+    std::vector<float> neighbors;
     // the first value of the neighbors-array is the rank from which is originating
     neighbors.push_back(rank);
     for (int i = 0; i < numProcs; i++){
