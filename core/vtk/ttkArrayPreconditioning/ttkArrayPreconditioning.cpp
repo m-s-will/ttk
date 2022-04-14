@@ -53,7 +53,7 @@ void ttkArrayPreconditioning::ReceiveAndAddToVector(MPI_Datatype mpi_values, int
   int amount;
   MPI_Recv(&amount, 1, MPI_INT, rankFrom, intTag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
   receivedValues.resize(amount, {0,0,0});
-  this->printMsg("Receiving " + std::to_string(amount) + " values from rank " + std::to_string(rankFrom));
+  //this->printMsg("Receiving " + std::to_string(amount) + " values from rank " + std::to_string(rankFrom));
   MPI_Recv(receivedValues.data(), amount, mpi_values, rankFrom, structTag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
   unsortedReceivedValues[rankFrom] = receivedValues;
 }
@@ -124,6 +124,7 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
     int boolTag = 102;
     if (rank == 0) this->printMsg("Global Point Ids, Ghost Cells and RankArray exist, therefore we are in distributed mode!");
     this->printMsg("#Ranks " + std::to_string(numProcs) + ", this is rank " + std::to_string(rank));
+    MPI_Barrier(MPI_COMM_WORLD);
     // add the order array for every scalar array, except the ghostcells and the global ids
     for(auto scalarArray : scalarArrays) {
       std::string arrayName = std::string(scalarArray->GetName());
@@ -258,7 +259,7 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
           // send the next burstsize values and then wait for an answer from the root rank
           while (sortingValues.size() > 0){
             std::vector<ttk::value> sendValues = ttk::returnVectorForBurstsize(sortingValues, BurstSize);
-            this->printMsg("Rank " + std::to_string(rank) + " sending " + std::to_string(sendValues.size()) + " values to rank 0, first scalar is " + std::to_string(sendValues.data()[0].scalar));
+            //this->printMsg("Rank " + std::to_string(rank) + " sending " + std::to_string(sendValues.size()) + " values to rank 0, first scalar is " + std::to_string(sendValues.data()[0].scalar));
             int size = sendValues.size();
             MPI_Send(&size, 1, MPI_INT, 0, intTag, MPI_COMM_WORLD);
             MPI_Send(sendValues.data(), size, mpi_values, 0, structTag, MPI_COMM_WORLD);
