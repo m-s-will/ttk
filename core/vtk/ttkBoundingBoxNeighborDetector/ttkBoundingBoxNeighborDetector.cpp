@@ -141,9 +141,7 @@ int ttkBoundingBoxNeighborDetector::RequestData(vtkInformation *ttkNotUsed(reque
       if (i % 2 == 0) boundingBox[i]-=epsilon;
       if (i % 2 == 1) boundingBox[i]+=epsilon;
     }
-    std::vector<float> neighbors;
-    // the first value of the neighbors-array is the rank from which is originating
-    neighbors.push_back(rank);
+    std::vector<int> neighbors;
     for (int i = 0; i < numProcs; i++){
       if (i != rank){
         double* theirBoundingBox = rankBoundingBoxes[i];
@@ -157,8 +155,10 @@ int ttkBoundingBoxNeighborDetector::RequestData(vtkInformation *ttkNotUsed(reque
       // all ranks send data to rank 0 and that rank adds to fielddata?
       vtkNew<vtkIntArray> neighborsArray{};
       neighborsArray->SetName("Neighbors");
-      neighborsArray->SetNumberOfComponents(neighbors.size());
-      neighborsArray->InsertNextTuple((float*)neighbors.data());
+      neighborsArray->SetNumberOfTuples(neighbors.size());
+      for (size_t j = 0; j < neighbors.size(); j++){
+        neighborsArray->SetComponent(j, 0, neighbors[j]);
+      }
       inputDataSet->GetFieldData()->AddArray(neighborsArray);
     }
     

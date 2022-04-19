@@ -20,7 +20,7 @@
 #include <Triangulation.h>
 #include <map>
 #include <unordered_map>
-
+#include <mpi.h>
 namespace ttk {
 
   /**
@@ -34,7 +34,7 @@ namespace ttk {
     
     int preconditionTriangulation(
       ttk::AbstractTriangulation *triangulation) const {
-      return triangulation->preconditionVertexNeighbors() + triangulation->preconditionBoundaryVertices();
+      return triangulation->preconditionVertexNeighbors();
     }
 
     std::vector<int> compressArray(const std::vector<int>& input) const {
@@ -62,7 +62,8 @@ namespace ttk {
     int computeCompression(int *descendingManifold,
                            int *ascendingManifold,
                         const dataType *inputData,
-                        const dataType *ghostLayer,
+                        const int *rankArray,
+                        const dataType *globalIds,
                         const triangulationType *triangulation) const {
       // start global timer
       ttk::Timer globalTimer;
@@ -90,19 +91,24 @@ namespace ttk {
                        0, // elapsed time so far
                        this->threadNumber_);
 
-        int nVertices = triangulation->getNumberOfVertices();
+        size_t nVertices = triangulation->getNumberOfVertices();
         
         std::vector<int> previousDesc(nVertices);
         std::vector<int> currentDesc(nVertices);        
         std::vector<int> previousAsc(nVertices);
         std::vector<int> currentAsc(nVertices);
-
+        int numProcs;
+        int rank;
+        MPI_Comm_size(MPI_COMM_WORLD, &numProcs);
+        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+        std::vector<std::vector<size_t>> foreignVertices;
+        foreignVertices.resize(numProcs);
 
         // for the first step we initialize each vertex with the id of their largest / smallest neighbor. Afterwards we only compare the arrays
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for num_threads(this->threadNumber_)
 #endif
-        for(int i = 0; i < nVertices; i++) {
+        for(size_t i = 0; i < nVertices; i++) {
           int nNeighbors = triangulation->getVertexNeighborNumber(i);
           ttk::SimplexId neighborId;
           float smallest = inputData[i];
@@ -112,8 +118,8 @@ namespace ttk {
           previousDesc[i] = i;
           previousAsc[i] = i;
 
-          // if ghostLayer is 0, we don't need to strictly point to ourselves, but to the largest neightbor
-          if (ghostLayer[i] == 0) {
+          // if the vertex belongs to ourselves, we don't need to strictly point to ourselves, but to the largest neighbor
+          if (rankArray[i] == rank) {
             for(int j = 0; j < nNeighbors; j++) {
               triangulation->getVertexNeighbor(i, j, neighborId);
             
@@ -128,6 +134,8 @@ namespace ttk {
                 smallest = inputData[neighborId];
               }
             }
+          } else {
+            foreignVertices[rank].push_back(globalIds[i]);
           }
         }
         // now we swap between the two arrays until nothing changes anymore ergo all paths are finished
@@ -142,7 +150,7 @@ namespace ttk {
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for num_threads(this->threadNumber_)
 #endif
-            for (int i = 0; i < nVertices; i++){
+            for (size_t i = 0; i < nVertices; i++){
               // this->printMsg("Previous zu current");
               nextDesc = previousDesc[previousDesc[i]];
               nextAsc = previousAsc[previousAsc[i]];
@@ -153,7 +161,7 @@ namespace ttk {
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for num_threads(this->threadNumber_)
 #endif
-            for (int i = 0; i < nVertices; i++){
+            for (size_t i = 0; i < nVertices; i++){
               // this->printMsg("Current zu Previous");
               nextDesc = currentDesc[currentDesc[i]];
               nextAsc = currentAsc[currentAsc[i]];
@@ -165,7 +173,15 @@ namespace ttk {
           step++;
         }
 
-        this->printMsg("Finished in Step "+std::to_string(step), 1, localTimer.getElapsedTime());
+        this->printMsg("Finished own values in Step "+std::to_string(step), 1, localTimer.getElapsedTime());
+
+        // now we need to request the values we still need from other ranks
+        for (int r = 0; r < numProcs; r++){
+          if (foreignVertices[r].size() > 0){
+            // use MPI Isend to request values for the remaining globalIds from the rank to which they belong
+          }
+        }
+
 
         // compress the arrays into the ranges of 0 - #segmentation areas
         currentDesc = this->compressArray(currentDesc);
@@ -174,7 +190,7 @@ namespace ttk {
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for num_threads(this->threadNumber_)
 #endif
-        for (int i = 0; i < nVertices; i++){
+        for (size_t i = 0; i < nVertices; i++){
             descendingManifold[i] = currentDesc[i];
             ascendingManifold[i] = currentAsc[i];
         }

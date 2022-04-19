@@ -193,49 +193,19 @@ int ttkPathCompressionDistributedTest::RequestData(vtkInformation *ttkNotUsed(re
 
   // Get ttk::triangulation of the input vtkDataSet (will create one if one does
   // not exist already).
-  ttk::Triangulation *ghostTriangulation
+  ttk::Triangulation *triangulation
     = ttkAlgorithm::GetTriangulation(inputDataSet);
-  if(!ghostTriangulation)
+  if(!triangulation){   
     return 0;
+  } else {
+    this->printMsg("Triangulation type:" + std::to_string(static_cast<int>(triangulation->getType())));
+  }
 
   // Precondition the triangulation (e.g., enable fetching of vertex neighbors)
-  this->preconditionTriangulation(ghostTriangulation); // implemented in base class
-
-  // get the boundary vertices
-  int nVertices = ghostTriangulation->getNumberOfVertices();
-  vtkSmartPointer<vtkIntArray> ttkBoundaryVertices
-    = vtkSmartPointer<vtkIntArray>::New();
-  ttkBoundaryVertices->SetName("boundaryVertices"); // set array name
-  ttkBoundaryVertices->SetNumberOfComponents(1); // only one component per tuple
-  ttkBoundaryVertices->SetNumberOfTuples(nVertices);
-  for (int i = 0; i < nVertices; i++){
-    if (ghostTriangulation->isVertexOnBoundary(i)){
-      ttkBoundaryVertices->SetComponent(i, 0, 1);
-    } else {
-      ttkBoundaryVertices->SetComponent(i, 0, 0);
-    }
-  }
-
-  vtkDataArray *vtkGhostPointValues = inputDataSet->GetPointData()->GetArray("vtkGhostType");
+  this->preconditionTriangulation(triangulation); // implemented in base class
+  this->printMsg("Triangulation type:" + std::to_string(static_cast<int>(triangulation->getType())));
 
 
-  vtkSmartPointer<vtkIntArray> ttkGhostLayer
-    = vtkSmartPointer<vtkIntArray>::New();
-  ttkGhostLayer->SetName("ttkGhostLayer"); // set array name
-  ttkGhostLayer->SetNumberOfComponents(1); // only one component per tuple
-  ttkGhostLayer->SetNumberOfTuples(vtkGhostPointValues->GetNumberOfTuples());
-  ttkGhostLayer->Fill(0);
-
-  for (int i = 0; i < vtkGhostPointValues->GetNumberOfTuples(); i++){
-    if (vtkGhostPointValues->GetComponent(i, 0) == 1){
-      if (ttkBoundaryVertices->GetComponent(i, 0) == 1){
-        ttkGhostLayer->SetComponent(i, 0, 1);
-      }
-    }
-  }
-  // Create an output array that has the same data type as the input array
-  // Note: vtkSmartPointers are well documented
-  //       (https://vtk.org/Wiki/VTK/Tutorials/SmartPointers)
   vtkSmartPointer<vtkIntArray> descendingManifold
     = vtkSmartPointer<vtkIntArray>::New();
   descendingManifold->SetName("DescendingManifold"); // set array name
@@ -251,16 +221,20 @@ int ttkPathCompressionDistributedTest::RequestData(vtkInformation *ttkNotUsed(re
   this->printMsg("  Output Array 1: " + std::string(descendingManifold->GetName()));
   this->printMsg("  Output Array 2: " + std::string(ascendingManifold->GetName()));
 
-  
+  auto pointData = inputDataSet->GetPointData();
+  auto rankArray = pointData->GetArray("rankArray");
+  auto globalIds = pointData->GetGlobalIds();
+
   // Templatize over the different input array data types and call the base code
   int status = 0; // this integer checks if the base code returns an error
-  ttkTypeMacroIT(order->GetDataType(), ghostTriangulation->getType(),
+  ttkTypeMacroIT(order->GetDataType(), triangulation->getType(),
                       (status = this->computeCompression<T0, T1>(
                          ttkUtils::GetPointer<int>(descendingManifold),
                          ttkUtils::GetPointer<int>(ascendingManifold),
                          ttkUtils::GetPointer<T0>(order),
-                         ttkUtils::GetPointer<T0>(ttkGhostLayer),
-                         (T1 *)ghostTriangulation->getData())));
+                         ttkUtils::GetPointer<int>(rankArray),
+                         ttkUtils::GetPointer<T0>(globalIds),
+                         (T1 *)triangulation->getData())));
 
 
 
@@ -279,7 +253,6 @@ int ttkPathCompressionDistributedTest::RequestData(vtkInformation *ttkNotUsed(re
   // add to the output point data the computed output array
   outputDataSet->GetPointData()->AddArray(descendingManifold);
   outputDataSet->GetPointData()->AddArray(ascendingManifold);
-  outputDataSet->GetPointData()->AddArray(ttkGhostLayer);
 
 
   
