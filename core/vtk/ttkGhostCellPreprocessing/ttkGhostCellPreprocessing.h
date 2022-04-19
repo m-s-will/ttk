@@ -25,10 +25,9 @@
 // VTK Includes
 #include <ttkAlgorithm.h>
 
+#include <mpi.h>
 #include <vtkDataArraySelection.h>
 #include <vtkNew.h>
-#include <mpi.h>
-
 
 class TTKGHOSTCELLPREPROCESSING_EXPORT ttkGhostCellPreprocessing
   : public ttkAlgorithm {
@@ -36,7 +35,6 @@ class TTKGHOSTCELLPREPROCESSING_EXPORT ttkGhostCellPreprocessing
 public:
   static ttkGhostCellPreprocessing *New();
   vtkTypeMacro(ttkGhostCellPreprocessing, ttkAlgorithm);
-
 
   // copy the vtkPassSelectedArray ("PassArrays" filter) API
   vtkDataArraySelection *GetPointDataArraySelection() {

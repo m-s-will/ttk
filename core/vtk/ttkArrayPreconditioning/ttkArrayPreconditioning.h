@@ -25,6 +25,7 @@
 // VTK Includes
 #include <ttkAlgorithm.h>
 
+#include <mpi.h>
 #include <vtkDataArraySelection.h>
 #include <vtkNew.h>
 #include <mpi.h>
@@ -58,11 +59,12 @@ protected:
   int RequestData(vtkInformation *request,
                   vtkInformationVector **inputVector,
                   vtkInformationVector *outputVector) override;
-  void ReceiveAndAddToVector(MPI_Datatype mpi_values, 
-                            int rankFrom, 
-                            int structTag, 
-                            int intTag, 
-                            std::vector<std::vector<ttk::value>> &unsortedReceivedValues);
+  void ReceiveAndAddToVector(
+    MPI_Datatype mpi_values,
+    int rankFrom,
+    int structTag,
+    int intTag,
+    std::vector<std::vector<ttk::value>> &unsortedReceivedValues);
 
 private:
   vtkNew<vtkDataArraySelection> ArraySelection{};
