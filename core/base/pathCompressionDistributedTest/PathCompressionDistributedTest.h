@@ -254,11 +254,11 @@ namespace ttk {
           std::vector<std::vector<globalIdOwner>> valuesFromRanks;
           valuesFromRanks.resize(numProcs);
           auto edgesIt = edges.begin();
-          while (it != edges.end()){
-            globalIdOwner currentId = *it;
+          while (edgesIt != edges.end()){
+            globalIdOwner currentId = *edgesIt;
             int owner = currentId.ownerRank;
-            valuesFromRanks[owner] = globalIdOwner;
-            it++;
+            valuesFromRanks[owner].push_back(currentId);
+            edgesIt++;
           }
 
           // for r = 0, we don't need to send anything, we process everything locally
@@ -291,7 +291,7 @@ namespace ttk {
             size_t nValues = fromThisRank.size();
             std::vector<globalIdOwner> receivedIds(nValues);
             if (nValues > 0){
-              MPI_Recv(receivedIds.data(), nValues, mpi_values, r, structTag, MPI_COMM_WORLD);
+              MPI_Recv(receivedIds.data(), nValues, mpi_values, r, structTag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
               edgesWithTargets.insert(edgesWithTargets.end(), receivedIds.begin(), receivedIds.end());
             }
           }
@@ -301,14 +301,30 @@ namespace ttk {
           std::unordered_map<ttk::SimplexId, ttk::SimplexId> gIdToAscendingMap;
           std::unordered_map<ttk::SimplexId, ttk::SimplexId> gIdToDescendingMap;
 
-          for (int i = 0; i < edgesWithTargets.size(); i++){
+          for (size_t i = 0; i < edgesWithTargets.size(); i++){
             globalIdOwner currentVal = edgesWithTargets[i];
             gIdToAscendingMap[currentVal.globalId] = currentVal.ascendingTarget;
             gIdToDescendingMap[currentVal.globalId] = currentVal.descendingTarget;
           }
 
           // now we need to check for graphs in the map and iteratively compress them
-          //TODO
+          bool changed = true;
+          while (changed){
+            changed = false;
+            for (auto& it: gIdToAscendingMap) {
+              if (gIdToAscendingMap.count(it.second) && (it.first != it.second)){
+                gIdToAscendingMap[it.first] = gIdToAscendingMap[it.second];
+                changed = true;
+              }
+            }
+
+            for (auto& it: gIdToDescendingMap) {
+              if (gIdToDescendingMap.count(it.second) && (it.first != it.second)){
+                gIdToDescendingMap[it.first] = gIdToDescendingMap[it.second];
+                changed = true;
+              }
+            }
+          }
 
         } else {  // the other ranks
           size_t nValues = foreignVertices.size();
@@ -322,7 +338,7 @@ namespace ttk {
           MPI_Recv(&receivedSize, 1, my_MPI_SIZE_T, 0, intTag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
           if (receivedSize > 0){
             std::vector<globalIdOwner> receivedIds(receivedSize);
-            MPI_Recv(receivedIds.data(), receivedSize, mpi_values, r, structTag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            MPI_Recv(receivedIds.data(), receivedSize, mpi_values, 0, structTag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             // now we need to find to where these gids point and send the values back to R0
             std::vector<globalIdOwner> sendValues(receivedSize);
 #ifdef TTK_ENABLE_OPENMP
