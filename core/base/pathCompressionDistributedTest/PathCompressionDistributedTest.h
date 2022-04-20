@@ -6,11 +6,6 @@
 /// This module defines the %PathCompressionDistributedTest class that computes for each vertex of a
 /// triangulation the vertices to which ascending and descending manifolds it belongs.
 ///
-/// \b Related \b publication: \n
-/// 'PathCompressionDistributedTest'
-/// Jonas Lukasczyk and Julien Tierny.
-/// TTK Publications.
-/// 2021.
 ///
 
 #pragma once
@@ -21,7 +16,26 @@
 #include <map>
 #include <unordered_map>
 #include <mpi.h>
+#include <stdint.h>
+#include <limits.h>
+
+#if SIZE_MAX == UCHAR_MAX
+   #define my_MPI_SIZE_T MPI_UNSIGNED_CHAR
+#elif SIZE_MAX == USHRT_MAX
+   #define my_MPI_SIZE_T MPI_UNSIGNED_SHORT
+#elif SIZE_MAX == UINT_MAX
+   #define my_MPI_SIZE_T MPI_UNSIGNED
+#elif SIZE_MAX == ULONG_MAX
+   #define my_MPI_SIZE_T MPI_UNSIGNED_LONG
+#elif SIZE_MAX == ULLONG_MAX
+   #define my_MPI_SIZE_T MPI_UNSIGNED_LONG_LONG
+#else
+   #error "size_t size not found"
+#endif
+
+
 namespace ttk {
+
 
   /**
    * The PathCompressionDistributedTest class provides methods to compute for each vertex of a
@@ -30,6 +44,26 @@ namespace ttk {
   class PathCompressionDistributedTest : virtual public Debug {
 
   public:
+
+    struct globalIdOwner {
+      ttk::SimplexId globalId;
+      int ownerRank;
+      ttk::SimplexId globalIdTarget = -1;
+
+      globalIdOwner(ttk::SimplexId _globalId = -1, int _owner = -1)
+        : globalId(_globalId), ownerRank(_owner) {}
+
+      bool operator<(const globalIdOwner& other) const {
+        return globalId < other.globalId;
+      }
+
+      bool operator==(const globalIdOwner& other) const{
+        return globalId == other.globalId;
+      }
+    };
+
+
+
     PathCompressionDistributedTest();
     
     int preconditionTriangulation(
@@ -101,8 +135,26 @@ namespace ttk {
         int rank;
         MPI_Comm_size(MPI_COMM_WORLD, &numProcs);
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-        std::vector<std::vector<size_t>> foreignVertices;
-        foreignVertices.resize(numProcs);
+        MPI_Datatype mpi_values;
+        const int nitems = 3;
+        int blocklengths[3] = {1, 1, 1};
+
+        #ifdef TTK_ENABLE_64BIT_IDS
+          MPI_Datatype MIT = MPI_LONG_LONG_INT;
+        #else
+          MPI_Datatype MIT = MPI_INT;
+        #endif
+        MPI_Datatype types[3] = {MIT, MPI_INT, MIT};
+        MPI_Aint offsets[3];
+        offsets[0] = offsetof(globalIdOwner, globalId);
+        offsets[1] = offsetof(globalIdOwner, ownerRank);
+        offsets[2] = offsetof(globalIdOwner, globalIdTarget);
+        MPI_Type_create_struct(nitems, blocklengths, offsets, types, &mpi_values);
+        MPI_Type_commit(&mpi_values);
+        int intTag = 100;
+        int structTag = 101;
+
+        std::vector<globalIdOwner> foreignVertices;
 
         // for the first step we initialize each vertex with the id of their largest / smallest neighbor. Afterwards we only compare the arrays
 #ifdef TTK_ENABLE_OPENMP
@@ -135,7 +187,10 @@ namespace ttk {
               }
             }
           } else {
-            foreignVertices[rank].push_back(globalIds[i]);
+#ifdef TTK_ENABLE_OPENMP
+#pragma omp critical
+#endif
+            foreignVertices.push_back(globalIdOwner(globalIds[i], rank));
           }
         }
         // now we swap between the two arrays until nothing changes anymore ergo all paths are finished
@@ -176,9 +231,30 @@ namespace ttk {
         this->printMsg("Finished own values in Step "+std::to_string(step), 1, localTimer.getElapsedTime());
 
         // now we need to request the values we still need from other ranks
-        for (int r = 0; r < numProcs; r++){
-          if (foreignVertices[r].size() > 0){
-            // use MPI Isend to request values for the remaining globalIds from the rank to which they belong
+        // rank 0 builds up out transferance map over ranks
+
+        if (rank == 0){
+          // construct the set with the globalids not owned by rank 0
+          std::set<globalIdOwner> edges(foreignVertices.begin(), foreignVertices.end());
+          // receive the data from all ranks
+          // rank 0 gets all the needed global ids and their original owners, which rank actually needs those gids doesn't matter,
+          // because in the end we send the finished edges back
+          for (int r = 0; r < numProcs; r++){
+            if (r != 0){
+              size_t receivedSize;
+              MPI_Recv(&receivedSize, 1, my_MPI_SIZE_T, r, intTag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+              if (receivedSize > 0){
+                std::vector<globalIdOwner> receivedIds(receivedSize);
+                MPI_Recv(receivedIds.data(), receivedSize, mpi_values, r, structTag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                std::copy(receivedIds.begin(), receivedIds.end(), std::inserter(edges, edges.end()));
+              }
+            }
+          }
+        } else {
+          size_t nValues = foreignVertices.size();
+          MPI_Send(&nValues, 1, my_MPI_SIZE_T, 0, intTag, MPI_COMM_WORLD);
+          if (nValues > 0){
+            MPI_Send(foreignVertices.data(), nValues, mpi_values, 0, structTag, MPI_COMM_WORLD);
           }
         }
 
