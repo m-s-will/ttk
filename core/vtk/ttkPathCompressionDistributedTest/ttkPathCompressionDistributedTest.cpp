@@ -197,13 +197,10 @@ int ttkPathCompressionDistributedTest::RequestData(vtkInformation *ttkNotUsed(re
     = ttkAlgorithm::GetTriangulation(inputDataSet);
   if(!triangulation){   
     return 0;
-  } else {
-    this->printMsg("Triangulation type:" + std::to_string(static_cast<int>(triangulation->getType())));
   }
 
   // Precondition the triangulation (e.g., enable fetching of vertex neighbors)
   this->preconditionTriangulation(triangulation); // implemented in base class
-  this->printMsg("Triangulation type:" + std::to_string(static_cast<int>(triangulation->getType())));
 
 
   vtkSmartPointer<vtkIntArray> descendingManifold
@@ -222,9 +219,11 @@ int ttkPathCompressionDistributedTest::RequestData(vtkInformation *ttkNotUsed(re
   this->printMsg("  Output Array 2: " + std::string(ascendingManifold->GetName()));
 
   auto pointData = inputDataSet->GetPointData();
-  auto rankArray = pointData->GetArray("rankArray");
+  auto rankArray = pointData->GetArray("RankArray");
   auto globalIds = pointData->GetGlobalIds();
-
+  if(!rankArray || !globalIds){   
+    return 0;
+  }
   // Templatize over the different input array data types and call the base code
   int status = 0; // this integer checks if the base code returns an error
   ttkTypeMacroIT(order->GetDataType(), triangulation->getType(),
@@ -233,7 +232,7 @@ int ttkPathCompressionDistributedTest::RequestData(vtkInformation *ttkNotUsed(re
                          ttkUtils::GetPointer<int>(ascendingManifold),
                          ttkUtils::GetPointer<T0>(order),
                          ttkUtils::GetPointer<int>(rankArray),
-                         ttkUtils::GetPointer<T0>(globalIds),
+                         ttkUtils::GetPointer<ttk::SimplexId>(globalIds),
                          (T1 *)triangulation->getData())));
 
 
