@@ -95,8 +95,8 @@ namespace ttk {
 
     template <class dataType,
               class triangulationType = ttk::AbstractTriangulation>
-    int computeCompression(int *descendingManifold,
-                           int *ascendingManifold,
+    int computeCompression(ttk::SimplexId *descendingManifold,
+                           ttk::SimplexId *ascendingManifold,
                         const dataType *inputData,
                         const int *rankArray,
                         const ttk::SimplexId *globalIds,
@@ -129,14 +129,10 @@ namespace ttk {
 
         size_t nVertices = triangulation->getNumberOfVertices();
         
-        std::vector<int> previousDesc;
-        previousDesc.resize(nVertices, -1);
-        std::vector<int> currentDesc;
-        currentDesc.resize(nVertices, -1);        
-        std::vector<int> previousAsc;
-        previousAsc.resize(nVertices, -1);
-        std::vector<int> currentAsc;
-        currentAsc.resize(nVertices, -1);
+        std::vector<ttk::SimplexId> previousDesc(nVertices);
+        std::vector<ttk::SimplexId> currentDesc(nVertices);
+        std::vector<ttk::SimplexId> previousAsc(nVertices);
+        std::vector<ttk::SimplexId> currentAsc(nVertices);
         int numProcs;
         int rank;
         MPI_Comm_size(MPI_COMM_WORLD, &numProcs);
@@ -168,18 +164,21 @@ namespace ttk {
         for(size_t i = 0; i < nVertices; i++) {
           gIdTolIdMap.insert(std::make_pair(globalIds[i],i));
           int nNeighbors = triangulation->getVertexNeighborNumber(i);
+          // local id in this rank
+          ttk::SimplexId localNeighborId;
+          // global id over all ranks
           ttk::SimplexId neighborId;
           float smallest = inputData[i];
           float largest = inputData[i];
           // if there is no larger / smaller neighbor, the vertex points to itself and is therefore a maximum / minimum
           // we do not need to check for equality, because we use the order array
-          previousDesc[i] = i;
-          previousAsc[i] = i;
+          previousDesc[i] = globalIds[i];
+          previousAsc[i] = globalIds[i];
           // if the vertex belongs to ourselves, we don't need to strictly point to ourselves, but to the largest neighbor
           if (rankArray[i] == rank) {
             for(int j = 0; j < nNeighbors; j++) {
-              triangulation->getVertexNeighbor(i, j, neighborId);
-            
+              triangulation->getVertexNeighbor(i, j, localNeighborId);
+              neighborId = globalIds[localNeighborId];
               // and for the largest neighbor to get to the ascending manifold
               if (inputData[neighborId] > largest){
                 previousAsc[i] = neighborId;
@@ -212,8 +211,8 @@ namespace ttk {
 #pragma omp parallel for num_threads(this->threadNumber_)
 #endif
             for (size_t i = 0; i < nVertices; i++){
-              nextDesc = previousDesc[previousDesc[i]];
-              nextAsc = previousAsc[previousAsc[i]];
+              nextDesc = previousDesc[gIdTolIdMap[previousDesc[i]]];
+              nextAsc = previousAsc[gIdTolIdMap[previousAsc[i]]];
               if (nextDesc != currentDesc[i]){currentDesc[i] = nextDesc; same = false;}
               if (nextAsc != currentAsc[i]){currentAsc[i] = nextAsc; same = false;}
             }
@@ -222,8 +221,8 @@ namespace ttk {
 #pragma omp parallel for num_threads(this->threadNumber_)
 #endif
             for (size_t i = 0; i < nVertices; i++){
-              nextDesc = currentDesc[currentDesc[i]];
-              nextAsc = currentAsc[currentAsc[i]];
+              nextDesc = currentDesc[gIdTolIdMap[currentDesc[i]]];
+              nextAsc = currentAsc[gIdTolIdMap[currentAsc[i]]];
               if (nextDesc != previousDesc[i]){previousDesc[i] = nextDesc; same = false;}
               if (nextAsc != previousAsc[i]){previousAsc[i] = nextAsc; same = false;}
             }
@@ -277,8 +276,8 @@ namespace ttk {
               globalIdOwner currentVal = fromRank0[i];
               ttk::SimplexId gId = currentVal.globalId;
               ttk::SimplexId lId = gIdTolIdMap[gId];
-              ttk::SimplexId ascendingTarget = ascendingManifold[lId];
-              ttk::SimplexId descendingTarget = descendingManifold[lId];
+              ttk::SimplexId ascendingTarget = currentAsc[lId];
+              ttk::SimplexId descendingTarget = currentDesc[lId];
               currentVal.ascendingTarget = ascendingTarget;
               currentVal.descendingTarget = descendingTarget;
               edgesForR0[i] = currentVal;
@@ -341,8 +340,8 @@ namespace ttk {
               globalIdOwner currentVal = receivedIds[i];
               ttk::SimplexId gId = currentVal.globalId;
               ttk::SimplexId lId = gIdTolIdMap[gId];
-              ttk::SimplexId ascendingTarget = ascendingManifold[lId];
-              ttk::SimplexId descendingTarget = descendingManifold[lId];
+              ttk::SimplexId ascendingTarget = currentAsc[lId];
+              ttk::SimplexId descendingTarget = currentDesc[lId];
               currentVal.ascendingTarget = ascendingTarget;
               currentVal.descendingTarget = descendingTarget;
               sendValues[i] = currentVal;
@@ -368,8 +367,8 @@ namespace ttk {
 
         for (size_t i = 0; i < edgesWithTargets.size(); i++){
           globalIdOwner currentVal = edgesWithTargets[i];
-          gIdToAscendingMap[currentVal.globalId] = currentVal.ascendingTarget;
-          gIdToDescendingMap[currentVal.globalId] = currentVal.descendingTarget;
+          gIdToAscendingMap.insert(std::make_pair(currentVal.globalId, currentVal.ascendingTarget));
+          gIdToDescendingMap.insert(std::make_pair(currentVal.globalId, currentVal.descendingTarget));
         }
 
         // now we need to check for graphs in the map and iteratively compress them
@@ -377,14 +376,14 @@ namespace ttk {
         while (changed){
           changed = false;
           for (auto& it: gIdToAscendingMap) {
-            if (gIdToAscendingMap.count(it.second) && (it.first != it.second)){
+            if (gIdToAscendingMap.count(it.second) && (it.first != it.second) && (gIdToAscendingMap[it.first] != gIdToAscendingMap[it.second])){
               gIdToAscendingMap[it.first] = gIdToAscendingMap[it.second];
               changed = true;
             }
           }
 
           for (auto& it: gIdToDescendingMap) {
-            if (gIdToDescendingMap.count(it.second) && (it.first != it.second)){
+            if (gIdToDescendingMap.count(it.second) && (it.first != it.second) && (gIdToDescendingMap[it.first] != gIdToDescendingMap[it.second])){
               gIdToDescendingMap[it.first] = gIdToDescendingMap[it.second];
               changed = true;
             }
@@ -396,8 +395,8 @@ namespace ttk {
           ttk::SimplexId gId = val.globalId;
           ttk::SimplexId lId = gIdTolIdMap[gId];
 
-          ascendingManifold[lId] = gIdToAscendingMap[gId];
-          descendingManifold[lId] = gIdToDescendingMap[gId];
+          currentAsc[lId] = gIdToAscendingMap[gId];
+          currentDesc[lId] = gIdToDescendingMap[gId];
         }
 
 
@@ -415,8 +414,6 @@ namespace ttk {
         
         
         
-        this->printMsg("Erster Wert in fertigem Ascending "+std::to_string(ascendingManifold[0]));
-        this->printMsg("Erster Wert in fertigem Descending "+std::to_string(descendingManifold[0]));
         // print the progress of the current subprocedure with elapsed time
         this->printMsg("Computing Compression",
                        1, // progress

@@ -99,74 +99,6 @@ int ttkPathCompressionDistributedTest::RequestData(vtkInformation *ttkNotUsed(re
 
 
 
-  /*
-
-  dataSetWithGlobalIds->GetPointData()->AddArray(ttkBoundaryVertices);
-
-  // create a ghost cell layer from VTK ghostcells (level 1 and level 2 ghost cells), this extends the dataset
-  auto generator = vtkSmartPointer<vtkGhostCellsGenerator>::New();
-  generator->SetNumberOfGhostLayers(1);
-  generator->BuildIfRequiredOff();
-  generator->SetInputData(dataSetWithGlobalIds);
-  generator->Update();
-
-  vtkDataSet *vtkGhostLayer = vtkDataSet::SafeDownCast(generator->GetOutput());
-  vtkPointData *vtkGhostPoints = vtkGhostLayer->GetPointData();
-  vtkDataArray *ttkboundaryPointValues = vtkGhostPoints->GetScalars("boundaryVertices");
-
-
-  
-
-  */
-
-  
-  // Get input array that will be processed
-  //
-  // Note: VTK provides abstract functionality to handle array selections, but
-  //       this essential functionality is unfortunately not well documented.
-  //       Before you read further, please keep in mind the the TTK developer
-  //       team is not responsible for the existing VTK Api ;-)
-  //
-  //       In a nutshell, prior to the RequestData execution one has to call
-  //
-  //           SetInputArrayToProcess (
-  //               int idx,
-  //               int port,
-  //               int connection,
-  //               int fieldAssociation,
-  //               const char *name
-  //            )
-  //
-  //       The parameter 'idx' is often missunderstood: lets say the filter
-  //       requires n arrays, then idx enumerates them from 0 to n-1.
-  //
-  //       The 'port' is the input port index at which the object is connected
-  //       from which we want to get the array.
-  //
-  //       The 'connection' is the connection index at that port (we have to
-  //       specify this because VTK allows multiple connections at the same
-  //       input port).
-  //
-  //       The 'fieldAssociation' integer specifies if the array should be taken
-  //       from 0: point data, 1: cell data, or 2: field data.
-  //
-  //       The final parameter is the 'name' of the array.
-  //
-  //       Example: SetInputArrayToProcess(3,1,0,1,"EdgeLength") will store that
-  //                for the 3rd array the filter needs the cell data array named
-  //                "EdgeLength" that it will retrieve from the vtkDataObject
-  //                at input port 1 (first connection). During the RequestData
-  //                method one can then actually retrieve the 3rd array it
-  //                requires for its computation by calling
-  //                GetInputArrayToProcess(3, inputVector)
-  //
-  //       If this filter is run within ParaView, then the UI will automatically
-  //       call SetInputArrayToProcess (see PathCompressionDistributedTest.xml file).
-  //
-  //       During the RequestData execution one can then retrieve an actual
-  //       array with the method "GetInputArrayToProcess".
-  //vtkDataArray *inputArray = this->GetInputArrayToProcess(0, inputVector);
-
   auto order = ttkAlgorithm::GetOrderArray(
     inputDataSet, 0);
   if(!order) {
@@ -203,14 +135,14 @@ int ttkPathCompressionDistributedTest::RequestData(vtkInformation *ttkNotUsed(re
   this->preconditionTriangulation(triangulation); // implemented in base class
 
 
-  vtkSmartPointer<vtkIntArray> descendingManifold
-    = vtkSmartPointer<vtkIntArray>::New();
+  vtkSmartPointer<vtkDataArray> descendingManifold
+    = vtkSmartPointer<vtkDataArray>::Take(order->NewInstance());
   descendingManifold->SetName("DescendingManifold"); // set array name
   descendingManifold->SetNumberOfComponents(1); // only one component per tuple
   descendingManifold->SetNumberOfTuples(order->GetNumberOfTuples());
 
-  vtkSmartPointer<vtkIntArray> ascendingManifold
-    = vtkSmartPointer<vtkIntArray>::New();
+  vtkSmartPointer<vtkDataArray> ascendingManifold
+    = vtkSmartPointer<vtkDataArray>::Take(order->NewInstance());
   ascendingManifold->SetName("AscendingManifold"); // set array name
   ascendingManifold->SetNumberOfComponents(1); // only one component per tuple
   ascendingManifold->SetNumberOfTuples(order->GetNumberOfTuples());
@@ -228,8 +160,8 @@ int ttkPathCompressionDistributedTest::RequestData(vtkInformation *ttkNotUsed(re
   int status = 0; // this integer checks if the base code returns an error
   ttkTypeMacroIT(order->GetDataType(), triangulation->getType(),
                       (status = this->computeCompression<T0, T1>(
-                         ttkUtils::GetPointer<int>(descendingManifold),
-                         ttkUtils::GetPointer<int>(ascendingManifold),
+                         ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
+                         ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
                          ttkUtils::GetPointer<T0>(order),
                          ttkUtils::GetPointer<int>(rankArray),
                          ttkUtils::GetPointer<ttk::SimplexId>(globalIds),
