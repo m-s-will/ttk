@@ -180,14 +180,14 @@ namespace ttk {
               triangulation->getVertexNeighbor(i, j, localNeighborId);
               neighborId = globalIds[localNeighborId];
               // and for the largest neighbor to get to the ascending manifold
-              if (inputData[neighborId] > largest){
+              if (inputData[localNeighborId] > largest){
                 previousAsc[i] = neighborId;
-                largest = inputData[neighborId];      
+                largest = inputData[localNeighborId];      
               }
               // we're checking for the smallest neighbor to get the descending manifold
-              if (inputData[neighborId] <= smallest){
+              if (inputData[localNeighborId] < smallest){
                 previousDesc[i] = neighborId;
-                smallest = inputData[neighborId];
+                smallest = inputData[localNeighborId];
               }
             }
           } else {
@@ -246,9 +246,10 @@ namespace ttk {
           for (int r = 0; r < numProcs; r++){
             if (r != 0){
               size_t receivedSize;
+              std::vector<globalIdOwner> receivedIds;
               MPI_Recv(&receivedSize, 1, my_MPI_SIZE_T, r, intTag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
               if (receivedSize > 0){
-                std::vector<globalIdOwner> receivedIds(receivedSize);
+                receivedIds.resize(receivedSize);
                 MPI_Recv(receivedIds.data(), receivedSize, mpi_values, r, structTag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
                 std::copy(receivedIds.begin(), receivedIds.end(), std::inserter(edges, edges.end()));
               }
