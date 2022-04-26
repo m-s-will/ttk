@@ -163,8 +163,8 @@ namespace ttk {
         this->printMsg("Finished in Step "+std::to_string(step), 1, localTimer.getElapsedTime());
 
         // compress the arrays into the ranges of 0 - #segmentation areas
-        currentDesc = this->compressArray(currentDesc);
-        currentAsc = this->compressArray(currentAsc);
+        //currentDesc = this->compressArray(currentDesc);
+        //currentAsc = this->compressArray(currentAsc);
 
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for num_threads(this->threadNumber_)
