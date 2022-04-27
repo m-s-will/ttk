@@ -24,3 +24,10 @@ CMakeLists.txt.user
 
 # C++ Lang Server folder
 /.ccls-cache*/
+core/base/depthImageBasedGeometryApproximation/DepthImageBasedGeometryApproximation.h
+core/base/ftmTree/FTMTree_Template.h
+core/base/pathCompressionDistributedTest/PathCompressionDistributedTest.h
+core/base/topologicalSimplification/TopologicalSimplification.h
+core/base/quadrangulationSubdivision/QuadrangulationSubdivision.h
+core/base/ftrGraph/FTRScalars.h
+core/vtk/ttkCinemaImaging/ttkCinemaImaging.cpp
