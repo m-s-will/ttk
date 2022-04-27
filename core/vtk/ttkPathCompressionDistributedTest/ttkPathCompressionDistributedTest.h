@@ -3,11 +3,12 @@
 /// \author Michael Will <mswill@rhrk.uni-kl.de>
 /// \date 2022.
 ///
-/// \brief TTK VTK-filter that wraps the ttk::PathCompressionDistributedTest module.
+/// \brief TTK VTK-filter that wraps the ttk::PathCompressionDistributedTest
+/// module.
 ///
-/// This VTK filter uses the ttk::PathCompressionDistributedTest module to compute an averaging of
-/// the data values of an input point data array defined on the input
-/// vtkDataSet.
+/// This VTK filter uses the ttk::PathCompressionDistributedTest module to
+/// compute an averaging of the data values of an input point data array defined
+/// on the input vtkDataSet.
 ///
 /// \param Input vtkDataSet.
 /// \param Output vtkDataSet.
@@ -68,12 +69,11 @@
 class TTKPATHCOMPRESSIONDISTRIBUTEDTEST_EXPORT ttkPathCompressionDistributedTest
   : public ttkAlgorithm // we inherit from the generic ttkAlgorithm class
   ,
-    protected ttk::PathCompressionDistributedTest // and we inherit from the base class
+    protected ttk::PathCompressionDistributedTest // and we inherit from the
+                                                  // base class
 {
 
 public:
-
-
   /**
    * This static method and the macro below are VTK conventions on how to
    * instantiate VTK objects. You don't have to modify this.

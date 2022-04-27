@@ -4,10 +4,12 @@
 /// \author Michael Will <mswill@rhrk.uni-kl.de>
 /// \date 2022.
 ///
-/// \brief TTK VTK-filter that wraps the ttk::BoundingBoxNeighborDetector module.
+/// \brief TTK VTK-filter that wraps the ttk::BoundingBoxNeighborDetector
+/// module.
 ///
-/// This VTK filter uses the ttk::BoundingBoxNeighborDetector module that computes for the neighbors for each rank
-/// based on the intersection of their bounding boxes increased in size by some epsilon
+/// This VTK filter uses the ttk::BoundingBoxNeighborDetector module that
+/// computes for the neighbors for each rank based on the intersection of their
+/// bounding boxes increased in size by some epsilon
 ///
 /// \param Input vtkDataSet.
 /// \param Output vtkDataSet.
@@ -62,13 +64,11 @@
  *   VTK::FiltersSources
  */
 
-// TTK Base Includes
-#include <BoundingBoxNeighborDetector.h>
-
 class TTKBOUNDINGBOXNEIGHBORDETECTOR_EXPORT ttkBoundingBoxNeighborDetector
   : public ttkAlgorithm // we inherit from the generic ttkAlgorithm class
   ,
-    protected ttk::BoundingBoxNeighborDetector // and we inherit from the base class
+    protected ttk::BoundingBoxNeighborDetector // and we inherit from the base
+                                               // class
 {
 private:
   /**

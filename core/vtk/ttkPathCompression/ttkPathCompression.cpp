@@ -3,8 +3,8 @@
 #include <vtkInformation.h>
 
 #include <vtkDataArray.h>
-#include <vtkIntArray.h>
 #include <vtkDataSet.h>
+#include <vtkIntArray.h>
 #include <vtkObjectFactory.h>
 #include <vtkPointData.h>
 #include <vtkSmartPointer.h>
@@ -43,7 +43,8 @@ ttkPathCompression::~ttkPathCompression() {
  * filter by adding the vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE() key to
  * the port information.
  */
-int ttkPathCompression::FillInputPortInformation(int port, vtkInformation *info) {
+int ttkPathCompression::FillInputPortInformation(int port,
+                                                 vtkInformation *info) {
   if(port == 0) {
     info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkDataSet");
     return 1;
@@ -66,7 +67,8 @@ int ttkPathCompression::FillInputPortInformation(int port, vtkInformation *info)
  * Note: prior to the execution of the RequestData method the pipeline will
  * initialize empty output data objects based on this information.
  */
-int ttkPathCompression::FillOutputPortInformation(int port, vtkInformation *info) {
+int ttkPathCompression::FillOutputPortInformation(int port,
+                                                  vtkInformation *info) {
   if(port == 0) {
     info->Set(ttkAlgorithm::SAME_DATA_TYPE_AS_INPUT_PORT(), 0);
     return 1;
@@ -89,8 +91,8 @@ int ttkPathCompression::FillOutputPortInformation(int port, vtkInformation *info
  *        provided by the FillOutputPortInformation method.
  */
 int ttkPathCompression::RequestData(vtkInformation *ttkNotUsed(request),
-                               vtkInformationVector **inputVector,
-                               vtkInformationVector *outputVector) {
+                                    vtkInformationVector **inputVector,
+                                    vtkInformationVector *outputVector) {
   this->printMsg("Request data called!");
   // Get input object from input vector
   // Note: has to be a vtkDataSet as required by FillInputPortInformation
@@ -143,10 +145,9 @@ int ttkPathCompression::RequestData(vtkInformation *ttkNotUsed(request),
   //
   //       During the RequestData execution one can then retrieve an actual
   //       array with the method "GetInputArrayToProcess".
-  //vtkDataArray *inputArray = this->GetInputArrayToProcess(0, inputVector);
+  // vtkDataArray *inputArray = this->GetInputArrayToProcess(0, inputVector);
 
-  auto order = ttkAlgorithm::GetOrderArray(
-    inputDataSet, 0);
+  auto order = ttkAlgorithm::GetOrderArray(inputDataSet, 0);
   if(!order) {
     this->printErr("Unable to retrieve input array.");
     return 0;
@@ -182,9 +183,10 @@ int ttkPathCompression::RequestData(vtkInformation *ttkNotUsed(request),
   ascendingManifold->SetNumberOfComponents(1); // only one component per tuple
   ascendingManifold->SetNumberOfTuples(order->GetNumberOfTuples());
 
-  this->printMsg("  Output Array 1: " + std::string(descendingManifold->GetName()));
-  this->printMsg("  Output Array 2: " + std::string(ascendingManifold->GetName()));
-
+  this->printMsg("  Output Array 1: "
+                 + std::string(descendingManifold->GetName()));
+  this->printMsg("  Output Array 2: "
+                 + std::string(ascendingManifold->GetName()));
 
   // Get ttk::triangulation of the input vtkDataSet (will create one if one does
   // not exist already).
@@ -198,14 +200,12 @@ int ttkPathCompression::RequestData(vtkInformation *ttkNotUsed(request),
 
   // Templatize over the different input array data types and call the base code
   int status = 0; // this integer checks if the base code returns an error
-  ttkTypeMacroIT(order->GetDataType(), triangulation->getType(),
-                      (status = this->computeCompression<T0, T1>(
-                         ttkUtils::GetPointer<int>(descendingManifold),
-                         ttkUtils::GetPointer<int>(ascendingManifold),
-                         ttkUtils::GetPointer<T0>(order),
-                         (T1 *)triangulation->getData())));
-
-
+  ttkTypeMacroIT(
+    order->GetDataType(), triangulation->getType(),
+    (status = this->computeCompression<T0, T1>(
+       ttkUtils::GetPointer<int>(descendingManifold),
+       ttkUtils::GetPointer<int>(ascendingManifold),
+       ttkUtils::GetPointer<T0>(order), (T1 *)triangulation->getData())));
 
   // On error cancel filter execution
   if(status != 1)

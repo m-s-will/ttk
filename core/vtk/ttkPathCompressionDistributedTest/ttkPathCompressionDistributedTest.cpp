@@ -2,14 +2,14 @@
 
 #include <vtkInformation.h>
 
+#include <ttkMacros.h>
+#include <ttkUtils.h>
 #include <vtkDataArray.h>
-#include <vtkIntArray.h>
 #include <vtkDataSet.h>
+#include <vtkIntArray.h>
 #include <vtkObjectFactory.h>
 #include <vtkPointData.h>
 #include <vtkSmartPointer.h>
-#include <ttkMacros.h>
-#include <ttkUtils.h>
 
 // A VTK macro that enables the instantiation of this class via ::New()
 // You do not have to modify this
@@ -42,7 +42,8 @@ ttkPathCompressionDistributedTest::~ttkPathCompressionDistributedTest() {
  * filter by adding the vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE() key to
  * the port information.
  */
-int ttkPathCompressionDistributedTest::FillInputPortInformation(int port, vtkInformation *info) {
+int ttkPathCompressionDistributedTest::FillInputPortInformation(
+  int port, vtkInformation *info) {
   if(port == 0) {
     info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkDataSet");
     return 1;
@@ -65,7 +66,8 @@ int ttkPathCompressionDistributedTest::FillInputPortInformation(int port, vtkInf
  * Note: prior to the execution of the RequestData method the pipeline will
  * initialize empty output data objects based on this information.
  */
-int ttkPathCompressionDistributedTest::FillOutputPortInformation(int port, vtkInformation *info) {
+int ttkPathCompressionDistributedTest::FillOutputPortInformation(
+  int port, vtkInformation *info) {
   if(port == 0) {
     info->Set(ttkAlgorithm::SAME_DATA_TYPE_AS_INPUT_PORT(), 0);
     return 1;
@@ -87,9 +89,10 @@ int ttkPathCompressionDistributedTest::FillOutputPortInformation(int port, vtkIn
  *     2) The output objects are already initialized based on the information
  *        provided by the FillOutputPortInformation method.
  */
-int ttkPathCompressionDistributedTest::RequestData(vtkInformation *ttkNotUsed(request),
-                               vtkInformationVector **inputVector,
-                               vtkInformationVector *outputVector) {
+int ttkPathCompressionDistributedTest::RequestData(
+  vtkInformation *ttkNotUsed(request),
+  vtkInformationVector **inputVector,
+  vtkInformationVector *outputVector) {
   this->printMsg("Request data called!");
   // Get input object from input vector
   // Note: has to be a vtkDataSet as required by FillInputPortInformation
@@ -97,10 +100,7 @@ int ttkPathCompressionDistributedTest::RequestData(vtkInformation *ttkNotUsed(re
   if(!inputDataSet)
     return 0;
 
-
-
-  auto order = ttkAlgorithm::GetOrderArray(
-    inputDataSet, 0);
+  auto order = ttkAlgorithm::GetOrderArray(inputDataSet, 0);
   if(!order) {
     this->printErr("Unable to retrieve input array.");
     return 0;
@@ -112,7 +112,7 @@ int ttkPathCompressionDistributedTest::RequestData(vtkInformation *ttkNotUsed(re
     this->printErr("Input array needs to be a point data array.");
     return 0;
   }
-  
+
   if(order->GetNumberOfComponents() != 1) {
     this->printErr("Input array needs to be a scalar array.");
     return 0;
@@ -122,18 +122,16 @@ int ttkPathCompressionDistributedTest::RequestData(vtkInformation *ttkNotUsed(re
   this->printMsg("Starting computation!");
   this->printMsg("  Scalar Array: " + std::string(order->GetName()));
 
-
   // Get ttk::triangulation of the input vtkDataSet (will create one if one does
   // not exist already).
   ttk::Triangulation *triangulation
     = ttkAlgorithm::GetTriangulation(inputDataSet);
-  if(!triangulation){   
+  if(!triangulation) {
     return 0;
   }
 
   // Precondition the triangulation (e.g., enable fetching of vertex neighbors)
   this->preconditionTriangulation(triangulation); // implemented in base class
-
 
   vtkSmartPointer<vtkDataArray> descendingManifold
     = vtkSmartPointer<vtkDataArray>::Take(order->NewInstance());
@@ -147,32 +145,33 @@ int ttkPathCompressionDistributedTest::RequestData(vtkInformation *ttkNotUsed(re
   ascendingManifold->SetNumberOfComponents(1); // only one component per tuple
   ascendingManifold->SetNumberOfTuples(order->GetNumberOfTuples());
 
-  this->printMsg("  Output Array 1: " + std::string(descendingManifold->GetName()));
-  this->printMsg("  Output Array 2: " + std::string(ascendingManifold->GetName()));
+  this->printMsg("  Output Array 1: "
+                 + std::string(descendingManifold->GetName()));
+  this->printMsg("  Output Array 2: "
+                 + std::string(ascendingManifold->GetName()));
 
   auto pointData = inputDataSet->GetPointData();
   auto rankArray = pointData->GetArray("RankArray");
   auto globalIds = pointData->GetGlobalIds();
-  if(!rankArray || !globalIds){   
+  if(!rankArray || !globalIds) {
+    this->printMsg("Necessary Arrays not present, we need a RankArray and "
+                   "GlobalIds!");
     return 0;
   }
   // Templatize over the different input array data types and call the base code
   int status = 0; // this integer checks if the base code returns an error
-  ttkTypeMacroIT(order->GetDataType(), triangulation->getType(),
-                      (status = this->computeCompression<T0, T1>(
-                         ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
-                         ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
-                         ttkUtils::GetPointer<T0>(order),
-                         ttkUtils::GetPointer<int>(rankArray),
-                         ttkUtils::GetPointer<ttk::SimplexId>(globalIds),
-                         (T1 *)triangulation->getData())));
-
-
+  ttkTypeMacroIT(
+    order->GetDataType(), triangulation->getType(),
+    (status = this->computeCompression<T0, T1>(
+       ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
+       ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
+       ttkUtils::GetPointer<T0>(order), ttkUtils::GetPointer<int>(rankArray),
+       ttkUtils::GetPointer<ttk::SimplexId>(globalIds),
+       (T1 *)triangulation->getData())));
 
   // On error cancel filter execution
   if(status != 1)
     return 0;
-  
 
   // Get output vtkDataSet (which was already instantiated based on the
   // information provided by FillOutputPortInformation)
@@ -185,8 +184,6 @@ int ttkPathCompressionDistributedTest::RequestData(vtkInformation *ttkNotUsed(re
   outputDataSet->GetPointData()->AddArray(descendingManifold);
   outputDataSet->GetPointData()->AddArray(ascendingManifold);
 
-
-  
   // return success
   return 1;
 }

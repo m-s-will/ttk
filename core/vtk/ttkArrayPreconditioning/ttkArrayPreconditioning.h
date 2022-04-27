@@ -25,10 +25,9 @@
 // VTK Includes
 #include <ttkAlgorithm.h>
 
+#include <mpi.h>
 #include <vtkDataArraySelection.h>
 #include <vtkNew.h>
-#include <mpi.h>
-
 
 // TTK Base Includes
 #include <ArrayPreconditioning.h>

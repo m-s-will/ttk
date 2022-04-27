@@ -51,12 +51,13 @@ namespace ttk {
                         const size_t nVerts,
                         const DT *const scalars,
                         const IT *const globalIds,
-                        const char *const ghostCells) const {
+                        const int *const rankArray,
+                        const int rank) const {
       for(size_t i = 0; i < nVerts; i++) {
         IT globalId = globalIds[i];
         IT localId = i;
         gidToLidMap[globalId] = localId;
-        if((int)ghostCells[i] == 0) {
+        if(rankArray[i] == rank) {
           DT scalarValue = scalars[i];
           valuesToSortVector.emplace_back(scalarValue, globalId, localId);
         } else {
@@ -205,7 +206,6 @@ namespace ttk {
                            const DT *scalarArray,
                            const IT *globalIds,
                            const int *rankArray,
-                           const char *ghostCells,
                            const size_t nVertices,
                            const int burstSize) const { // start global timer
       ttk::Timer globalTimer;
@@ -233,7 +233,7 @@ namespace ttk {
         int structTag = 101;
         int boolTag = 102;
         if(rank == 0)
-          this->printMsg("Global Point Ids, Ghost Cells and RankArray exist, "
+          this->printMsg("Global Point Ids and RankArray exist, "
                          "therefore we are in distributed mode!");
         this->printMsg("#Ranks " + std::to_string(numProcs) + ", this is rank "
                        + std::to_string(rank));
@@ -263,7 +263,7 @@ namespace ttk {
         std::unordered_map<IT, IT> gidToLidMap;
         this->populateVector<DT, IT>(sortingValues, gidsToGetVector,
                                      gidToLidMap, nVertices, scalarArray,
-                                     globalIds, ghostCells);
+                                     globalIds, rankArray, rank);
 
         // sort the scalar array distributed first by the scalar value itself,
         // then by the global id
@@ -546,7 +546,6 @@ namespace ttk {
       TTK_FORCE_USE(scalarArray);
       TTK_FORCE_USE(globalIds);
       TTK_FORCE_USE(rankArray);
-      TTK_FORCE_USE(ghostCells);
       TTK_FORCE_USE(burstSize);
       return 0;
 #endif

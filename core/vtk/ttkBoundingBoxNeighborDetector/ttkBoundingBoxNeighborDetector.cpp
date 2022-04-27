@@ -4,13 +4,13 @@
 
 #include <vtkDataArray.h>
 #include <vtkDataSet.h>
+#include <vtkIntArray.h>
 #include <vtkObjectFactory.h>
 #include <vtkPointData.h>
 #include <vtkSmartPointer.h>
-#include <vtkIntArray.h>
 
-#include <mpi.h>
 #include <limits>
+#include <mpi.h>
 
 #include <ttkMacros.h>
 #include <ttkUtils.h>
@@ -43,7 +43,8 @@ ttkBoundingBoxNeighborDetector::ttkBoundingBoxNeighborDetector() {
  * filter by adding the vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE() key to
  * the port information.
  */
-int ttkBoundingBoxNeighborDetector::FillInputPortInformation(int port, vtkInformation *info) {
+int ttkBoundingBoxNeighborDetector::FillInputPortInformation(
+  int port, vtkInformation *info) {
   if(port == 0) {
     info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkDataSet");
     return 1;
@@ -66,7 +67,8 @@ int ttkBoundingBoxNeighborDetector::FillInputPortInformation(int port, vtkInform
  * Note: prior to the execution of the RequestData method the pipeline will
  * initialize empty output data objects based on this information.
  */
-int ttkBoundingBoxNeighborDetector::FillOutputPortInformation(int port, vtkInformation *info) {
+int ttkBoundingBoxNeighborDetector::FillOutputPortInformation(
+  int port, vtkInformation *info) {
   if(port == 0) {
     info->Set(ttkAlgorithm::SAME_DATA_TYPE_AS_INPUT_PORT(), 0);
     return 1;
@@ -75,14 +77,15 @@ int ttkBoundingBoxNeighborDetector::FillOutputPortInformation(int port, vtkInfor
 }
 
 // returns true if they intersect, false if not
-bool checkForIntersection(double* myBB, double* theirBB){
-  return !(myBB[0] > theirBB[1]  // my left side is right of their right side
-        || myBB[1] < theirBB[0]  // my right side is left of their left side
-        || myBB[2] > theirBB[3]  // my bottom side is above their top side
-        || myBB[3] < theirBB[2]  // my top side is under their bottom side
-        || myBB[4] > theirBB[5]  // my front side is behind their back side
-        || myBB[5] < theirBB[4]  // my back side is in front of their front side
-      );
+bool checkForIntersection(double *myBB, double *theirBB) {
+  return !(
+    myBB[0] > theirBB[1] // my left side is right of their right side
+    || myBB[1] < theirBB[0] // my right side is left of their left side
+    || myBB[2] > theirBB[3] // my bottom side is above their top side
+    || myBB[3] < theirBB[2] // my top side is under their bottom side
+    || myBB[4] > theirBB[5] // my front side is behind their back side
+    || myBB[5] < theirBB[4] // my back side is in front of their front side
+  );
 }
 
 /**
@@ -98,9 +101,10 @@ bool checkForIntersection(double* myBB, double* theirBB){
  *     2) The output objects are already initialized based on the information
  *        provided by the FillOutputPortInformation method.
  */
-int ttkBoundingBoxNeighborDetector::RequestData(vtkInformation *ttkNotUsed(request),
-                               vtkInformationVector **inputVector,
-                               vtkInformationVector *outputVector) {
+int ttkBoundingBoxNeighborDetector::RequestData(
+  vtkInformation *ttkNotUsed(request),
+  vtkInformationVector **inputVector,
+  vtkInformationVector *outputVector) {
 
   // Get input object from input vector
   // Note: has to be a vtkDataSet as required by FillInputPortInformation
@@ -108,74 +112,66 @@ int ttkBoundingBoxNeighborDetector::RequestData(vtkInformation *ttkNotUsed(reque
   if(!inputDataSet)
     return 0;
 
-  //auto pointData = inputDataSet->GetPointData();
-  //int nVertices = inputDataSet->GetNumberOfPoints();
+  // auto pointData = inputDataSet->GetPointData();
+  // int nVertices = inputDataSet->GetNumberOfPoints();
 
   // If all checks pass then log which array is going to be processed.
   this->printMsg("Starting computation...");
 
-
-
   int flag_i;
   MPI_Initialized(&flag_i);
-  if (flag_i){
+  if(flag_i) {
     int numProcs;
     int rank;
     MPI_Comm_size(MPI_COMM_WORLD, &numProcs);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    if (rank == 0) this->printMsg("MPI is initialized, therefore we are in distributed mode!");
-    this->printMsg("#Ranks " + std::to_string(numProcs) + ", this is rank " + std::to_string(rank));
-    double* boundingBox = inputDataSet->GetBounds();
+    if(rank == 0)
+      this->printMsg(
+        "MPI is initialized, therefore we are in distributed mode!");
+    this->printMsg("#Ranks " + std::to_string(numProcs) + ", this is rank "
+                   + std::to_string(rank));
+    double *boundingBox = inputDataSet->GetBounds();
     std::vector<double *> rankBoundingBoxes(numProcs);
     rankBoundingBoxes[rank] = boundingBox;
-    for (int r = 0; r < numProcs; r++){
-      if (r != rank) rankBoundingBoxes[r] = (double *)malloc(6 * sizeof(double));
+    for(int r = 0; r < numProcs; r++) {
+      if(r != rank)
+        rankBoundingBoxes[r] = (double *)malloc(6 * sizeof(double));
       MPI_Bcast(rankBoundingBoxes[r], 6, MPI_DOUBLE, r, MPI_COMM_WORLD);
-    } 
+    }
 
-    
-    //double epsilon = std::numeric_limits<double>::epsilon();
+    // double epsilon = std::numeric_limits<double>::epsilon();
     double epsilon = 0.0001;
     // inflate our own bounding box by epsilon
-    for (int i = 0; i < 6; i++){
-      if (i % 2 == 0) boundingBox[i]-=epsilon;
-      if (i % 2 == 1) boundingBox[i]+=epsilon;
+    for(int i = 0; i < 6; i++) {
+      if(i % 2 == 0)
+        boundingBox[i] -= epsilon;
+      if(i % 2 == 1)
+        boundingBox[i] += epsilon;
     }
     std::vector<int> neighbors;
-    for (int i = 0; i < numProcs; i++){
-      if (i != rank){
-        double* theirBoundingBox = rankBoundingBoxes[i];
-        if (checkForIntersection(boundingBox, theirBoundingBox)){
-          this->printMsg("Rank " + std::to_string(rank) + " is neighbors with Rank " + std::to_string(i));
+    for(int i = 0; i < numProcs; i++) {
+      if(i != rank) {
+        double *theirBoundingBox = rankBoundingBoxes[i];
+        if(checkForIntersection(boundingBox, theirBoundingBox)) {
+          this->printMsg("Rank " + std::to_string(rank)
+                         + " is neighbors with Rank " + std::to_string(i));
           neighbors.push_back(i);
         }
-        
       }
 
       // all ranks send data to rank 0 and that rank adds to fielddata?
       vtkNew<vtkIntArray> neighborsArray{};
       neighborsArray->SetName("Neighbors");
       neighborsArray->SetNumberOfTuples(neighbors.size());
-      for (size_t j = 0; j < neighbors.size(); j++){
+      for(size_t j = 0; j < neighbors.size(); j++) {
         neighborsArray->SetComponent(j, 0, neighbors[j]);
       }
       inputDataSet->GetFieldData()->AddArray(neighborsArray);
     }
-    
+
   } else {
     this->printMsg("MPI is not initialized, please run with mpirun!");
   }
-
-
-
-
-
-
-
-
-
-
-
 
   // Create an output array that has the same data type as the input array
   // Note: vtkSmartPointers are well documented
@@ -196,8 +192,8 @@ int ttkBoundingBoxNeighborDetector::RequestData(vtkInformation *ttkNotUsed(reque
 
   // Precondition the triangulation (e.g., enable fetching of vertex neighbors)
  // this->preconditionTriangulation(triangulation); // implemented in base class
-  
-  
+
+
   // Templatize over the different input array data types and call the base code
   int status = 0; // this integer checks if the base code returns an error
   ttkVtkTemplateMacro(inputArray->GetDataType(), triangulation->getType(),
@@ -218,7 +214,7 @@ int ttkBoundingBoxNeighborDetector::RequestData(vtkInformation *ttkNotUsed(reque
   outputDataSet->ShallowCopy(inputDataSet);
 
   // add to the output point data the computed output array
-  //outputDataSet->GetPointData()->AddArray(outputArray);
+  // outputDataSet->GetPointData()->AddArray(outputArray);
 
   // return success
   return 1;

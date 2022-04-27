@@ -5,8 +5,8 @@
 ///
 /// \brief TTK VTK-filter that wraps the ttk::PathCompression module.
 ///
-/// This VTK filter uses the ttk::PathCompression module to compute an averaging of
-/// the data values of an input point data array defined on the input
+/// This VTK filter uses the ttk::PathCompression module to compute an averaging
+/// of the data values of an input point data array defined on the input
 /// vtkDataSet.
 ///
 /// \param Input vtkDataSet.
@@ -72,8 +72,6 @@ class TTKPATHCOMPRESSION_EXPORT ttkPathCompression
 {
 
 public:
-
-
   /**
    * This static method and the macro below are VTK conventions on how to
    * instantiate VTK objects. You don't have to modify this.
