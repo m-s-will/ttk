@@ -66,9 +66,7 @@
 
 class TTKBOUNDINGBOXNEIGHBORDETECTOR_EXPORT ttkBoundingBoxNeighborDetector
   : public ttkAlgorithm // we inherit from the generic ttkAlgorithm class
-  ,
-    protected ttk::BoundingBoxNeighborDetector // and we inherit from the base
-                                               // class
+
 {
 private:
   /**
