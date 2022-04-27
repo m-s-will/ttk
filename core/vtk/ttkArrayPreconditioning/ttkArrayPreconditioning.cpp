@@ -1,5 +1,4 @@
 #include <OrderDisambiguation.h>
-#include <mpi.h>
 #include <ttkArrayPreconditioning.h>
 #include <ttkMacros.h>
 #include <ttkUtils.h>

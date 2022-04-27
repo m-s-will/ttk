@@ -10,7 +10,7 @@
 #include <vtkSmartPointer.h>
 
 #include <limits>
-#include <mpi.h>
+#include <MPIUtils.h>
 
 #include <ttkMacros.h>
 #include <ttkUtils.h>

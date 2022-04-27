@@ -25,7 +25,6 @@
 // VTK Includes
 #include <ttkAlgorithm.h>
 
-#include <mpi.h>
 #include <vtkDataArraySelection.h>
 #include <vtkNew.h>
 
