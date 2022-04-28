@@ -39,9 +39,8 @@ ttkMergeTreeTemporalReductionDecoding::ttkMergeTreeTemporalReductionDecoding() {
   this->SetNumberOfOutputPorts(2);
 }
 
-ttkMergeTreeTemporalReductionDecoding::
-  ~ttkMergeTreeTemporalReductionDecoding() {
-}
+ttkMergeTreeTemporalReductionDecoding::~ttkMergeTreeTemporalReductionDecoding()
+  = default;
 
 /**
  * Specify the required input data type of each input port
@@ -145,7 +144,7 @@ int ttkMergeTreeTemporalReductionDecoding::RequestData(
     int index2 = vtkDataArray::SafeDownCast(table->GetColumnByName("Index2"))
                    ->GetTuple1(i);
 
-    coefs.push_back(std::make_tuple(alpha, index1R, index2R, index1, index2));
+    coefs.emplace_back(alpha, index1R, index2R, index1, index2);
     for(int j = index1 + 1; j < index2; ++j)
       interpolatedTrees[j] = true;
   }
@@ -233,7 +232,7 @@ int ttkMergeTreeTemporalReductionDecoding::runOutput(
       treesNodesT.push_back(nullptr);
       treesArcsT.push_back(nullptr);
       treesSegmentationT.push_back(nullptr);
-      treesNodeCorrMeshT.push_back(std::vector<int>());
+      treesNodeCorrMeshT.emplace_back();
       inputTreesT.push_back(nullptr);
       ++cpt;
     }
@@ -283,12 +282,15 @@ int ttkMergeTreeTemporalReductionDecoding::runOutput(
     visuMaker.setImportantPairsSpacing(ImportantPairsSpacing);
     visuMaker.setNonImportantPairsSpacing(NonImportantPairsSpacing);
     visuMaker.setNonImportantPairsProximity(NonImportantPairsProximity);
+    visuMaker.setExcludeImportantPairsHigher(ExcludeImportantPairsHigher);
+    visuMaker.setExcludeImportantPairsLower(ExcludeImportantPairsLower);
     // visuMaker.setShiftMode(3); // Double Line
     visuMaker.setShiftMode(2); // Line
     visuMaker.setVtkOutputNode(vtkOutputNode1);
     visuMaker.setVtkOutputArc(vtkOutputArc1);
     visuMaker.setVtkOutputSegmentation(vtkOutputSegmentation1);
     visuMaker.setTreesNodes(treesNodes);
+    visuMaker.copyPointData(treesNodes[i], treesNodeCorrMesh[i]);
     visuMaker.setTreesNodeCorrMesh(treesNodeCorrMesh);
     visuMaker.setTreesSegmentation(treesSegmentation);
     visuMaker.setInterpolatedTrees(interpolatedTrees);

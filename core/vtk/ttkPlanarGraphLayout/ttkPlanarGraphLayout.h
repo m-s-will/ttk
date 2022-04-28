@@ -76,6 +76,8 @@ private:
   double ImportantPairsSpacing = 1.;
   double NonImportantPairsSpacing = 0.1;
   double NonImportantPairsProximity = 0.05;
+  std::string ExcludeImportantPairsLower = "";
+  std::string ExcludeImportantPairsHigher = "";
 
 public:
   // --- Graph Planar Layout
@@ -124,13 +126,19 @@ public:
   vtkSetMacro(NonImportantPairsProximity, double);
   vtkGetMacro(NonImportantPairsProximity, double);
 
+  vtkSetMacro(ExcludeImportantPairsLower, const std::string &);
+  vtkGetMacro(ExcludeImportantPairsLower, std::string);
+
+  vtkSetMacro(ExcludeImportantPairsHigher, const std::string &);
+  vtkGetMacro(ExcludeImportantPairsHigher, std::string);
+
   // ---
   static ttkPlanarGraphLayout *New();
   vtkTypeMacro(ttkPlanarGraphLayout, ttkAlgorithm);
 
 protected:
   ttkPlanarGraphLayout();
-  ~ttkPlanarGraphLayout();
+  ~ttkPlanarGraphLayout() override;
 
   int FillInputPortInformation(int port, vtkInformation *info) override;
   int FillOutputPortInformation(int port, vtkInformation *info) override;
