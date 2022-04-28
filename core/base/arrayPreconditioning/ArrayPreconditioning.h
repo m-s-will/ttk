@@ -195,10 +195,11 @@ namespace ttk {
       int amount;
       MPI_Recv(&amount, 1, MPI_INT, rankFrom, intTag, MPI_COMM_WORLD,
                MPI_STATUS_IGNORE);
-      this->printMsg("Rank 0 received " + std::to_string(amount) + " values from rank " + std::to_string(rankFrom));
       receivedValues.resize(amount, {0, 0, 0});
+      this->printMsg("Receive " + std::to_string(amount) + " values");
       MPI_Recv(receivedValues.data(), amount, mpi_values, rankFrom, structTag,
                MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      this->printMsg("Received values!");
       unsortedReceivedValues[rankFrom] = receivedValues;
     }
 #endif
@@ -315,7 +316,6 @@ namespace ttk {
               std::vector<value_DT_IT> ownValues;
               this->returnVectorForBurstsize<DT, IT>(
                 ownValues, sortingValues, burstSize);
-              this->printMsg("Rank 0 pulled " + std::to_string(ownValues.size()) + " values from rank 0");
               unsortedReceivedValues[i] = ownValues;
             } else {
               this->ReceiveAndAddToVector<DT, IT>(
@@ -326,7 +326,7 @@ namespace ttk {
           while(finalValues.size() < totalSize) {
             // take the current maximum scalar over all ranks
             int rankIdOfMaxScalar = -1;
-            DT maxScalar = std::numeric_limits<DT>::min();
+            DT maxScalar = std::numeric_limits<DT>::lowest();
             IT maxGId = -1;
             for(int i = 0; i < numProcs; i++) {
               if(unsortedReceivedValues[i].size() > 0) {
@@ -376,7 +376,6 @@ namespace ttk {
                   std::vector<value_DT_IT> ownValues;
                   this->returnVectorForBurstsize<DT, IT>(
                     ownValues, sortingValues, burstSize);
-                  this->printMsg("Rank 0 pulled " + std::to_string(ownValues.size()) + " values from rank 0");
 
                   unsortedReceivedValues[rankIdOfMaxScalar] = ownValues;
                 } else {

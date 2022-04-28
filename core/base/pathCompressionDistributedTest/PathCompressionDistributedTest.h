@@ -70,12 +70,12 @@ namespace ttk {
       return triangulation->preconditionVertexNeighbors();
     }
 
-    std::vector<int> compressArray(const std::vector<int> &input) const {
+    std::vector<ttk::SimplexId> compressArray(const std::vector<ttk::SimplexId> &input) const {
       ttk::Timer compressTimer;
 
-      std::vector<int> output(input.size());
-      std::unordered_map<int, int> uniquesMap;
-      int counter = 0;
+      std::vector<ttk::SimplexId> output(input.size());
+      std::unordered_map<ttk::SimplexId, ttk::SimplexId> uniquesMap;
+      ttk::SimplexId counter = 0;
       // assemble the output by creating a map of unique values while running
       // over the array
       for(size_t i = 0; i < input.size(); i++) {
@@ -469,8 +469,9 @@ namespace ttk {
         }
         */
         // compress the arrays into the ranges of 0 - #segmentation areas
-        // currentDesc = this->compressArray(currentDesc);
-        // currentAsc = this->compressArray(currentAsc);
+        // problematic over multiple ranks, don't compress into the same values
+        //currentDesc = this->compressArray(currentDesc);
+        //currentAsc = this->compressArray(currentAsc);
 
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for num_threads(this->threadNumber_)
