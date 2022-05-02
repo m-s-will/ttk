@@ -16,7 +16,6 @@
 #include <Triangulation.h>
 #include <limits.h>
 #include <map>
-#include <mpi.h>
 #include <stdint.h>
 #include <unordered_map>
 
@@ -138,11 +137,8 @@ namespace ttk {
         const int nitems = 4;
         int blocklengths[4] = {1, 1, 1, 1};
 
-#ifdef TTK_ENABLE_64BIT_IDS
-        MPI_Datatype MIT = MPI_LONG_LONG_INT;
-#else
-        MPI_Datatype MIT = MPI_INT;
-#endif
+
+        MPI_Datatype MIT = ttk::getMPIType(static_cast<ttk::SimplexId>(0));
         MPI_Datatype types[4] = {MIT, MPI_INT, MIT, MIT};
         MPI_Aint offsets[4];
         offsets[0] = offsetof(globalIdOwner, globalId);

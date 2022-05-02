@@ -10,7 +10,6 @@
 #include <vtkSmartPointer.h>
 
 #include <limits>
-#include <MPIUtils.h>
 
 #include <ttkMacros.h>
 #include <ttkUtils.h>
@@ -173,39 +172,6 @@ int ttkBoundingBoxNeighborDetector::RequestData(
     this->printMsg("MPI is not initialized, please run with mpirun!");
   }
 
-  // Create an output array that has the same data type as the input array
-  // Note: vtkSmartPointers are well documented
-  //       (https://vtk.org/Wiki/VTK/Tutorials/SmartPointers)
-  /*vtkSmartPointer<vtkDataArray> outputArray
-    = vtkSmartPointer<vtkDataArray>::New(inputArray->NewInstance());
-  outputArray->SetName(this->OutputArrayName.data()); // set array name
-  outputArray->SetNumberOfComponents(1); // only one component per tuple
-  outputArray->SetNumberOfTuples(nVertices);
-  */
-  // Get ttk::triangulation of the input vtkDataSet (will create one if one does
-  // not exist already).
-  /*
-  ttk::Triangulation *triangulation
-    = ttkAlgorithm::GetTriangulation(inputDataSet);
-  if(!triangulation)
-    return 0;
-
-  // Precondition the triangulation (e.g., enable fetching of vertex neighbors)
- // this->preconditionTriangulation(triangulation); // implemented in base class
-
-
-  // Templatize over the different input array data types and call the base code
-  int status = 0; // this integer checks if the base code returns an error
-  ttkVtkTemplateMacro(inputArray->GetDataType(), triangulation->getType(),
-                      (status = this->computeAverages<VTK_TT, TTK_TT>(
-                         (VTK_TT *)ttkUtils::GetVoidPointer(outputArray),
-                         (VTK_TT *)ttkUtils::GetVoidPointer(inputArray),
-                         (TTK_TT *)triangulation->getData())));
-
-  // On error cancel filter execution
-  if(status != 1)
-    return 0;
-  */
   // Get output vtkDataSet (which was already instantiated based on the
   // information provided by FillOutputPortInformation)
   vtkDataSet *outputDataSet = vtkDataSet::GetData(outputVector, 0);

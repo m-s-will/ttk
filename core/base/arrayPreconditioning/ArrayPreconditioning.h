@@ -87,9 +87,11 @@ namespace ttk {
                                   size_t burstSize) const {
 
       if(burstSize > values.size()) {
+        outVector.resize(values.size(),{0, 0, 0});
         outVector.assign(values.begin(), values.end());
         values.clear();
       } else {
+        outVector.resize(burstSize, {0, 0, 0});
         outVector.assign(values.end() - burstSize, values.end());
         values.erase(values.end() - burstSize, values.end());
       }
@@ -185,19 +187,21 @@ namespace ttk {
       MPI_Datatype mpi_values,
       int rankFrom,
       int structTag,
-      int intTag,
       std::vector<std::vector<value<DT, IT>>> &unsortedReceivedValues) const {
       std::vector<value<DT, IT>> receivedValues;
       // be prepared to receive burstsize of elements, resize after receiving to
       // the correct size
+      if (rankFrom == 3) this->printMsg("Receiving Stuff from rank 3");
       int amount;
-      MPI_Recv(&amount, 1, MPI_INT, rankFrom, intTag, MPI_COMM_WORLD,
-               MPI_STATUS_IGNORE);
+      MPI_Status status;
+      MPI_Probe(rankFrom, structTag, MPI_COMM_WORLD, &status);
+      MPI_Get_count(&status, mpi_values, &amount);
+      if (rankFrom == 3) this->printMsg("Receiving " + std::to_string(amount) + " values from rank 3");
+
       receivedValues.resize(amount, {0, 0, 0});
-      this->printMsg("Receive " + std::to_string(amount) + " values");
       MPI_Recv(receivedValues.data(), amount, mpi_values, rankFrom, structTag,
                MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-      this->printMsg("Received values!");
+      if (rankFrom == 3) this->printMsg("Writing Values for rank 3 in unsortedReceivedValues");
       unsortedReceivedValues[rankFrom] = receivedValues;
     }
 #endif
@@ -317,10 +321,10 @@ namespace ttk {
               unsortedReceivedValues[i] = ownValues;
             } else {
               this->ReceiveAndAddToVector<DT, IT>(
-                mpi_values, i, structTag, intTag, unsortedReceivedValues);
+                mpi_values, i, structTag, unsortedReceivedValues);
             }
           }
-
+          this->printMsg("Rank3.size: " + std::to_string(unsortedReceivedValues[3].size()));
           while(finalValues.size() < totalSize) {
             // take the current maximum scalar over all ranks
             int rankIdOfMaxScalar = -1;
@@ -340,6 +344,7 @@ namespace ttk {
               }
             }
             if(rankIdOfMaxScalar == -1) {
+
               this->printMsg("FinalValues.size: "
                              + std::to_string(finalValues.size()));
               this->printMsg("All vectors are empty, but out final vector is "
@@ -393,7 +398,7 @@ namespace ttk {
                          MPI_COMM_WORLD, MPI_STATUS_IGNORE);
                 if(moreVals) {
                   this->ReceiveAndAddToVector(mpi_values, rankIdOfMaxScalar,
-                                              structTag, intTag,
+                                              structTag,
                                               unsortedReceivedValues);
                 } else {
                   this->printMsg("We are done with rank "
@@ -410,7 +415,7 @@ namespace ttk {
         } else {
           IT nValues = sortingValues.size();
           MPI_Send(&nValues, 1, MPI_IT, 0, intTag, MPI_COMM_WORLD);
-
+          if (rank == 3) this->printMsg("sortingvalues.size " + std::to_string(nValues));
           // send the next burstsize values and then wait for an answer from the
           // root rank
           while(sortingValues.size() > 0) {
@@ -418,7 +423,7 @@ namespace ttk {
             this->returnVectorForBurstsize<DT, IT>(
               sendValues, sortingValues, burstSize);
             int size = sendValues.size();
-            MPI_Send(&size, 1, MPI_INT, 0, intTag, MPI_COMM_WORLD);
+            if (rank == 3) this->printMsg("sendvalues.size " + std::to_string(size));
             MPI_Send(sendValues.data(), size, mpi_values, 0, structTag,
                      MPI_COMM_WORLD);
             std::vector<IT> receivedValues;
