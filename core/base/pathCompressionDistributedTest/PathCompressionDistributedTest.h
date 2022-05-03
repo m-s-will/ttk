@@ -69,7 +69,8 @@ namespace ttk {
       return triangulation->preconditionVertexNeighbors();
     }
 
-    std::vector<ttk::SimplexId> compressArray(const std::vector<ttk::SimplexId> &input) const {
+    std::vector<ttk::SimplexId>
+      compressArray(const std::vector<ttk::SimplexId> &input) const {
       ttk::Timer compressTimer;
 
       std::vector<ttk::SimplexId> output(input.size());
@@ -136,7 +137,6 @@ namespace ttk {
         MPI_Datatype mpi_values;
         const int nitems = 4;
         int blocklengths[4] = {1, 1, 1, 1};
-
 
         MPI_Datatype MIT = ttk::getMPIType(static_cast<ttk::SimplexId>(0));
         MPI_Datatype types[4] = {MIT, MPI_INT, MIT, MIT};
@@ -466,8 +466,8 @@ namespace ttk {
         */
         // compress the arrays into the ranges of 0 - #segmentation areas
         // problematic over multiple ranks, don't compress into the same values
-        //currentDesc = this->compressArray(currentDesc);
-        //currentAsc = this->compressArray(currentAsc);
+        // currentDesc = this->compressArray(currentDesc);
+        // currentAsc = this->compressArray(currentAsc);
 
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for num_threads(this->threadNumber_)

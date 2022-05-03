@@ -139,10 +139,9 @@ int ttkCinemaWriter::ProcessDataProduct(vtkDataObject *input) {
   if(compressor != nullptr)
     compressor->SetCompressionLevel(this->CompressionLevel);
 
-  std::string productExtension = this->Format == FORMAT::VTK
-                                   ? xmlWriter->GetDefaultFileExtension()
-                                 : this->Format == FORMAT::PNG ? "png"
-                                                               : "ttk";
+  std::string productExtension
+    = this->Format == FORMAT::VTK ? xmlWriter->GetDefaultFileExtension()
+                                  : this->Format == FORMAT::PNG ? "png" : "ttk";
 
   // -------------------------------------------------------------------------
   // Prepare Field Data
@@ -535,9 +534,9 @@ int ttkCinemaWriter::RequestData(vtkInformation *ttkNotUsed(request),
 
   // Print Status
   {
-    std::string format = this->Format == FORMAT::VTK   ? "VTK"
-                         : this->Format == FORMAT::PNG ? "PNG"
-                                                       : "TTK";
+    std::string format = this->Format == FORMAT::VTK
+                           ? "VTK"
+                           : this->Format == FORMAT::PNG ? "PNG" : "TTK";
     this->printMsg({{"Database", this->DatabasePath},
                     {"C. Level", std::to_string(this->CompressionLevel)},
                     {"Format", format},

@@ -42,7 +42,8 @@ ttkMorseSegmentation::~ttkMorseSegmentation() {
  * filter by adding the vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE() key to
  * the port information.
  */
-int ttkMorseSegmentation::FillInputPortInformation(int port, vtkInformation *info) {
+int ttkMorseSegmentation::FillInputPortInformation(int port,
+                                                   vtkInformation *info) {
   if(port == 0) {
     info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkDataSet");
     return 1;
@@ -65,7 +66,8 @@ int ttkMorseSegmentation::FillInputPortInformation(int port, vtkInformation *inf
  * Note: prior to the execution of the RequestData method the pipeline will
  * initialize empty output data objects based on this information.
  */
-int ttkMorseSegmentation::FillOutputPortInformation(int port, vtkInformation *info) {
+int ttkMorseSegmentation::FillOutputPortInformation(int port,
+                                                    vtkInformation *info) {
   if(port == 0) {
     info->Set(ttkAlgorithm::SAME_DATA_TYPE_AS_INPUT_PORT(), 0);
     return 1;
@@ -87,8 +89,8 @@ int ttkMorseSegmentation::FillOutputPortInformation(int port, vtkInformation *in
  *        provided by the FillOutputPortInformation method.
  */
 int ttkMorseSegmentation::RequestData(vtkInformation *ttkNotUsed(request),
-                               vtkInformationVector **inputVector,
-                               vtkInformationVector *outputVector) {
+                                      vtkInformationVector **inputVector,
+                                      vtkInformationVector *outputVector) {
 
   // Get input object from input vector
   // Note: has to be a vtkDataSet as required by FillInputPortInformation
@@ -141,8 +143,10 @@ int ttkMorseSegmentation::RequestData(vtkInformation *ttkNotUsed(request),
   //
   //       During the RequestData execution one can then retrieve an actual
   //       array with the method "GetInputArrayToProcess".
-  vtkDataArray *ascendingManifold = this->GetInputArrayToProcess(0, inputVector);
-  vtkDataArray *descendingManifold = this->GetInputArrayToProcess(1, inputVector);
+  vtkDataArray *ascendingManifold
+    = this->GetInputArrayToProcess(0, inputVector);
+  vtkDataArray *descendingManifold
+    = this->GetInputArrayToProcess(1, inputVector);
   if(!ascendingManifold) {
     this->printErr("Unable to retrieve input array.");
     return 0;
@@ -159,15 +163,18 @@ int ttkMorseSegmentation::RequestData(vtkInformation *ttkNotUsed(request),
     this->printErr("Input array needs to be a point data array.");
     return 0;
   }
-  if(ascendingManifold->GetNumberOfComponents() != 1 || descendingManifold->GetNumberOfComponents() != 1 ) {
+  if(ascendingManifold->GetNumberOfComponents() != 1
+     || descendingManifold->GetNumberOfComponents() != 1) {
     this->printErr("Input arrays need to be scalar arrays.");
     return 0;
   }
 
   // If all checks pass then log which array is going to be processed.
   this->printMsg("Starting computation...");
-  this->printMsg("  Scalar Array 1: " + std::string(ascendingManifold->GetName()));
-  this->printMsg("  Scalar Array 1: " + std::string(descendingManifold->GetName()));
+  this->printMsg("  Scalar Array 1: "
+                 + std::string(ascendingManifold->GetName()));
+  this->printMsg("  Scalar Array 1: "
+                 + std::string(descendingManifold->GetName()));
 
   // Create an output array that has the same data type as the input array
   // Note: vtkSmartPointers are well documented
@@ -190,7 +197,8 @@ int ttkMorseSegmentation::RequestData(vtkInformation *ttkNotUsed(request),
 
   // Templatize over the different input array data types and call the base code
   int status = 0; // this integer checks if the base code returns an error
-  ttkVtkTemplateMacro(ascendingManifold->GetDataType(), triangulation->getType(),
+  ttkVtkTemplateMacro(ascendingManifold->GetDataType(),
+                      triangulation->getType(),
                       (status = this->computeAverages<VTK_TT, TTK_TT>(
                          (VTK_TT *)ttkUtils::GetVoidPointer(outputArray),
                          (VTK_TT *)ttkUtils::GetVoidPointer(ascendingManifold),

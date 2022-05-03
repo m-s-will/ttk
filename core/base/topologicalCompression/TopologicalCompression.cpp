@@ -642,8 +642,7 @@ int ttk::TopologicalCompression::WriteToFile(FILE *fp,
   int totalSize = usePersistence ? ComputeTotalSizeForPersistenceDiagram(
                     getMapping(), getCriticalConstraints(), zfpOnly,
                     getNbSegments(), getNbVertices(), zfpTolerance)
-                  : useOther ? ComputeTotalSizeForOther()
-                             : 0;
+                                 : useOther ? ComputeTotalSizeForOther() : 0;
 
   std::vector<char> bbuf(totalSize);
   char *buf = bbuf.data();
@@ -757,10 +756,11 @@ int ttk::TopologicalCompression::WriteMetaData(
 
   // 0. SQ type
   const char *sq = sqMethod;
-  int sqType = (strcmp(sq, "") == 0)                            ? 0
-               : (strcmp(sq, "r") == 0 || strcmp(sq, "R") == 0) ? 1
-               : (strcmp(sq, "d") == 0 || strcmp(sq, "D") == 0) ? 2
-                                                                : 3;
+  int sqType = (strcmp(sq, "") == 0)
+                 ? 0
+                 : (strcmp(sq, "r") == 0 || strcmp(sq, "R") == 0)
+                     ? 1
+                     : (strcmp(sq, "d") == 0 || strcmp(sq, "D") == 0) ? 2 : 3;
 
   Write<int32_t>(fp, sqType);
 

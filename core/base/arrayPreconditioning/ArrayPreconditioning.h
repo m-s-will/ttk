@@ -87,7 +87,7 @@ namespace ttk {
                                   size_t burstSize) const {
 
       if(burstSize > values.size()) {
-        outVector.resize(values.size(),{0, 0, 0});
+        outVector.resize(values.size(), {0, 0, 0});
         outVector.assign(values.begin(), values.end());
         values.clear();
       } else {
@@ -191,17 +191,21 @@ namespace ttk {
       std::vector<value<DT, IT>> receivedValues;
       // be prepared to receive burstsize of elements, resize after receiving to
       // the correct size
-      if (rankFrom == 3) this->printMsg("Receiving Stuff from rank 3");
+      if(rankFrom == 3)
+        this->printMsg("Receiving Stuff from rank 3");
       int amount;
       MPI_Status status;
       MPI_Probe(rankFrom, structTag, MPI_COMM_WORLD, &status);
       MPI_Get_count(&status, mpi_values, &amount);
-      if (rankFrom == 3) this->printMsg("Receiving " + std::to_string(amount) + " values from rank 3");
+      if(rankFrom == 3)
+        this->printMsg("Receiving " + std::to_string(amount)
+                       + " values from rank 3");
 
       receivedValues.resize(amount, {0, 0, 0});
       MPI_Recv(receivedValues.data(), amount, mpi_values, rankFrom, structTag,
                MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-      if (rankFrom == 3) this->printMsg("Writing Values for rank 3 in unsortedReceivedValues");
+      if(rankFrom == 3)
+        this->printMsg("Writing Values for rank 3 in unsortedReceivedValues");
       unsortedReceivedValues[rankFrom] = receivedValues;
     }
 #endif
@@ -324,7 +328,8 @@ namespace ttk {
                 mpi_values, i, structTag, unsortedReceivedValues);
             }
           }
-          this->printMsg("Rank3.size: " + std::to_string(unsortedReceivedValues[3].size()));
+          this->printMsg("Rank3.size: "
+                         + std::to_string(unsortedReceivedValues[3].size()));
           while(finalValues.size() < totalSize) {
             // take the current maximum scalar over all ranks
             int rankIdOfMaxScalar = -1;
@@ -415,7 +420,8 @@ namespace ttk {
         } else {
           IT nValues = sortingValues.size();
           MPI_Send(&nValues, 1, MPI_IT, 0, intTag, MPI_COMM_WORLD);
-          if (rank == 3) this->printMsg("sortingvalues.size " + std::to_string(nValues));
+          if(rank == 3)
+            this->printMsg("sortingvalues.size " + std::to_string(nValues));
           // send the next burstsize values and then wait for an answer from the
           // root rank
           while(sortingValues.size() > 0) {
@@ -423,7 +429,8 @@ namespace ttk {
             this->returnVectorForBurstsize<DT, IT>(
               sendValues, sortingValues, burstSize);
             int size = sendValues.size();
-            if (rank == 3) this->printMsg("sendvalues.size " + std::to_string(size));
+            if(rank == 3)
+              this->printMsg("sendvalues.size " + std::to_string(size));
             MPI_Send(sendValues.data(), size, mpi_values, 0, structTag,
                      MPI_COMM_WORLD);
             std::vector<IT> receivedValues;

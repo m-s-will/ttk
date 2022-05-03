@@ -3,7 +3,8 @@
 /// \author Michael Will <mswill@rhrk.uni-kl.de>
 /// \date 2022.
 ///
-/// This module defines the %MorseSegmentation class that compute the morse smale segmentation given an ascending and descending manifold
+/// This module defines the %MorseSegmentation class that compute the morse
+/// smale segmentation given an ascending and descending manifold
 ///
 /// \b Related \b publication: \n
 /// 'MorseSegmentation'
@@ -22,29 +23,31 @@
 namespace ttk {
 
   /**
-   * The MorseSegmentation class provides methods to compute the morse smale segmentation given an ascending and descending manifold
+   * The MorseSegmentation class provides methods to compute the morse smale
+   * segmentation given an ascending and descending manifold
    */
   class MorseSegmentation : virtual public Debug {
 
   public:
     MorseSegmentation();
 
-
-    std::vector<int> compressArray(const std::vector<int>& input) const {
+    std::vector<int> compressArray(const std::vector<int> &input) const {
       ttk::Timer compressTimer;
-    
+
       std::vector<int> output(input.size());
       std::unordered_map<int, int> uniquesMap;
       int counter = 0;
-      // assemble the output by creating a map of unique values while running over the array
-      for (size_t i = 0; i < input.size(); i++){
-        if ( uniquesMap.find(input[i]) == uniquesMap.end() ){
+      // assemble the output by creating a map of unique values while running
+      // over the array
+      for(size_t i = 0; i < input.size(); i++) {
+        if(uniquesMap.find(input[i]) == uniquesMap.end()) {
           uniquesMap[input[i]] = counter;
           counter++;
         }
         output[i] = uniquesMap[input[i]];
       }
-      this->printMsg("#Unique Segmentations: " + std::to_string(counter), 1, compressTimer.getElapsedTime()); 
+      this->printMsg("#Unique Segmentations: " + std::to_string(counter), 1,
+                     compressTimer.getElapsedTime());
       return output;
     }
 
@@ -52,7 +55,6 @@ namespace ttk {
       ttk::AbstractTriangulation *triangulation) const {
       return triangulation->preconditionVertexNeighbors();
     }
-
 
     template <class dataType,
               class triangulationType = ttk::AbstractTriangulation>
@@ -88,22 +90,26 @@ namespace ttk {
 
         // compute the average of each vertex in parallel
         int nVertices = triangulation->getNumberOfVertices();
-        std::vector<int> segmentation(nVertices);    
+        std::vector<int> segmentation(nVertices);
         int numberOfMaxima = 0;
-        // get the number of unique values of descendingManifold by just getting the maximum value
-        for (int i = 0; i < nVertices; i++) {
-          if (descendingManifold[i] > numberOfMaxima){
+        // get the number of unique values of descendingManifold by just getting
+        // the maximum value
+        for(int i = 0; i < nVertices; i++) {
+          if(descendingManifold[i] > numberOfMaxima) {
             numberOfMaxima = descendingManifold[i];
           }
         }
 
-        // generate unique values for unique descending / ascending combinations by using the number of distinct values in descendingManifold
-        // and multiplying it by the current ascending value. This ensures that adding the descending value doesn't overflow into a new "bucket"
+        // generate unique values for unique descending / ascending combinations
+        // by using the number of distinct values in descendingManifold and
+        // multiplying it by the current ascending value. This ensures that
+        // adding the descending value doesn't overflow into a new "bucket"
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for num_threads(this->threadNumber_)
 #endif
         for(int i = 0; i < nVertices; i++) {
-          segmentation[i] = descendingManifold[i] + ascendingManifold[i] * numberOfMaxima;
+          segmentation[i]
+            = descendingManifold[i] + ascendingManifold[i] * numberOfMaxima;
         }
 
         segmentation = compressArray(segmentation);
@@ -111,8 +117,8 @@ namespace ttk {
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for num_threads(this->threadNumber_)
 #endif
-        for (int i = 0; i < nVertices; i++){
-            outputData[i] = segmentation[i];
+        for(int i = 0; i < nVertices; i++) {
+          outputData[i] = segmentation[i];
         }
 
         // print the progress of the current subprocedure with elapsed time

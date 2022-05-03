@@ -190,9 +190,10 @@ namespace ttk {
           auto &n0 = nodes0[n0Index];
           auto &n1 = nodes1[n1Index];
 
-          edges[i + 3] = n0.branchID == n1.branchID ? n0.branchID
-                         : n0.maxSuccID == n1Index  ? n0.branchID
-                                                    : n1.branchID;
+          edges[i + 3]
+            = n0.branchID == n1.branchID
+                ? n0.branchID
+                : n0.maxSuccID == n1Index ? n0.branchID : n1.branchID;
         }
       }
 
@@ -346,13 +347,9 @@ int ttk::TrackingFromOverlap::computeOverlap(const float *pointCoordinates0,
     float p1_Y = pointCoordinates1[p1CoordIndex++];
     float p1_Z = pointCoordinates1[p1CoordIndex];
 
-    return p0_X == p1_X  ? p0_Y == p1_Y  ? p0_Z == p1_Z  ? 0
-                                           : p0_Z < p1_Z ? -1
-                                                         : 1
-                           : p0_Y < p1_Y ? -1
-                                         : 1
-           : p0_X < p1_X ? -1
-                         : 1;
+    return p0_X == p1_X ? p0_Y == p1_Y ? p0_Z == p1_Z ? 0 : p0_Z < p1_Z ? -1 : 1
+                                       : p0_Y < p1_Y ? -1 : 1
+                        : p0_X < p1_X ? -1 : 1;
   };
 
   size_t i = 0; // iterator for 0
