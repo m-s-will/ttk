@@ -80,7 +80,7 @@ namespace ttk {
     int idsTag = 102;
     int valuesTag = 103;
     if(rankToSend == thisRank) {
-      std::vector<std::vector<IT>> &rankVectors;
+      std::vector<std::vector<IT>> rankVectors;
       rankVectors.resize(nRanks);
       // aggregate the needed ids
       for(IT i = 0; i < nVerts; i++) {
@@ -95,7 +95,7 @@ namespace ttk {
           IT nValues = rankVectors[r].size();
           MPI_Send(&nValues, 1, MPI_IT, r, amountTag, MPI_COMM_WORLD);
           if(nValues > 0) {
-            MPI_Send(rankVectors[r].data(), nValues, MPI_DT, r, idsTag,
+            MPI_Send(rankVectors[r].data(), nValues, MPI_IT, r, idsTag,
                      MPI_COMM_WORLD);
           }
         }
@@ -112,7 +112,7 @@ namespace ttk {
             for(IT i = 0; i < nValues; i++) {
               DT receivedVal = receivedValues[i];
               IT globalId = rankVectors[r][i];
-              IT localId = gidToLidMap[globalId];
+              IT localId = gidToLidMap.at(globalId);
               scalarArray[localId] = receivedVal;
             }
           }
@@ -126,13 +126,13 @@ namespace ttk {
                MPI_STATUS_IGNORE);
       if(nValues > 0) {
         std::vector<IT> receivedIds(nValues);
-        MPI_Recv(receivedIds.data(), nValues, MPI_IT, 0, idsTag, MPI_COMM_WORLD,
+        MPI_Recv(receivedIds.data(), nValues, MPI_IT, rankToSend, idsTag, MPI_COMM_WORLD,
                  MPI_STATUS_IGNORE);
         // assemble the scalar values
         std::vector<DT> valuesToSend(nValues);
         for(IT i = 0; i < nValues; i++) {
           IT globalId = receivedIds[i];
-          IT localId = gidToLidMap[globalId];
+          IT localId = gidToLidMap.at(globalId);
           valuesToSend[i] = scalarArray[localId];
         }
         // send the scalar values

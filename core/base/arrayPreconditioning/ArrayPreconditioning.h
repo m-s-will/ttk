@@ -129,10 +129,10 @@ namespace ttk {
     // gets all the neighbors of a rank based on the rankarray of the vertices
     // belonging to this rank
     inline void getNeighbors(std::unordered_set<int> &neighbors,
-                             const size_t nVertices,
+                             const size_t nVerts,
                              const int ownRank,
                              const int *const rankArray) const {
-      for(size_t i = 0; i < nVertices; i++) {
+      for(size_t i = 0; i < nVerts; i++) {
         int r = rankArray[i];
         if(r != ownRank)
           neighbors.emplace(r);
@@ -214,7 +214,7 @@ namespace ttk {
                            const DT *scalarArray,
                            const IT *globalIds,
                            const int *rankArray,
-                           const size_t nVertices,
+                           const size_t nVerts,
                            const int burstSize) const { // start global timer
       ttk::Timer globalTimer;
 
@@ -224,7 +224,7 @@ namespace ttk {
       // print input parameters in table format
       this->printMsg({
         {"#Threads", std::to_string(this->threadNumber_)},
-        {"#Vertices", std::to_string(nVertices)},
+        {"#Vertices", std::to_string(nVerts)},
       });
       this->printMsg(ttk::debug::Separator::L1);
 
@@ -264,13 +264,13 @@ namespace ttk {
         MPI_Type_commit(&mpi_values);
 
         this->printMsg("#Points in Rank " + std::to_string(rank) + ": "
-                       + std::to_string(nVertices));
+                       + std::to_string(nVerts));
         ttk::Timer fillAndSortTimer;
         std::vector<value_DT_IT> sortingValues;
         std::vector<IT> gidsToGetVector;
         std::unordered_map<IT, IT> gidToLidMap;
         this->populateVector<DT, IT>(sortingValues, gidsToGetVector,
-                                     gidToLidMap, nVertices, scalarArray,
+                                     gidToLidMap, nVerts, scalarArray,
                                      globalIds, rankArray, rank);
 
         // sort the scalar array distributed first by the scalar value itself,
@@ -296,7 +296,7 @@ namespace ttk {
         size_t totalSize = 0;
         if(rank == 0) {
           this->printMsg("Rank 0 starts merging");
-          // get the nVertices from each rank, add them to get the complete size
+          // get the nVerts from each rank, add them to get the complete size
           // of the dataset
           for(int i = 0; i < numProcs; i++) {
             if(i == 0) {
@@ -466,19 +466,19 @@ namespace ttk {
                        + ": " + std::to_string(orderedValuesForRank.size()));
 
         ttk::Timer orderTimer;
-
         this->buildArrayForReceivedData<IT>(
           orderedValuesForRank.size(), orderedValuesForRank.data(), gidToLidMap,
           orderArray, this->threadNumber_);
-
+        this->printMsg("Built own values");
         // we still need to get the data for the ghostcells from their ranks
+        /*
         std::unordered_set<int> neighbors;
-        this->getNeighbors(neighbors, nVertices, rank, rankArray);
+        this->getNeighbors(neighbors, nVerts, rank, rankArray);
         this->printMsg("Rank " + std::to_string(rank)
                        + " #Neighbors: " + std::to_string(neighbors.size()));
         std::vector<std::vector<IT>> gIdForNeighbors;
         this->getGIdForNeighbors<IT>(gIdForNeighbors, gidsToGetVector.size(),
-                                     neighbors.size(), gidsToGetVector,
+                                      neighbors.size(), gidsToGetVector,
                                      neighbors, gidToLidMap, rankArray);
         MPI_Request req;
         std::vector<size_t> sizesToSend;
@@ -549,6 +549,12 @@ namespace ttk {
               ordersToRecv.size(), ordersToRecv.data(), gidToLidMap, orderArray,
               this->threadNumber_);
           }
+        }
+        */
+
+        // we receive the values at the ghostcells through the abstract sendGhostCellInfo method
+        for (int r = 0; r < numProcs; r++){
+          ttk::sendGhostCellInfo<ttk::SimplexId, IT>(orderArray, rankArray, globalIds, gidToLidMap, r, rank, numProcs, nVerts);
         }
 
         // at the end, free up the MPI Datatype
