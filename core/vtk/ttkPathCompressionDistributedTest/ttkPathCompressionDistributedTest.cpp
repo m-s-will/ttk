@@ -93,7 +93,6 @@ int ttkPathCompressionDistributedTest::RequestData(
   vtkInformation *ttkNotUsed(request),
   vtkInformationVector **inputVector,
   vtkInformationVector *outputVector) {
-  this->printMsg("Request data called!");
   // Get input object from input vector
   // Note: has to be a vtkDataSet as required by FillInputPortInformation
   vtkDataSet *inputDataSet = vtkDataSet::GetData(inputVector[0]);

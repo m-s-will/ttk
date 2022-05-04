@@ -19,19 +19,6 @@
 #include <stdint.h>
 #include <unordered_map>
 
-#if SIZE_MAX == UCHAR_MAX
-#define my_MPI_SIZE_T MPI_UNSIGNED_CHAR
-#elif SIZE_MAX == USHRT_MAX
-#define my_MPI_SIZE_T MPI_UNSIGNED_SHORT
-#elif SIZE_MAX == UINT_MAX
-#define my_MPI_SIZE_T MPI_UNSIGNED
-#elif SIZE_MAX == ULONG_MAX
-#define my_MPI_SIZE_T MPI_UNSIGNED_LONG
-#elif SIZE_MAX == ULLONG_MAX
-#define my_MPI_SIZE_T MPI_UNSIGNED_LONG_LONG
-#else
-#error "size_t size not found"
-#endif
 
 namespace ttk {
 
@@ -78,7 +65,7 @@ namespace ttk {
       ttk::SimplexId counter = 0;
       // assemble the output by creating a map of unique values while running
       // over the array
-      for(size_t i = 0; i < input.size(); i++) {
+      for(ttk::SimplexId i = 0; i < input.size(); i++) {
         if(uniquesMap.find(input[i]) == uniquesMap.end()) {
           uniquesMap[input[i]] = counter;
           counter++;
@@ -124,7 +111,7 @@ namespace ttk {
                        0, // elapsed time so far
                        this->threadNumber_);
 
-        size_t nVertices = triangulation->getNumberOfVertices();
+        ttk::SimplexId nVertices = triangulation->getNumberOfVertices();
 
         std::vector<ttk::SimplexId> previousDesc(nVertices);
         std::vector<ttk::SimplexId> currentDesc(nVertices);
@@ -157,12 +144,12 @@ namespace ttk {
         std::unordered_map<ttk::SimplexId, ttk::SimplexId> gIdTolIdMap;
         // for the first step we initialize each vertex with the id of their
         // largest / smallest neighbor. Afterwards we only compare the arrays
-        for(size_t i = 0; i < nVertices; i++) {
+        for(ttk::SimplexId i = 0; i < nVertices; i++) {
           gIdTolIdMap.insert(std::make_pair(globalIds[i], i));
           int nNeighbors = triangulation->getVertexNeighborNumber(i);
           ttk::SimplexId neighborId;
-          float smallest = inputData[i];
-          float largest = inputData[i];
+          dataType smallest = inputData[i];
+          dataType largest = inputData[i];
           // if there is no larger / smaller neighbor, the vertex points to
           // itself and is therefore a maximum / minimum we do not need to check
           // for equality, because we use the order array
@@ -207,7 +194,7 @@ namespace ttk {
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for num_threads(this->threadNumber_)
 #endif
-            for(size_t i = 0; i < nVertices; i++) {
+            for(ttk::SimplexId i = 0; i < nVertices; i++) {
               nextDesc = previousDesc[previousDesc[i]];
               nextAsc = previousAsc[previousAsc[i]];
               if(nextDesc != currentDesc[i]) {
@@ -223,7 +210,7 @@ namespace ttk {
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for num_threads(this->threadNumber_)
 #endif
-            for(size_t i = 0; i < nVertices; i++) {
+            for(ttk::SimplexId i = 0; i < nVertices; i++) {
               nextDesc = currentDesc[currentDesc[i]];
               nextAsc = currentAsc[currentAsc[i]];
               if(nextDesc != previousDesc[i]) {
@@ -245,7 +232,7 @@ namespace ttk {
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for num_threads(this->threadNumber_)
 #endif
-        for(size_t i = 0; i < nVertices; i++) {
+        for(ttk::SimplexId i = 0; i < nVertices; i++) {
           currentDesc[i] = globalIds[currentDesc[i]];
           currentAsc[i] = globalIds[currentAsc[i]];
         }
@@ -268,9 +255,9 @@ namespace ttk {
           // end we send the finished edges back
           for(int r = 0; r < numProcs; r++) {
             if(r != 0) {
-              size_t receivedSize;
+              ttk::SimplexId receivedSize;
               std::vector<globalIdOwner> receivedIds;
-              MPI_Recv(&receivedSize, 1, my_MPI_SIZE_T, r, intTag,
+              MPI_Recv(&receivedSize, 1, MIT, r, intTag,
                        MPI_COMM_WORLD, MPI_STATUS_IGNORE);
               if(receivedSize > 0) {
                 receivedIds.resize(receivedSize);
@@ -302,7 +289,7 @@ namespace ttk {
           // locally
           std::vector<globalIdOwner> fromRank0 = valuesFromRanks[0];
           std::vector<globalIdOwner> edgesForR0(fromRank0.size());
-          for(size_t i = 0; i < fromRank0.size(); i++) {
+          for(ttk::SimplexId i = 0; i < fromRank0.size(); i++) {
             globalIdOwner currentVal = fromRank0[i];
             ttk::SimplexId gId = currentVal.globalId;
             ttk::SimplexId lId = gIdTolIdMap[gId];
@@ -320,8 +307,8 @@ namespace ttk {
           // send everything to the ranks and then receive afterwards
           for(int r = 1; r < numProcs; r++) {
             std::vector<globalIdOwner> fromThisRank = valuesFromRanks[r];
-            size_t nValues = fromThisRank.size();
-            MPI_Send(&nValues, 1, my_MPI_SIZE_T, r, intTag, MPI_COMM_WORLD);
+            ttk::SimplexId nValues = fromThisRank.size();
+            MPI_Send(&nValues, 1, MIT, r, intTag, MPI_COMM_WORLD);
             if(nValues > 0) {
               MPI_Send(fromThisRank.data(), nValues, mpi_values, r, structTag,
                        MPI_COMM_WORLD);
@@ -332,7 +319,7 @@ namespace ttk {
           // we need to receive the results to which the gids are pointing from
           // the ranks and build our map
           for(int r = 1; r < numProcs; r++) {
-            size_t nValues = valuesFromRanks[r].size();
+            ttk::SimplexId nValues = valuesFromRanks[r].size();
             std::vector<globalIdOwner> receivedIds;
             receivedIds.resize(nValues, {0, 0});
             if(nValues > 0) {
@@ -345,15 +332,15 @@ namespace ttk {
           this->printMsg(
             "Rank 0 received Ids with their targets from the owners");
 
-          size_t totalSize = edgesWithTargets.size();
-          MPI_Bcast(&totalSize, 1, my_MPI_SIZE_T, 0, MPI_COMM_WORLD);
+          ttk::SimplexId totalSize = edgesWithTargets.size();
+          MPI_Bcast(&totalSize, 1, MIT, 0, MPI_COMM_WORLD);
           MPI_Bcast(
             edgesWithTargets.data(), totalSize, mpi_values, 0, MPI_COMM_WORLD);
           this->printMsg("Rank 0 broadcasted the result");
 
         } else { // the other ranks
-          size_t nValues = foreignVertices.size();
-          MPI_Send(&nValues, 1, my_MPI_SIZE_T, 0, intTag, MPI_COMM_WORLD);
+          ttk::SimplexId nValues = foreignVertices.size();
+          MPI_Send(&nValues, 1, MIT, 0, intTag, MPI_COMM_WORLD);
           if(nValues > 0) {
             MPI_Send(foreignVertices.data(), nValues, mpi_values, 0, structTag,
                      MPI_COMM_WORLD);
@@ -362,8 +349,8 @@ namespace ttk {
                          + " sent needed ids to Rank 0");
 
           // we receive a variable amount of values from R0
-          size_t receivedSize;
-          MPI_Recv(&receivedSize, 1, my_MPI_SIZE_T, 0, intTag, MPI_COMM_WORLD,
+          ttk::SimplexId receivedSize;
+          MPI_Recv(&receivedSize, 1, MIT, 0, intTag, MPI_COMM_WORLD,
                    MPI_STATUS_IGNORE);
           if(receivedSize > 0) {
             std::vector<globalIdOwner> receivedIds;
@@ -378,7 +365,7 @@ namespace ttk {
             // back to R0
             std::vector<globalIdOwner> sendValues(receivedSize);
 
-            for(size_t i = 0; i < receivedSize; i++) {
+            for(ttk::SimplexId i = 0; i < receivedSize; i++) {
               globalIdOwner currentVal = receivedIds[i];
               ttk::SimplexId gId = currentVal.globalId;
               ttk::SimplexId lId = gIdTolIdMap[gId];
@@ -394,8 +381,8 @@ namespace ttk {
             this->printMsg("Rank " + std::to_string(rank)
                            + " sent owned ids with their targets to Rank 0");
             // receive the values from R0
-            size_t totalSize;
-            MPI_Bcast(&totalSize, 1, my_MPI_SIZE_T, 0, MPI_COMM_WORLD);
+            ttk::SimplexId totalSize;
+            MPI_Bcast(&totalSize, 1, MIT, 0, MPI_COMM_WORLD);
             edgesWithTargets.resize(totalSize);
             MPI_Bcast(edgesWithTargets.data(), totalSize, mpi_values, 0,
                       MPI_COMM_WORLD);
@@ -410,7 +397,7 @@ namespace ttk {
         std::unordered_map<ttk::SimplexId, ttk::SimplexId> gIdToAscendingMap;
         std::unordered_map<ttk::SimplexId, ttk::SimplexId> gIdToDescendingMap;
 
-        for(size_t i = 0; i < edgesWithTargets.size(); i++) {
+        for(ttk::SimplexId i = 0; i < edgesWithTargets.size(); i++) {
           globalIdOwner currentVal = edgesWithTargets[i];
           gIdToAscendingMap.insert(
             std::make_pair(currentVal.globalId, currentVal.ascendingTarget));
@@ -447,7 +434,7 @@ namespace ttk {
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for num_threads(this->threadNumber_)
 #endif
-        for(size_t i = 0; i < nVertices; i++) {
+        for(ttk::SimplexId i = 0; i < nVertices; i++) {
           ttk::SimplexId descVal = currentDesc[i];
           if(gIdToDescendingMap.count(descVal))
             currentDesc[i] = gIdToDescendingMap[descVal];
@@ -455,24 +442,12 @@ namespace ttk {
           if(gIdToAscendingMap.count(ascVal))
             currentAsc[i] = gIdToAscendingMap[ascVal];
         }
-        /*
-        for (globalIdOwner val : foreignVertices){
-          ttk::SimplexId gId = val.globalId;
-          ttk::SimplexId lId = gIdTolIdMap[gId];
 
-          currentAsc[lId] = gIdToAscendingMap[gId];
-          currentDesc[lId] = gIdToDescendingMap[gId];
-        }
-        */
-        // compress the arrays into the ranges of 0 - #segmentation areas
-        // problematic over multiple ranks, don't compress into the same values
-        // currentDesc = this->compressArray(currentDesc);
-        // currentAsc = this->compressArray(currentAsc);
 
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for num_threads(this->threadNumber_)
 #endif
-        for(size_t i = 0; i < nVertices; i++) {
+        for(ttk::SimplexId i = 0; i < nVertices; i++) {
           descendingManifold[i] = currentDesc[i];
           ascendingManifold[i] = currentAsc[i];
         }
