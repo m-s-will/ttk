@@ -65,6 +65,10 @@ namespace ttk {
     }
   }
 
+  // this is a collective operation, therefore all processeses
+  // in the communicator need to call it for it to work correctly
+  // otherwise it will freeze because it calls MPI_Send from rankToSend
+  // and expects an MPI_Recv from all other ranks
   template <typename DT, typename IT>
   void sendGhostCellInfo(DT *scalarArray,
                          const int *const rankArray,
@@ -73,7 +77,8 @@ namespace ttk {
                          const int rankToSend,
                          const int thisRank,
                          const int nRanks,
-                         const IT nVerts) {
+                         const IT nVerts,
+                         const MPI_Comm communicator) {
     MPI_Datatype MPI_DT = getMPIType(static_cast<DT>(0));
     MPI_Datatype MPI_IT = getMPIType(static_cast<IT>(0));
     int amountTag = 101;
@@ -93,10 +98,10 @@ namespace ttk {
       for(int r = 0; r < nRanks; r++) {
         if(rankToSend != r) {
           IT nValues = rankVectors[r].size();
-          MPI_Send(&nValues, 1, MPI_IT, r, amountTag, MPI_COMM_WORLD);
+          MPI_Send(&nValues, 1, MPI_IT, r, amountTag, communicator);
           if(nValues > 0) {
             MPI_Send(rankVectors[r].data(), nValues, MPI_IT, r, idsTag,
-                     MPI_COMM_WORLD);
+                     communicator);
           }
         }
       }
@@ -108,7 +113,7 @@ namespace ttk {
           std::vector<DT> receivedValues(nValues);
           if(nValues > 0) {
             MPI_Recv(receivedValues.data(), nValues, MPI_DT, r, valuesTag,
-                     MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                     communicator, MPI_STATUS_IGNORE);
             for(IT i = 0; i < nValues; i++) {
               DT receivedVal = receivedValues[i];
               IT globalId = rankVectors[r][i];
@@ -122,11 +127,11 @@ namespace ttk {
     } else {
       // receive the amount of ids and the needed ids themselves
       IT nValues;
-      MPI_Recv(&nValues, 1, MPI_IT, rankToSend, amountTag, MPI_COMM_WORLD,
+      MPI_Recv(&nValues, 1, MPI_IT, rankToSend, amountTag, communicator,
                MPI_STATUS_IGNORE);
       if(nValues > 0) {
         std::vector<IT> receivedIds(nValues);
-        MPI_Recv(receivedIds.data(), nValues, MPI_IT, rankToSend, idsTag, MPI_COMM_WORLD,
+        MPI_Recv(receivedIds.data(), nValues, MPI_IT, rankToSend, idsTag, communicator,
                  MPI_STATUS_IGNORE);
         // assemble the scalar values
         std::vector<DT> valuesToSend(nValues);
@@ -137,7 +142,7 @@ namespace ttk {
         }
         // send the scalar values
         MPI_Send(valuesToSend.data(), nValues, MPI_DT, rankToSend, valuesTag,
-                 MPI_COMM_WORLD);
+                 communicator);
       }
     }
   }

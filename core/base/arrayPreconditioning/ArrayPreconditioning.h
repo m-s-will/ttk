@@ -554,7 +554,15 @@ namespace ttk {
 
         // we receive the values at the ghostcells through the abstract sendGhostCellInfo method
         for (int r = 0; r < numProcs; r++){
-          ttk::sendGhostCellInfo<ttk::SimplexId, IT>(orderArray, rankArray, globalIds, gidToLidMap, r, rank, numProcs, nVerts);
+          ttk::sendGhostCellInfo<ttk::SimplexId, IT>(orderArray,
+                                                    rankArray,
+                                                    globalIds,
+                                                    gidToLidMap,
+                                                    r,
+                                                    rank,
+                                                    numProcs,
+                                                    nVerts,
+                                                    MPI_COMM_WORLD);
         }
 
         // at the end, free up the MPI Datatype
