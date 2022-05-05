@@ -65,7 +65,7 @@ namespace ttk {
       ttk::SimplexId counter = 0;
       // assemble the output by creating a map of unique values while running
       // over the array
-      for(ttk::SimplexId i = 0; i < input.size(); i++) {
+      for(size_t i = 0; i < input.size(); i++) {
         if(uniquesMap.find(input[i]) == uniquesMap.end()) {
           uniquesMap[input[i]] = counter;
           counter++;
@@ -184,8 +184,6 @@ namespace ttk {
         // all paths are finished
         int step = 0;
         bool same = false;
-        int nextDesc = 0;
-        int nextAsc = 0;
         while(!same) {
           this->printMsg("Rank " + std::to_string(rank) + ", running Step "
                          + std::to_string(step));
@@ -195,8 +193,8 @@ namespace ttk {
 #pragma omp parallel for num_threads(this->threadNumber_)
 #endif
             for(ttk::SimplexId i = 0; i < nVertices; i++) {
-              nextDesc = previousDesc[previousDesc[i]];
-              nextAsc = previousAsc[previousAsc[i]];
+              int nextDesc = previousDesc[previousDesc[i]];
+              int nextAsc = previousAsc[previousAsc[i]];
               if(nextDesc != currentDesc[i]) {
                 currentDesc[i] = nextDesc;
                 same = false;
@@ -211,8 +209,8 @@ namespace ttk {
 #pragma omp parallel for num_threads(this->threadNumber_)
 #endif
             for(ttk::SimplexId i = 0; i < nVertices; i++) {
-              nextDesc = currentDesc[currentDesc[i]];
-              nextAsc = currentAsc[currentAsc[i]];
+              int nextDesc = currentDesc[currentDesc[i]];
+              int nextAsc = currentAsc[currentAsc[i]];
               if(nextDesc != previousDesc[i]) {
                 previousDesc[i] = nextDesc;
                 same = false;
@@ -289,7 +287,7 @@ namespace ttk {
           // locally
           std::vector<globalIdOwner> fromRank0 = valuesFromRanks[0];
           std::vector<globalIdOwner> edgesForR0(fromRank0.size());
-          for(ttk::SimplexId i = 0; i < fromRank0.size(); i++) {
+          for(size_t i = 0; i < fromRank0.size(); i++) {
             globalIdOwner currentVal = fromRank0[i];
             ttk::SimplexId gId = currentVal.globalId;
             ttk::SimplexId lId = gIdTolIdMap[gId];
@@ -397,7 +395,7 @@ namespace ttk {
         std::unordered_map<ttk::SimplexId, ttk::SimplexId> gIdToAscendingMap;
         std::unordered_map<ttk::SimplexId, ttk::SimplexId> gIdToDescendingMap;
 
-        for(ttk::SimplexId i = 0; i < edgesWithTargets.size(); i++) {
+        for(size_t i = 0; i < edgesWithTargets.size(); i++) {
           globalIdOwner currentVal = edgesWithTargets[i];
           gIdToAscendingMap.insert(
             std::make_pair(currentVal.globalId, currentVal.ascendingTarget));
