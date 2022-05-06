@@ -70,33 +70,34 @@ namespace ttk {
   // otherwise it will freeze because it calls MPI_Send from rankToSend
   // and expects an MPI_Recv from all other ranks
   template <typename DT, typename IT>
-  void sendGhostCellInfo(DT *scalarArray,
+  void getGhostCellScalars(DT *scalarArray,
                          const int *const rankArray,
                          const IT *const globalIds,
                          const std::unordered_map<IT, IT> gidToLidMap,
                          const int rankToSend,
-                         const int thisRank,
                          const int nRanks,
                          const IT nVerts,
                          const MPI_Comm communicator) {
     MPI_Datatype MPI_DT = getMPIType(static_cast<DT>(0));
     MPI_Datatype MPI_IT = getMPIType(static_cast<IT>(0));
+    int rank;
+    MPI_Comm_rank(communicator, &rank);
     int amountTag = 101;
     int idsTag = 102;
     int valuesTag = 103;
-    if(rankToSend == thisRank) {
+    if(rankToSend == rank) {
       std::vector<std::vector<IT>> rankVectors;
       rankVectors.resize(nRanks);
       // aggregate the needed ids
       for(IT i = 0; i < nVerts; i++) {
-        if(rankToSend != rankArray[i]) {
+        if(rank != rankArray[i]) {
           rankVectors[rankArray[i]].push_back(globalIds[i]);
         }
       }
 
       // send the amount of ids and the needed ids themselves
       for(int r = 0; r < nRanks; r++) {
-        if(rankToSend != r) {
+        if(rank != r) {
           IT nValues = rankVectors[r].size();
           MPI_Send(&nValues, 1, MPI_IT, r, amountTag, communicator);
           if(nValues > 0) {
