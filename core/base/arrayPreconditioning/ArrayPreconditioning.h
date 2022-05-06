@@ -32,8 +32,7 @@ namespace ttk {
       DT scalar;
       IT globalId;
 
-      value(DT _scalar, IT _globalId)
-        : scalar(_scalar), globalId(_globalId) {
+      value(DT _scalar, IT _globalId) : scalar(_scalar), globalId(_globalId) {
       }
     };
 
@@ -179,22 +178,106 @@ namespace ttk {
     }
 
 #ifdef TTK_ENABLE_MPI
+    // this method gets the current maximum value and works with it
+    // if this leads to the vector of one rank being empty,
+    // it sends the ordering to the rank and requests new values
+    template <typename DT, typename IT>
+    void getMax(int intTag, int structTag, IT &currentOrder, int burstSize,  MPI_Datatype MPI_IT, std::vector<value<DT, IT>> &finalValues,
+                std::vector<std::vector<value<DT, IT>>> &unsortedReceivedValues,
+                std::vector<std::vector<IT>> &orderResendValues,
+                std::vector<IT> &orderedValuesForRank,
+                std::vector<value<DT, IT>> &sortingValues) const {
+      // take the current maximum scalar over all ranks
+      int rankIdOfMaxScalar = -1;
+      DT maxScalar = std::numeric_limits<DT>::lowest();
+      IT maxGId = -1;
+      for(size_t i = 0; i < unsortedReceivedValues.size(); i++) {
+        if(unsortedReceivedValues[i].size() > 0) {
+          const auto &v = unsortedReceivedValues[i].back();
+          if(v.scalar == maxScalar ? v.globalId > maxGId
+                                   : v.scalar > maxScalar) {
+            maxScalar = v.scalar;
+            maxGId = v.globalId;
+            rankIdOfMaxScalar = i;
+          }
+        }
+      }
+      if(rankIdOfMaxScalar == -1) {
+
+        this->printMsg("FinalValues.size: "
+                       + std::to_string(finalValues.size()));
+        this->printErr("All vectors are empty, but out final vector is "
+                       "not complete yet. Either something went wrong or "
+                       "some rank didn't send their values yet.");
+      }
+      // move the struct from the unsortedReceivedValues subvector to the
+      // finalValues vector to get an ordering
+      value<DT, IT> currentValue
+        = unsortedReceivedValues[rankIdOfMaxScalar].back();
+      // we send the globalId and the the order via one send command,
+      // therefore we need to check two concurrent values at the same time
+      // later on
+      orderResendValues[rankIdOfMaxScalar].push_back(currentValue.globalId);
+      orderResendValues[rankIdOfMaxScalar].push_back(currentOrder);
+      currentOrder--;
+      finalValues.push_back(currentValue);
+      unsortedReceivedValues[rankIdOfMaxScalar].pop_back();
+      if(unsortedReceivedValues[rankIdOfMaxScalar].size() == 0) {
+        if(rankIdOfMaxScalar == 0) {
+          // append the ordered values to the correct vector
+          orderedValuesForRank.insert(
+            orderedValuesForRank.end(),
+            orderResendValues[rankIdOfMaxScalar].begin(),
+            orderResendValues[rankIdOfMaxScalar].end());
+          orderResendValues[rankIdOfMaxScalar].clear();
+
+          if(sortingValues.size() > 0) {
+            std::vector<value<DT, IT>> ownValues;
+            this->returnVectorForBurstsize<DT, IT>(
+              ownValues, sortingValues, burstSize);
+
+            unsortedReceivedValues[rankIdOfMaxScalar] = ownValues;
+          } else {
+            this->printMsg("We are done with rank 0");
+          }
+        } else {
+          // receive more values from rank, send ordering to the rank
+          // send to the finished rank that we want more
+          MPI_Send(orderResendValues[rankIdOfMaxScalar].data(),
+                   orderResendValues[rankIdOfMaxScalar].size(), MPI_IT,
+                   rankIdOfMaxScalar, intTag, MPI_COMM_WORLD);
+          orderResendValues[rankIdOfMaxScalar].clear();
+          // we receive more vals, if the size is still zero afterwards, we are finished with this rank
+          this->ReceiveAndAddToVector(rankIdOfMaxScalar, structTag, unsortedReceivedValues);
+          if (unsortedReceivedValues[rankIdOfMaxScalar].size() == 0) {
+            this->printMsg("We are done with rank "
+                           + std::to_string(rankIdOfMaxScalar));
+          }
+        }
+      }
+    }
+#endif
+
+#ifdef TTK_ENABLE_MPI
     template <typename DT, typename IT>
     void ReceiveAndAddToVector(
       int rankFrom,
       int structTag,
       std::vector<std::vector<value<DT, IT>>> &unsortedReceivedValues) const {
-      std::vector<value<DT, IT>> &receivedValues = unsortedReceivedValues[rankFrom];
+      std::vector<value<DT, IT>> &receivedValues
+        = unsortedReceivedValues[rankFrom];
       // be prepared to receive burstsize of elements, resize after receiving to
       // the correct size
       int amount;
       MPI_Status status;
       MPI_Probe(rankFrom, structTag, MPI_COMM_WORLD, &status);
       MPI_Get_count(&status, MPI_CHAR, &amount);
-      this->printMsg("Receiving " + std::to_string(amount / sizeof(value<DT,IT>)) + " values from rank " + std::to_string(rankFrom));
-      receivedValues.resize(amount / sizeof(value<DT,IT>), {0, 0});
+      this->printMsg("Receiving "
+                     + std::to_string(amount / sizeof(value<DT, IT>))
+                     + " values from rank " + std::to_string(rankFrom));
+      receivedValues.resize(amount / sizeof(value<DT, IT>), {0, 0});
       MPI_Recv(receivedValues.data(), amount, MPI_CHAR, rankFrom, structTag,
-               MPI_COMM_WORLD, &status);
+               MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     }
 #endif
 
@@ -209,7 +292,9 @@ namespace ttk {
 
       // print horizontal separator
       this->printMsg(ttk::debug::Separator::L1); // L1 is the '=' separator
-      this->printMsg("DT size:" + std::to_string(sizeof(DT)) + ", IT size: " + std::to_string(sizeof(IT)) + ", struct size: " + std::to_string(sizeof(value<DT, IT>)));
+      this->printMsg("DT size:" + std::to_string(sizeof(DT)) + ", IT size: "
+                     + std::to_string(sizeof(IT)) + ", struct size: "
+                     + std::to_string(sizeof(value<DT, IT>)));
       // print input parameters in table format
       this->printMsg({
         {"#Threads", std::to_string(this->threadNumber_)},
@@ -228,7 +313,6 @@ namespace ttk {
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
         int intTag = 101;
         int structTag = 102;
-        int boolTag = 103;
         if(rank == 0)
           this->printMsg("Global Point Ids and RankArray exist, "
                          "therefore we are in distributed mode!");
@@ -237,7 +321,7 @@ namespace ttk {
         MPI_Barrier(MPI_COMM_WORLD);
 
         MPI_Datatype MPI_IT = ttk::getMPIType(static_cast<IT>(0));
-      
+
         this->printMsg("#Points in Rank " + std::to_string(rank) + ": "
                        + std::to_string(nVerts));
         ttk::Timer fillAndSortTimer;
@@ -291,7 +375,7 @@ namespace ttk {
           unsortedReceivedValues.resize(numProcs);
           std::vector<std::vector<IT>> orderResendValues;
           orderResendValues.resize(numProcs);
-          for (int i = 0; i < numProcs; i++){
+          for(int i = 0; i < numProcs; i++) {
             orderResendValues[i].reserve(burstSize);
           }
 
@@ -303,87 +387,18 @@ namespace ttk {
                 ownValues, sortingValues, burstSize);
               unsortedReceivedValues[i] = ownValues;
             } else {
-              this->ReceiveAndAddToVector<DT, IT>(i, structTag, unsortedReceivedValues);
+              this->ReceiveAndAddToVector<DT, IT>(
+                i, structTag, unsortedReceivedValues);
             }
           }
           while(finalValues.size() < totalSize) {
-            // take the current maximum scalar over all ranks
-            int rankIdOfMaxScalar = -1;
-            DT maxScalar = std::numeric_limits<DT>::lowest();
-            IT maxGId = -1;
-            for(int i = 0; i < numProcs; i++) {
-              if(unsortedReceivedValues[i].size() > 0) {
-                const auto &v = unsortedReceivedValues[i].back();
-                if(v.scalar == maxScalar ? v.globalId > maxGId : v.scalar > maxScalar){
-                  maxScalar = v.scalar;
-                  maxGId = v.globalId;
-                  rankIdOfMaxScalar = i;
-                }
-              }
-            }
-            if(rankIdOfMaxScalar == -1) {
-
-              this->printMsg("FinalValues.size: "
-                             + std::to_string(finalValues.size()));
-              this->printErr("All vectors are empty, but out final vector is "
-                             "not complete yet. Either something went wrong or "
-                             "some rank didn't send their values yet.");
-              return 0;
-            }
-
-            // move the struct from the unsortedReceivedValues subvector to the
-            // finalValues vector to get an ordering
-            value<DT, IT> currentValue
-              = unsortedReceivedValues[rankIdOfMaxScalar].back();
-            // we send the globalId and the the order via one send command,
-            // therefore we need to check two concurrent values at the same time
-            // later on
-            orderResendValues[rankIdOfMaxScalar].push_back(
-              currentValue.globalId);
-            orderResendValues[rankIdOfMaxScalar].push_back(currentOrder);
-            currentOrder--;
-            finalValues.push_back(currentValue);
-            unsortedReceivedValues[rankIdOfMaxScalar].pop_back();
-            if(unsortedReceivedValues[rankIdOfMaxScalar].size() == 0) {
-              if(rankIdOfMaxScalar == 0) {
-                // append the ordered values to the correct vector
-                orderedValuesForRank.insert(
-                  orderedValuesForRank.end(),
-                  orderResendValues[rankIdOfMaxScalar].begin(),
-                  orderResendValues[rankIdOfMaxScalar].end());
-                orderResendValues[rankIdOfMaxScalar].clear();
-
-                if(sortingValues.size() > 0) {
-                  std::vector<value<DT, IT>> ownValues;
-                  this->returnVectorForBurstsize<DT, IT>(
-                    ownValues, sortingValues, burstSize);
-
-                  unsortedReceivedValues[rankIdOfMaxScalar] = ownValues;
-                } else {
-                  this->printMsg("We are done with rank 0!");
-                }
-              } else {
-                // receive more values from rank, send ordering to the rank
-                // send to the finished rank that we want more
-                MPI_Send(orderResendValues[rankIdOfMaxScalar].data(),
-                         orderResendValues[rankIdOfMaxScalar].size(), MPI_IT,
-                         rankIdOfMaxScalar, intTag, MPI_COMM_WORLD);
-                orderResendValues[rankIdOfMaxScalar].clear();
-                // check if there are more values to be received. If so, receive
-                // them
-                bool moreVals = false;
-                MPI_Recv(&moreVals, 1, MPI_CXX_BOOL, rankIdOfMaxScalar, boolTag,
-                         MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-                if(moreVals) {
-                  this->ReceiveAndAddToVector(rankIdOfMaxScalar,
-                                              structTag,
-                                              unsortedReceivedValues);
-                } else {
-                  this->printMsg("We are done with rank "
-                                 + std::to_string(rankIdOfMaxScalar));
-                }
-              }
-            }
+            this->getMax<DT, IT>(intTag, structTag, currentOrder, burstSize,
+                                MPI_IT,
+                                finalValues,
+                                unsortedReceivedValues,
+                                orderResendValues,
+                                orderedValuesForRank,
+                                sortingValues);
           }
 
           this->printMsg("Finished with sorting, max value is "
@@ -400,8 +415,8 @@ namespace ttk {
             this->returnVectorForBurstsize<DT, IT>(
               sendValues, sortingValues, burstSize);
             int size = sendValues.size();
-            MPI_Ssend(sendValues.data(), size * sizeof(value<DT, IT>), MPI_CHAR, 0, structTag,
-                     MPI_COMM_WORLD);
+            MPI_Send(sendValues.data(), size * sizeof(value<DT, IT>), MPI_CHAR,
+                      0, structTag, MPI_COMM_WORLD);
             std::vector<IT> receivedValues;
 
             // be prepared to receive burstsize of elements, resize after
@@ -416,11 +431,11 @@ namespace ttk {
             orderedValuesForRank.insert(orderedValuesForRank.end(),
                                         receivedValues.begin(),
                                         receivedValues.end());
-
-            // afterwards send to root if there are still values to be sent
-            bool moreVals = sortingValues.size() > 0;
-            MPI_Send(&moreVals, 1, MPI_CXX_BOOL, 0, boolTag, MPI_COMM_WORLD);
           }
+          // afterwards send once a message of length 0 to root to show that we are done
+          MPI_Send(sortingValues.data(), 0, MPI_CHAR,
+                    0, structTag, MPI_COMM_WORLD);
+
         }
 
         // all ranks do the following
@@ -440,18 +455,13 @@ namespace ttk {
           orderArray, this->threadNumber_);
         this->printMsg("Built own values");
 
-        // we receive the values at the ghostcells through the abstract sendGhostCellInfo method
-        for (int r = 0; r < numProcs; r++){
-          ttk::getGhostCellScalars<ttk::SimplexId, IT>(orderArray,
-                                                    rankArray,
-                                                    globalIds,
-                                                    gidToLidMap,
-                                                    r,
-                                                    numProcs,
-                                                    nVerts,
-                                                    MPI_COMM_WORLD);
+        // we receive the values at the ghostcells through the abstract
+        // sendGhostCellInfo method
+        for(int r = 0; r < numProcs; r++) {
+          ttk::getGhostCellScalars<ttk::SimplexId, IT>(
+            orderArray, rankArray, globalIds, gidToLidMap, r, numProcs, nVerts,
+            MPI_COMM_WORLD);
         }
-
       }
 #else
       this->printMsg("MPI not enabled!");

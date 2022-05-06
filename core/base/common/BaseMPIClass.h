@@ -72,13 +72,13 @@ namespace ttk {
   // and expects an MPI_Recv from all other ranks
   template <typename DT, typename IT>
   void getGhostCellScalars(DT *scalarArray,
-                         const int *const rankArray,
-                         const IT *const globalIds,
-                         const std::unordered_map<IT, IT> gidToLidMap,
-                         const int rankToSend,
-                         const int nRanks,
-                         const IT nVerts,
-                         const MPI_Comm communicator) {
+                           const int *const rankArray,
+                           const IT *const globalIds,
+                           const std::unordered_map<IT, IT> gidToLidMap,
+                           const int rankToSend,
+                           const int nRanks,
+                           const IT nVerts,
+                           const MPI_Comm communicator) {
     MPI_Datatype MPI_DT = getMPIType(static_cast<DT>(0));
     MPI_Datatype MPI_IT = getMPIType(static_cast<IT>(0));
     int rank;
@@ -102,8 +102,8 @@ namespace ttk {
           IT nValues = rankVectors[r].size();
           MPI_Send(&nValues, 1, MPI_IT, r, amountTag, communicator);
           if(nValues > 0) {
-            MPI_Send(rankVectors[r].data(), nValues, MPI_IT, r, idsTag,
-                     communicator);
+            MPI_Send(
+              rankVectors[r].data(), nValues, MPI_IT, r, idsTag, communicator);
           }
         }
       }
@@ -133,8 +133,8 @@ namespace ttk {
                MPI_STATUS_IGNORE);
       if(nValues > 0) {
         std::vector<IT> receivedIds(nValues);
-        MPI_Recv(receivedIds.data(), nValues, MPI_IT, rankToSend, idsTag, communicator,
-                 MPI_STATUS_IGNORE);
+        MPI_Recv(receivedIds.data(), nValues, MPI_IT, rankToSend, idsTag,
+                 communicator, MPI_STATUS_IGNORE);
         // assemble the scalar values
         std::vector<DT> valuesToSend(nValues);
         for(IT i = 0; i < nValues; i++) {

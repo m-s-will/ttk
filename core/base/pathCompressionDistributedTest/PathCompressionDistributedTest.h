@@ -19,7 +19,6 @@
 #include <stdint.h>
 #include <unordered_map>
 
-
 namespace ttk {
 
   /**
@@ -255,8 +254,8 @@ namespace ttk {
             if(r != 0) {
               ttk::SimplexId receivedSize;
               std::vector<globalIdOwner> receivedIds;
-              MPI_Recv(&receivedSize, 1, MIT, r, intTag,
-                       MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+              MPI_Recv(&receivedSize, 1, MIT, r, intTag, MPI_COMM_WORLD,
+                       MPI_STATUS_IGNORE);
               if(receivedSize > 0) {
                 receivedIds.resize(receivedSize);
                 MPI_Recv(receivedIds.data(), receivedSize, mpi_values, r,
@@ -440,7 +439,6 @@ namespace ttk {
           if(gIdToAscendingMap.count(ascVal))
             currentAsc[i] = gIdToAscendingMap[ascVal];
         }
-
 
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for num_threads(this->threadNumber_)
