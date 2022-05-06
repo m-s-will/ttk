@@ -14,6 +14,7 @@
 #include <vector>
 
 #if TTK_ENABLE_MPI
+#define OMPI_SKIP_MPICXX 1
 #include <mpi.h>
 
 namespace ttk {

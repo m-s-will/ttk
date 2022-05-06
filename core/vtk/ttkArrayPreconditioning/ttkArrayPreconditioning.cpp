@@ -101,6 +101,7 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
           orderArray->SetNumberOfComponents(1);
           orderArray->SetNumberOfTuples(nVertices);
 
+          this->printMsg(std::to_string(scalarArray->GetDataType()));
           ttkTypeMacroAI(
             scalarArray->GetDataType(), vtkGlobalPointIds->GetDataType(),
             (status = processScalarArray<T0, T1>(
