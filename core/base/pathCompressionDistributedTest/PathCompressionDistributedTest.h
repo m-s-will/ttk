@@ -120,20 +120,8 @@ namespace ttk {
         int rank;
         MPI_Comm_size(MPI_COMM_WORLD, &numProcs);
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-        MPI_Datatype mpi_values;
-        const int nitems = 4;
-        int blocklengths[4] = {1, 1, 1, 1};
 
         MPI_Datatype MIT = ttk::getMPIType(static_cast<ttk::SimplexId>(0));
-        MPI_Datatype types[4] = {MIT, MPI_INT, MIT, MIT};
-        MPI_Aint offsets[4];
-        offsets[0] = offsetof(globalIdOwner, globalId);
-        offsets[1] = offsetof(globalIdOwner, ownerRank);
-        offsets[2] = offsetof(globalIdOwner, ascendingTarget);
-        offsets[3] = offsetof(globalIdOwner, descendingTarget);
-        MPI_Type_create_struct(
-          nitems, blocklengths, offsets, types, &mpi_values);
-        MPI_Type_commit(&mpi_values);
         int intTag = 100;
         int structTag = 101;
         this->printMsg("Initializing MPI done for rank "
@@ -244,7 +232,7 @@ namespace ttk {
         MPI_Barrier(MPI_COMM_WORLD);
         if(rank == 0) {
           // construct the set with the globalids not owned by rank 0
-          std::set<globalIdOwner> edges(
+          std::vector<globalIdOwner> edges(
             foreignVertices.begin(), foreignVertices.end());
           // receive the data from all ranks
           // rank 0 gets all the needed global ids and their original owners,
@@ -256,12 +244,14 @@ namespace ttk {
               std::vector<globalIdOwner> receivedIds;
               MPI_Recv(&receivedSize, 1, MIT, r, intTag, MPI_COMM_WORLD,
                        MPI_STATUS_IGNORE);
+              this->printMsg("Rank 0 will receive " + std::to_string(receivedSize)
+                         + " ids which are needed from rank " + std::to_string(r));
+
               if(receivedSize > 0) {
                 receivedIds.resize(receivedSize);
-                MPI_Recv(receivedIds.data(), receivedSize, mpi_values, r,
+                MPI_Recv(receivedIds.data(), receivedSize * sizeof(globalIdOwner), MPI_CHAR, r,
                          structTag, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-                std::copy(receivedIds.begin(), receivedIds.end(),
-                          std::inserter(edges, edges.end()));
+                edges.insert(edges.end(), receivedIds.begin(), receivedIds.end());
               }
             }
           }
@@ -273,12 +263,10 @@ namespace ttk {
           // these gids are pointing to build our map
           std::vector<std::vector<globalIdOwner>> valuesFromRanks;
           valuesFromRanks.resize(numProcs);
-          auto edgesIt = edges.begin();
-          while(edgesIt != edges.end()) {
-            globalIdOwner currentId = *edgesIt;
-            int owner = currentId.ownerRank;
-            valuesFromRanks[owner].push_back(currentId);
-            edgesIt++;
+          for(globalIdOwner currentId : edges) {
+            // das ist ein tragendes print
+            //this->printMsg("Gid " + std::to_string(currentId.globalId) + " belongs to rank " + std::to_string(currentId.ownerRank));
+            valuesFromRanks[currentId.ownerRank].push_back(currentId);
           }
           this->printMsg("Rank 0 reordered Ids");
 
@@ -307,7 +295,7 @@ namespace ttk {
             ttk::SimplexId nValues = fromThisRank.size();
             MPI_Send(&nValues, 1, MIT, r, intTag, MPI_COMM_WORLD);
             if(nValues > 0) {
-              MPI_Send(fromThisRank.data(), nValues, mpi_values, r, structTag,
+              MPI_Send(fromThisRank.data(), nValues * sizeof(globalIdOwner), MPI_CHAR, r, structTag,
                        MPI_COMM_WORLD);
             }
           }
@@ -320,7 +308,7 @@ namespace ttk {
             std::vector<globalIdOwner> receivedIds;
             receivedIds.resize(nValues, {0, 0});
             if(nValues > 0) {
-              MPI_Recv(receivedIds.data(), nValues, mpi_values, r, structTag,
+              MPI_Recv(receivedIds.data(), nValues * sizeof(globalIdOwner), MPI_CHAR, r, structTag,
                        MPI_COMM_WORLD, MPI_STATUS_IGNORE);
               edgesWithTargets.insert(
                 edgesWithTargets.end(), receivedIds.begin(), receivedIds.end());
@@ -328,22 +316,23 @@ namespace ttk {
           }
           this->printMsg(
             "Rank 0 received Ids with their targets from the owners");
-
+          MPI_Barrier(MPI_COMM_WORLD);
           ttk::SimplexId totalSize = edgesWithTargets.size();
           MPI_Bcast(&totalSize, 1, MIT, 0, MPI_COMM_WORLD);
           MPI_Bcast(
-            edgesWithTargets.data(), totalSize, mpi_values, 0, MPI_COMM_WORLD);
+            edgesWithTargets.data(), totalSize * sizeof(globalIdOwner), MPI_CHAR, 0, MPI_COMM_WORLD);
           this->printMsg("Rank 0 broadcasted the result");
 
         } else { // the other ranks
           ttk::SimplexId nValues = foreignVertices.size();
           MPI_Send(&nValues, 1, MIT, 0, intTag, MPI_COMM_WORLD);
           if(nValues > 0) {
-            MPI_Send(foreignVertices.data(), nValues, mpi_values, 0, structTag,
+            MPI_Send(foreignVertices.data(), nValues * sizeof(globalIdOwner), MPI_CHAR, 0, structTag,
                      MPI_COMM_WORLD);
+            this->printMsg("Rank " + std::to_string(rank)
+              + " sent needed " + std::to_string(nValues) + " ids to Rank 0");
+
           }
-          this->printMsg("Rank " + std::to_string(rank)
-                         + " sent needed ids to Rank 0");
 
           // we receive a variable amount of values from R0
           ttk::SimplexId receivedSize;
@@ -352,7 +341,7 @@ namespace ttk {
           if(receivedSize > 0) {
             std::vector<globalIdOwner> receivedIds;
             receivedIds.resize(receivedSize, {0, 0});
-            MPI_Recv(receivedIds.data(), receivedSize, mpi_values, 0, structTag,
+            MPI_Recv(receivedIds.data(), receivedSize * sizeof(globalIdOwner), MPI_CHAR, 0, structTag,
                      MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             this->printMsg("Rank " + std::to_string(rank) + " is the owner of "
                            + std::to_string(receivedSize)
@@ -372,16 +361,21 @@ namespace ttk {
               currentVal.descendingTarget = descendingTarget;
               sendValues[i] = currentVal;
             }
+            this->printMsg("Rank " + std::to_string(rank)
+                           + " wants to sent owned ids with their targets to Rank 0");
 
-            MPI_Send(sendValues.data(), receivedSize, mpi_values, 0, structTag,
+            MPI_Send(sendValues.data(), receivedSize * sizeof(globalIdOwner), MPI_CHAR, 0, structTag,
                      MPI_COMM_WORLD);
             this->printMsg("Rank " + std::to_string(rank)
                            + " sent owned ids with their targets to Rank 0");
+
             // receive the values from R0
+            MPI_Barrier(MPI_COMM_WORLD);
             ttk::SimplexId totalSize;
             MPI_Bcast(&totalSize, 1, MIT, 0, MPI_COMM_WORLD);
+            this->printMsg("Rank " + std::to_string(rank) + " got the totalsize " + std::to_string(totalSize));
             edgesWithTargets.resize(totalSize);
-            MPI_Bcast(edgesWithTargets.data(), totalSize, mpi_values, 0,
+            MPI_Bcast(edgesWithTargets.data(), totalSize * sizeof(globalIdOwner), MPI_CHAR, 0,
                       MPI_COMM_WORLD);
             this->printMsg("Rank " + std::to_string(rank) + " got the results");
           }

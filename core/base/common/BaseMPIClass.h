@@ -165,13 +165,14 @@ namespace ttk {
   // we do this by sending all ranks from which we need something to rank 0, which checks all other ranks if they need something to us
   // TODO: actually do this
   template <typename IT>
-  void getNeighbors(std::unordered_set<int> neighbors, const int *const rankArray, const IT nVerts, const MPI_Comm communicator){
-    int ownRank;
-    MPI_Comm_rank(communicator, &ownRank);
+  std::unordered_set<int> getNeighbors(const int *const rankArray, const IT nVerts, const int ownRank){
+    std::unordered_set<int> neighbors;
     for(IT i = 0; i < nVerts; i++) {
-        if(rankArray[i] != ownRank)
+        if(rankArray[i] != ownRank){
           neighbors.emplace(rankArray[i]);
+        }
       }
+    return neighbors;
   }
 
 
@@ -188,12 +189,12 @@ namespace ttk {
     int rank;
     MPI_Comm_size(communicator, &nRanks);
     MPI_Comm_rank(communicator, &rank);
-    std::unordered_set<int> neighbors;
-    getNeighbors<IT>(neighbors, rankArray, nVerts, communicator);
+    auto neighbors = getNeighbors<IT>(rankArray, nVerts, rank);
     for(int r = 0; r < nRanks; r++) {
       getGhostCellScalars<DT, IT>(
         scalarArray, rankArray, globalIds, gidToLidMap, neighbors, r, nVerts,
         communicator);
+        MPI_Barrier(communicator);
 
     }
   }
