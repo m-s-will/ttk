@@ -11,6 +11,7 @@
 #include <iostream>
 #include <queue>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #if TTK_ENABLE_MPI
@@ -75,6 +76,7 @@ namespace ttk {
                            const int *const rankArray,
                            const IT *const globalIds,
                            const std::unordered_map<IT, IT> gidToLidMap,
+                           const std::unordered_set<int> neighbors,
                            const int rankToSend,
                            const IT nVerts,
                            const MPI_Comm communicator) {
@@ -84,7 +86,6 @@ namespace ttk {
     int nRanks;
     MPI_Comm_rank(communicator, &rank);
     MPI_Comm_size(communicator, &nRanks);
-
     // we need unique tags for each rankToSend, otherwise messages might become entangled
     int tagMultiplier = rankToSend + 1;
     int amountTag = 101 * tagMultiplier;
@@ -102,10 +103,9 @@ namespace ttk {
 
       // send the amount of ids and the needed ids themselves
       for(int r = 0; r < nRanks; r++) {
-        if(rankToSend != r) {
+        if(rankToSend != r && neighbors.count(r)>0) {
           IT nValues = rankVectors[r].size();
           MPI_Send(&nValues, 1, MPI_IT, r, amountTag, communicator);
-
           if(nValues > 0) {
             MPI_Send(
               rankVectors[r].data(), nValues, MPI_IT, r, idsTag, communicator);
@@ -115,7 +115,7 @@ namespace ttk {
 
       // receive the scalar values
       for(int r = 0; r < nRanks; r++) {
-        if(rankToSend != r) {
+        if(rankToSend != r && neighbors.count(r)>0) {
           IT nValues = rankVectors[r].size();
           std::vector<DT> receivedValues(nValues);
           if(nValues > 0) {
@@ -132,30 +132,48 @@ namespace ttk {
       }
 
     } else {
-      // receive the amount of ids and the needed ids themselves
-      IT nValues;
-      MPI_Recv(&nValues, 1, MPI_IT, rankToSend, amountTag, communicator,
-               MPI_STATUS_IGNORE);
+      // if rankToSend is not the neighbor of the current rank, we do not need to do anything
+      if (neighbors.count(rankToSend)>0) {
+        // receive the amount of ids and the needed ids themselves
+        IT nValues;
+        MPI_Recv(&nValues, 1, MPI_IT, rankToSend, amountTag, communicator,
+                MPI_STATUS_IGNORE);
+        if(nValues > 0) {
+          std::vector<IT> receivedIds(nValues);
+          MPI_Recv(receivedIds.data(), nValues, MPI_IT, rankToSend, idsTag,
+                  communicator, MPI_STATUS_IGNORE);
 
-      if(nValues > 0) {
-        std::vector<IT> receivedIds(nValues);
-        MPI_Recv(receivedIds.data(), nValues, MPI_IT, rankToSend, idsTag,
-                 communicator, MPI_STATUS_IGNORE);
-
-        // assemble the scalar values
-        std::vector<DT> valuesToSend(nValues);
-        for(IT i = 0; i < nValues; i++) {
-          IT globalId = receivedIds[i];
-          IT localId = gidToLidMap.at(globalId);
-          valuesToSend[i] = scalarArray[localId];
+          // assemble the scalar values
+          std::vector<DT> valuesToSend(nValues);
+          for(IT i = 0; i < nValues; i++) {
+            IT globalId = receivedIds[i];
+            IT localId = gidToLidMap.at(globalId);
+            valuesToSend[i] = scalarArray[localId];
+          }
+          // send the scalar values
+          MPI_Send(valuesToSend.data(), nValues, MPI_DT, rankToSend, valuesTag,
+                  communicator);
         }
-        // send the scalar values
-        MPI_Send(valuesToSend.data(), nValues, MPI_DT, rankToSend, valuesTag,
-                 communicator);
-
       }
     }
   }
+
+
+  // this builds all the neighbors for each rank in both directions
+  // e.g. all ranks from which we need something and all ranks which need something from is
+  // these are not generally the same
+  // we do this by sending all ranks from which we need something to rank 0, which checks all other ranks if they need something to us
+  // TODO: actually do this
+  template <typename IT>
+  void getNeighbors(std::unordered_set<int> neighbors, const int *const rankArray, const IT nVerts, const MPI_Comm communicator){
+    int ownRank;
+    MPI_Comm_rank(communicator, &ownRank);
+    for(IT i = 0; i < nVerts; i++) {
+        if(rankArray[i] != ownRank)
+          neighbors.emplace(rankArray[i]);
+      }
+  }
+
 
   // this method exchanges all ghost cell information
   // it does so by calling getGhostCellScalars for every rank in the communicator
@@ -167,13 +185,20 @@ namespace ttk {
                            const IT nVerts,
                            const MPI_Comm communicator) {
     int nRanks;
+    int rank;
     MPI_Comm_size(communicator, &nRanks);
+    MPI_Comm_rank(communicator, &rank);
+    std::unordered_set<int> neighbors;
+    getNeighbors<IT>(neighbors, rankArray, nVerts, communicator);
     for(int r = 0; r < nRanks; r++) {
       getGhostCellScalars<DT, IT>(
-        scalarArray, rankArray, globalIds, gidToLidMap, r, nVerts,
+        scalarArray, rankArray, globalIds, gidToLidMap, neighbors, r, nVerts,
         communicator);
+
     }
   }
+
+
 
   class BaseMPIClass : public BaseClass {
 

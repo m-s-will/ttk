@@ -121,61 +121,6 @@ namespace ttk {
       }
     }
 
-    // gets all the neighbors of a rank based on the rankarray of the vertices
-    // belonging to this rank
-    inline void getNeighbors(std::unordered_set<int> &neighbors,
-                             const size_t nVerts,
-                             const int ownRank,
-                             const int *const rankArray) const {
-      for(size_t i = 0; i < nVerts; i++) {
-        int r = rankArray[i];
-        if(r != ownRank)
-          neighbors.emplace(r);
-      }
-    }
-
-    // returns a vector of gid vectors, one vector for each neighbor
-    // this shows us where we need to get the order for these gids from
-    template <typename IT>
-    void getGIdForNeighbors(std::vector<std::vector<IT>> &outVector,
-                            const size_t nGIds,
-                            const size_t nNeighbors,
-                            std::vector<IT> &gidsToGetVector,
-                            std::unordered_set<int> &neighbors,
-                            std::unordered_map<IT, IT> &gidToLidMap,
-                            const int *const rankArray) const {
-      outVector.resize(nNeighbors);
-      for(size_t i = 0; i < nGIds; i++) {
-        IT gId = gidsToGetVector[i];
-        IT lId = gidToLidMap[gId];
-        int rankForGId = rankArray[lId];
-        auto distance
-          = std::distance(neighbors.begin(), neighbors.find(rankForGId));
-        outVector[distance].push_back(gId);
-      }
-    }
-
-    template <typename IT>
-    void getOrderForGIds(std::vector<IT> &outVector,
-                         const size_t nGIds,
-                         const IT *const gIds,
-                         std::unordered_map<IT, IT> &gidToLidMap,
-                         const SimplexId *const order,
-                         const int nThreads) const {
-
-      TTK_FORCE_USE(nThreads);
-      outVector.resize(nGIds * 2);
-#ifdef TTK_ENABLE_OPENMP
-#pragma omp parallel for num_threads(nThreads)
-#endif // TTK_ENABLE_OPENMP
-      for(size_t i = 0; i < nGIds; i++) {
-        IT gId = gIds[i];
-        IT lId = gidToLidMap[gId];
-        SimplexId orderForThisGId = order[lId];
-        outVector[2 * i] = gId;
-        outVector[2 * i + 1] = orderForThisGId;
-      }
-    }
 
 #ifdef TTK_ENABLE_MPI
     // this method gets the current maximum value and works with it
