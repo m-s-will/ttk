@@ -121,7 +121,6 @@ namespace ttk {
         MPI_Comm_size(MPI_COMM_WORLD, &numProcs);
         MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-        int structTag = 101;
         this->printMsg("Initializing MPI done for rank "
                        + std::to_string(rank));
 
@@ -287,7 +286,6 @@ namespace ttk {
           for (int i = 1; i < numProcs; i++){
             displacements[i] = displacements[i-1] + sizes[i-1];
           }
-          // we turn our vector of vectors into a 1D array to send it via scatter
 
 
           // for r = 1, .., numProcs, we need to send and receive data. We first
@@ -295,18 +293,27 @@ namespace ttk {
           int sizeForThis;
           MPI_Scatter(sizes, 1, MPI_INT, &sizeForThis, 1, MPI_INT, 0, MPI_COMM_WORLD);
           sizeForThis /= sizeof(globalIdOwner);
-          for(int r = 1; r < numProcs; r++) {
-            std::vector<globalIdOwner> fromThisRank = valuesFromRanks[r];
-            int nValues = fromThisRank.size();
-            if(nValues > 0) {
-              MPI_Send(fromThisRank.data(), nValues * sizeof(globalIdOwner), MPI_CHAR, r, structTag,
-                       MPI_COMM_WORLD);
-            }
+
+          // we turn our vector of vectors into a 1D vector to send it via scatter
+          std::vector<globalIdOwner> allValuesFromRanks(totalSize);
+
+          for(auto && v : valuesFromRanks){
+            allValuesFromRanks.insert(allValuesFromRanks.end(), v.begin(), v.end());
           }
+          std::vector<globalIdOwner> fromRank0(sizeForThis);
+          MPI_Scatterv(allValuesFromRanks.data(),
+                      sizes,
+                      displacements,
+                      MPI_CHAR,
+                      fromRank0.data(),
+                      sizeForThis * sizeof(globalIdOwner),
+                      MPI_CHAR,
+                      0,
+                      MPI_COMM_WORLD);
+
           this->printMsg("R0 sent the needed ids to their owners");
 
           // for r = 0, we don't need to send anything, we process everything locally
-          std::vector<globalIdOwner> fromRank0 = valuesFromRanks[0];
           std::vector<globalIdOwner> edgesForR0(sizeForThis);
           for(int64_t i = 0; i < sizeForThis; i++) {
             globalIdOwner currentVal = fromRank0[i];
@@ -352,39 +359,51 @@ namespace ttk {
           MPI_Scatter(NULL, 1, MPI_INT, &receivedSize, 1, MPI_INT, 0, MPI_COMM_WORLD);
           // turn it back into amounts instead of bytes for easier handling
           receivedSize /= sizeof(globalIdOwner);
-          if(receivedSize > 0) {
-            std::vector<globalIdOwner> receivedIds(receivedSize);
-            MPI_Recv(receivedIds.data(), receivedSize * sizeof(globalIdOwner), MPI_CHAR, 0, structTag,
-                     MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            this->printMsg("Rank " + std::to_string(rank) + " is the owner of "
-                           + std::to_string(receivedSize)
-                           + " ids and received them from R0");
+          std::vector<globalIdOwner> receivedIds(receivedSize);
 
-            // now we need to find to where these gids point and send the values
-            // back to R0
-            std::vector<globalIdOwner> sendValues(receivedSize);
-
-            for(ttk::SimplexId i = 0; i < receivedSize; i++) {
-              globalIdOwner currentVal = receivedIds[i];
-              ttk::SimplexId lId = gIdTolIdMap[currentVal.globalId];
-              currentVal.ascendingTarget = currentAsc[lId];
-              currentVal.descendingTarget = currentDesc[lId];
-              sendValues[i] = currentVal;
-            }
-            this->printMsg("R" + std::to_string(rank) + " is done with their values");
-
-            MPI_Gatherv(sendValues.data(),
-                      receivedSize * sizeof(globalIdOwner),
+          MPI_Scatterv(NULL,
+                      NULL,
+                      NULL,
                       MPI_CHAR,
-                      NULL,
-                      NULL,
-                      NULL,
+                      receivedIds.data(),
+                      receivedSize * sizeof(globalIdOwner),
                       MPI_CHAR,
                       0,
                       MPI_COMM_WORLD);
-            this->printMsg("Rank " + std::to_string(rank)
-                           + " sent owned ids with their targets to R0");
+
+          this->printMsg("Rank " + std::to_string(rank) + " is the owner of "
+                          + std::to_string(receivedSize)
+                          + " ids and received them from R0");
+
+          // now we need to find to where these gids point and send the values
+          // back to R0
+          std::vector<globalIdOwner> sendValues(receivedSize);
+
+          for(ttk::SimplexId i = 0; i < receivedSize; i++) {
+            globalIdOwner currentVal = receivedIds[i];
+            ttk::SimplexId lId = gIdTolIdMap[currentVal.globalId];
+            currentVal.ascendingTarget = currentAsc[lId];
+            currentVal.descendingTarget = currentDesc[lId];
+            sendValues[i] = currentVal;
           }
+          this->printMsg("R" + std::to_string(rank) + " is done with their values");
+
+
+          // TODO: broadcast sizes and displacements
+          // remove scatter of sizes
+          // change Gatherv to allgatherv
+          // remove broadcast of result afterwards, because all ranks already got them from allgatherv
+          MPI_Gatherv(sendValues.data(),
+                    receivedSize * sizeof(globalIdOwner),
+                    MPI_CHAR,
+                    NULL,
+                    NULL,
+                    NULL,
+                    MPI_CHAR,
+                    0,
+                    MPI_COMM_WORLD);
+          this->printMsg("Rank " + std::to_string(rank)
+                          + " sent owned ids with their targets to R0");
         }
 
         //MPI_Barrier(MPI_COMM_WORLD);
