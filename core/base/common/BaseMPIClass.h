@@ -169,13 +169,37 @@ namespace ttk {
   template <typename IT>
   std::unordered_set<int> getNeighbors(const int *const rankArray,
                                        const IT nVerts,
-                                       const int ownRank) {
+                                       const MPI_Comm communicator) {
+
+    int nRanks;
+    int rank;
+    MPI_Comm_size(communicator, &nRanks);
+    MPI_Comm_rank(communicator, &rank);
+
     std::unordered_set<int> neighbors;
     for(IT i = 0; i < nVerts; i++) {
-      if(rankArray[i] != ownRank) {
+      if(rankArray[i] != rank) {
         neighbors.emplace(rankArray[i]);
       }
     }
+    /*std::vector<int> sendVector(neighbors.begin(), neighbors.end());
+    int sizes[nRanks];
+    int displacements[nRanks];
+    MPI_Gather(&sendVector.size(), 1, MPI_INT, sizes, 1, MPI_INT, 0, communicator);
+    std::vector<std::vector<int>> rootVector(nRanks);
+    if (rank == 0){
+      for(int i = 0; i < numProcs; i++) {
+        if (i == 0) {
+          displacements[i] = 0;
+        } else {
+          displacements[i] = displacements[i - 1] + sizes[i - 1];
+        }
+        rootVector[i].resize(sizes[i]);
+      }
+    }
+
+    MPI_Gatherv(sendVector.data(), sendVector.size(), MPI_INT, )
+    */
     return neighbors;
   }
 
@@ -193,7 +217,7 @@ namespace ttk {
     int rank;
     MPI_Comm_size(communicator, &nRanks);
     MPI_Comm_rank(communicator, &rank);
-    auto neighbors = getNeighbors<IT>(rankArray, nVerts, rank);
+    auto neighbors = getNeighbors<IT>(rankArray, nVerts, communicator);
     for(int r = 0; r < nRanks; r++) {
       getGhostCellScalars<DT, IT>(scalarArray, rankArray, globalIds,
                                   gidToLidMap, neighbors, r, nVerts,
