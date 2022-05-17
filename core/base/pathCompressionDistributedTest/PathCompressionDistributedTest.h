@@ -225,6 +225,28 @@ namespace ttk {
 
         // now we need to request the values we still need from other ranks
         // R0 builds up out transferance map over ranks
+
+        // TODO: first do one ghostcellexchange, then the rest
+        ttk::exchangeGhostCells<ttk::SimplexId, ttk::SimplexId>(currentDesc.data(), rankArray,
+                                                    globalIds, gIdTolIdMap,
+                                                    nVertices, MPI_COMM_WORLD);
+
+        ttk::exchangeGhostCells<ttk::SimplexId, ttk::SimplexId>(currentAsc.data(), rankArray,
+                                                    globalIds, gIdTolIdMap,
+                                                    nVertices, MPI_COMM_WORLD);
+        this->printMsg("Size of foreignvertices before: " + std::to_string(foreignVertices.size()));
+        auto foreign_it = foreignVertices.begin();
+        while (foreign_it != foreignVertices.end()){
+          globalIdOwner g = *foreign_it;
+          // if the received ids either point to themselves or into our rank, we don't need to send them to R0
+          if((currentAsc[gIdTolIdMap[g.globalId]] == g.globalId || gIdTolIdMap.find(currentAsc[gIdTolIdMap[g.globalId]]) != gIdTolIdMap.end()) 
+            && currentDesc[gIdTolIdMap[g.globalId]] == g.globalId || gIdTolIdMap.find(currentDesc[gIdTolIdMap[g.globalId]]) != gIdTolIdMap.end() ){
+            foreign_it = foreignVertices.erase(foreign_it);
+          } else {
+            ++foreign_it;
+          }
+        }
+        this->printMsg("Size of foreignvertices afterwards: " + std::to_string(foreignVertices.size()));
         MPI_Barrier(MPI_COMM_WORLD);
         // MPI_Reduce to get the size of everything we need
         int localSize = foreignVertices.size();
