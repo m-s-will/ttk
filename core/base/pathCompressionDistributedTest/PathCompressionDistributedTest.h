@@ -239,8 +239,8 @@ namespace ttk {
         while (foreign_it != foreignVertices.end()){
           globalIdOwner g = *foreign_it;
           // if the received ids either point to themselves or into our rank, we don't need to send them to R0
-          if((currentAsc[gIdTolIdMap[g.globalId]] == g.globalId || gIdTolIdMap.find(currentAsc[gIdTolIdMap[g.globalId]]) != gIdTolIdMap.end()) 
-            && currentDesc[gIdTolIdMap[g.globalId]] == g.globalId || gIdTolIdMap.find(currentDesc[gIdTolIdMap[g.globalId]]) != gIdTolIdMap.end() ){
+          if(  (currentAsc[gIdTolIdMap[g.globalId]] == g.globalId || gIdTolIdMap.find(currentAsc[gIdTolIdMap[g.globalId]]) != gIdTolIdMap.end())
+            && (currentDesc[gIdTolIdMap[g.globalId]] == g.globalId || gIdTolIdMap.find(currentDesc[gIdTolIdMap[g.globalId]]) != gIdTolIdMap.end() )){
             foreign_it = foreignVertices.erase(foreign_it);
           } else {
             ++foreign_it;
@@ -312,8 +312,6 @@ namespace ttk {
           }
           // we turn our vector of vectors into a 1D vector to send it via
           // scatter
-          allValuesFromRanks.resize(totalSize);
-
           for(auto &&v : valuesFromRanks) {
             allValuesFromRanks.insert(
               allValuesFromRanks.end(), v.begin(), v.end());
@@ -339,10 +337,7 @@ namespace ttk {
         this->printMsg("R" + std::to_string(rank)
                         + " received sizes and displacements from R0");
 
-        // R0 scatters to each rank the size it will receive
-        MPI_Scatter(
-          sizes, 1, MPI_INT, &receivedSize, 1, MPI_INT, 0, MPI_COMM_WORLD);
-        receivedSize /= sizeof(globalIdOwner);
+        receivedSize = sizes[ttk::MPIrank_] / sizeof(globalIdOwner);
         this->printMsg("R" + std::to_string(rank)
                 + " owns " + std::to_string(receivedSize) + " ids");
 
@@ -354,6 +349,7 @@ namespace ttk {
                       MPI_COMM_WORLD);
         this->printMsg("R" + std::to_string(rank)
                 + " received ids");
+
 
 
         // now we need to find to where the gids point and send the values
@@ -413,19 +409,27 @@ namespace ttk {
             }
           }
         }
+
         // now each rank simply needs to walk over their vertices and replace
         // ones aiming to ghostcells with the correct ones from the map
-
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for num_threads(this->threadNumber_)
 #endif
         for(ttk::SimplexId i = 0; i < nVertices; i++) {
           ttk::SimplexId descVal = currentDesc[i];
-          if(gIdToDescendingMap.count(descVal))
-            currentDesc[i] = gIdToDescendingMap[descVal];
+          ttk::SimplexId gid = globalIds[i];
           ttk::SimplexId ascVal = currentAsc[i];
-          if(gIdToAscendingMap.count(ascVal))
+          //this->printMsg("checking maps for " + std::to_string(globalIds[i]));
+          if(gIdToDescendingMap.count(descVal)) {
+            currentDesc[i] = gIdToDescendingMap[descVal];
+          } else if (gIdToDescendingMap.count(gid)) {
+            currentDesc[i] = gIdToDescendingMap[gid];
+          }
+          if(gIdToAscendingMap.count(ascVal)) {
             currentAsc[i] = gIdToAscendingMap[ascVal];
+          } else if (gIdToAscendingMap.count(gid)) {
+            currentAsc[i] = gIdToAscendingMap[gid];
+          }
         }
 
 #ifdef TTK_ENABLE_OPENMP
@@ -439,7 +443,7 @@ namespace ttk {
         MPI_Barrier(MPI_COMM_WORLD);
 
         // print the progress of the current subprocedure with elapsed time
-        this->printMsg("Computing Compression",
+        this->printMsg("Computed Compression",
                        1, // progress
                        localTimer.getElapsedTime(), this->threadNumber_);
       }
