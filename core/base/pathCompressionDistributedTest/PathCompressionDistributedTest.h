@@ -239,8 +239,8 @@ namespace ttk {
         while (foreign_it != foreignVertices.end()){
           globalIdOwner g = *foreign_it;
           // if the received ids either point to themselves or into our rank, we don't need to send them to R0
-          if(  (currentAsc[gIdTolIdMap[g.globalId]] == g.globalId || gIdTolIdMap.find(currentAsc[gIdTolIdMap[g.globalId]]) != gIdTolIdMap.end())
-            && (currentDesc[gIdTolIdMap[g.globalId]] == g.globalId || gIdTolIdMap.find(currentDesc[gIdTolIdMap[g.globalId]]) != gIdTolIdMap.end() )){
+          if(  (gIdTolIdMap.find(currentAsc[gIdTolIdMap[g.globalId]]) != gIdTolIdMap.end())
+            && (gIdTolIdMap.find(currentDesc[gIdTolIdMap[g.globalId]]) != gIdTolIdMap.end() )){
             foreign_it = foreignVertices.erase(foreign_it);
           } else {
             ++foreign_it;
