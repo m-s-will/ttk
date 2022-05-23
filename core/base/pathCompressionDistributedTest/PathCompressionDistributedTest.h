@@ -239,12 +239,21 @@ namespace ttk {
         while (foreign_it != foreignVertices.end()){
           globalIdOwner g = *foreign_it;
           // if the received ids either point to themselves or into our rank, we don't need to send them to R0
-          if(  (gIdTolIdMap.find(currentAsc[gIdTolIdMap[g.globalId]]) != gIdTolIdMap.end())
-            && (gIdTolIdMap.find(currentDesc[gIdTolIdMap[g.globalId]]) != gIdTolIdMap.end() )){
+          //if(  (currentAsc[gIdTolIdMap[g.globalId]] == g.globalId || gIdTolIdMap.find(currentAsc[gIdTolIdMap[g.globalId]]) != gIdTolIdMap.end())
+          //  && (currentDesc[gIdTolIdMap[g.globalId]] == g.globalId || gIdTolIdMap.find(currentDesc[gIdTolIdMap[g.globalId]]) != gIdTolIdMap.end() || true )){
+          //auto finder = gIdTolIdMap.find(currentAsc[gIdTolIdMap[g.globalId]]);
+          //int owner = -1;
+          //if(finder != gIdTolIdMap.end())
+          //  owner = rankArray[finder->second];
+          if (currentAsc[gIdTolIdMap[g.globalId]] == g.globalId){ //  || owner == ttk::MPIrank_
             foreign_it = foreignVertices.erase(foreign_it);
           } else {
             ++foreign_it;
           }
+          //if (currentAsc[gIdTolIdMap[g.globalId]] != g.globalId && owner == ttk::MPIrank_){
+          //  currentAsc[finder->first] = currentAsc[finder->second];
+          //}
+
         }
         this->printMsg("Size of foreignvertices afterwards: " + std::to_string(foreignVertices.size()));
         MPI_Barrier(MPI_COMM_WORLD);
