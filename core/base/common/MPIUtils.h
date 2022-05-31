@@ -8,11 +8,10 @@
 #pragma once
 
 #include <BaseClass.h>
+#include <Timer.h>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
-#include <iostream>
-
 #if TTK_ENABLE_MPI
 #define OMPI_SKIP_MPICXX 1
 #include <mpi.h>
@@ -48,10 +47,30 @@ namespace ttk {
   };
 
   inline bool isRunningWithMPI() {
-    int flag_i;
-    MPI_Initialized(&flag_i);
-    return flag_i != 0;
-  }
+    return ttk::MPIsize_ > 1;
+  };
+
+  inline int startMPITimer(Timer &t, int rank, int size) {
+    if(size > 0) {
+      MPI_Barrier(MPI_COMM_WORLD);
+      if(rank == 0) {
+        t.reStart();
+      }
+    }
+    return 0;
+  };
+
+  inline double endMPITimer(Timer &t, int rank, int size) {
+    double elapsedTime = 0;
+    if(size > 0) {
+      MPI_Barrier(MPI_COMM_WORLD);
+      if(rank == 0) {
+        elapsedTime = t.getElapsedTime();
+      }
+    }
+
+    return elapsedTime;
+  };
 
   /**
    * @brief Gather vectors on a specific rank
@@ -154,12 +173,12 @@ namespace ttk {
       std::vector<std::vector<IT>> rankVectors(
         ttk::MPIsize_, std::vector<IT>(0));
       // aggregate the needed ids
+
       for(IT i = 0; i < nVerts; i++) {
         if(ttk::MPIrank_ != rankArray[i]) {
           rankVectors[rankArray[i]].push_back(globalIds[i]);
         }
       }
-
       // send the amount of ids and the needed ids themselves
       for(int r = 0; r < ttk::MPIsize_; r++) {
         if(ttk::MPIrank_ != r && neighbors.find(r) != neighbors.end()) {
@@ -171,7 +190,6 @@ namespace ttk {
           }
         }
       }
-
       // receive the scalar values
       for(int r = 0; r < ttk::MPIsize_; r++) {
         if(ttk::MPIrank_ != r && neighbors.find(r) != neighbors.end()) {
@@ -196,8 +214,10 @@ namespace ttk {
       if(neighbors.find(rankToSend) != neighbors.end()) {
         // receive the amount of ids and the needed ids themselves
         IT nValues;
+
         MPI_Recv(&nValues, 1, MPI_IT, rankToSend, amountTag, communicator,
                  MPI_STATUS_IGNORE);
+
         if(nValues > 0) {
           std::vector<IT> receivedIds(nValues);
           MPI_Recv(receivedIds.data(), nValues, MPI_IT, rankToSend, idsTag,
@@ -210,6 +230,7 @@ namespace ttk {
             IT localId = gidToLidMap.at(globalId);
             valuesToSend[i] = scalarArray[localId];
           }
+
           // send the scalar values
           MPI_Send(valuesToSend.data(), nValues, MPI_DT, rankToSend, valuesTag,
                    communicator);

@@ -3338,6 +3338,41 @@ int ttk::ImplicitTriangulation::preconditionDistributedTriangles() {
   return 0;
 }
 
+int ttk::ImplicitTriangulation::preconditionDistributedVertices() {
+  if(this->hasPreconditionedDistributedVertices_) {
+    return 0;
+  }
+  if(!ttk::isRunningWithMPI()) {
+    return -1;
+  }
+  if(this->cellGid_ == nullptr) {
+    this->printWrn("Missing global identifiers on cells");
+    return -2;
+  }
+
+  if(this->getDimensionality() != 2 && this->getDimensionality() != 3) {
+    return -3;
+  }
+
+  // allocate memory
+  this->vertexLidToGid_.resize(this->vertexNumber_, -1);
+  this->vertexGidToLid_.reserve(this->vertexNumber_);
+
+  for(SimplexId i = 0; i < this->vertexNumber_; ++i) {
+    this->vertexLidToGid_[i] = this->globalIdsArray_[i];
+    this->vertexGidToLid_[this->globalIdsArray_[i]] = i;
+  }
+
+  if(MPIrank_ == 0) {
+    this->printMsg("Domain contains "
+                   + std::to_string(this->getNumberOfVerticesInternal())
+                   + " vertices");
+  }
+
+  this->hasPreconditionedDistributedVertices_ = true;
+
+  return 0;
+}
 #endif // TTK_ENABLE_MPI
 
 // explicit instantiations
