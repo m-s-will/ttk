@@ -70,7 +70,7 @@ class TTKPATHCOMPRESSION_EXPORT ttkPathCompression
   : public ttkAlgorithm // we inherit from the generic ttkAlgorithm class
   ,
     protected ttk::PathCompression // and we inherit from the
-                                                  // base class
+                                   // base class
 {
 
 public:

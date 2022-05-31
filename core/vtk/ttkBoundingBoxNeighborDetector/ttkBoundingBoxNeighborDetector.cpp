@@ -117,9 +117,8 @@ int ttkBoundingBoxNeighborDetector::RequestData(
   // If all checks pass then log which array is going to be processed.
   this->printMsg("Starting computation...");
 
-  int flag_i;
-  MPI_Initialized(&flag_i);
-  if(flag_i) {
+#ifdef TTK_ENABLE_MPI
+  if(ttk::isRunningWithMPI()) {
     int numProcs;
     int rank;
     MPI_Comm_size(MPI_COMM_WORLD, &numProcs);
@@ -171,6 +170,10 @@ int ttkBoundingBoxNeighborDetector::RequestData(
   } else {
     this->printMsg("MPI is not initialized, please run with mpirun!");
   }
+#else
+  this->printMsg("TTK is not build with TTK_ENABLE_MPI, this filter does "
+                 "nothing in sequential mode.");
+#endif // TTK_ENABLE_MPI
 
   // Get output vtkDataSet (which was already instantiated based on the
   // information provided by FillOutputPortInformation)

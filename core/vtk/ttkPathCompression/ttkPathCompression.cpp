@@ -23,9 +23,8 @@ ttkPathCompression::ttkPathCompression() {
 ttkPathCompression::~ttkPathCompression() {
 }
 
-
-int ttkPathCompression::FillInputPortInformation(
-  int port, vtkInformation *info) {
+int ttkPathCompression::FillInputPortInformation(int port,
+                                                 vtkInformation *info) {
   if(port == 0) {
     info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkDataSet");
     return 1;
@@ -33,9 +32,8 @@ int ttkPathCompression::FillInputPortInformation(
   return 0;
 }
 
-
-int ttkPathCompression::FillOutputPortInformation(
-  int port, vtkInformation *info) {
+int ttkPathCompression::FillOutputPortInformation(int port,
+                                                  vtkInformation *info) {
   if(port == 0) {
     info->Set(ttkAlgorithm::SAME_DATA_TYPE_AS_INPUT_PORT(), 0);
     return 1;
@@ -44,11 +42,9 @@ int ttkPathCompression::FillOutputPortInformation(
   return 0;
 }
 
-
-int ttkPathCompression::RequestData(
-  vtkInformation *ttkNotUsed(request),
-  vtkInformationVector **inputVector,
-  vtkInformationVector *outputVector) {
+int ttkPathCompression::RequestData(vtkInformation *ttkNotUsed(request),
+                                    vtkInformationVector **inputVector,
+                                    vtkInformationVector *outputVector) {
   // Get input object from input vector
   // Note: has to be a vtkDataSet as required by FillInputPortInformation
   vtkDataSet *inputDataSet = vtkDataSet::GetData(inputVector[0]);
@@ -104,25 +100,34 @@ int ttkPathCompression::RequestData(
                  + std::string(descendingManifold->GetName()));
   this->printMsg("  Output Array 2: "
                  + std::string(ascendingManifold->GetName()));
-
-  auto pointData = inputDataSet->GetPointData();
-  auto rankArray = pointData->GetArray("RankArray");
-  auto globalIds = pointData->GetGlobalIds();
-  if(!rankArray || !globalIds) {
-    this->printMsg("Necessary Arrays not present, we need a RankArray and "
-                   "GlobalIds!");
-    return 0;
-  }
-  // Templatize over the different input array data types and call the base code
   int status = 0; // this integer checks if the base code returns an error
+
+#ifdef TTK_ENABLE_MPI
+  if(ttk::isRunningWithMPI()) {
+    auto pointData = inputDataSet->GetPointData();
+    auto rankArray = pointData->GetArray("RankArray");
+    auto globalIds = pointData->GetGlobalIds();
+
+    // Templatize over the different input array data types and call the base
+    // code
+    ttkTypeMacroIT(
+      order->GetDataType(), triangulation->getType(),
+      (status = this->computeCompression<T0, T1>(
+         ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
+         ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
+         ttkUtils::GetPointer<T0>(order), (T1 *)triangulation->getData(),
+         ttkUtils::GetPointer<int>(rankArray),
+         ttkUtils::GetPointer<ttk::SimplexId>(globalIds))));
+  }
+
+#else
   ttkTypeMacroIT(
     order->GetDataType(), triangulation->getType(),
     (status = this->computeCompression<T0, T1>(
        ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
        ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
-       ttkUtils::GetPointer<T0>(order), ttkUtils::GetPointer<int>(rankArray),
-       ttkUtils::GetPointer<ttk::SimplexId>(globalIds),
-       (T1 *)triangulation->getData())));
+       ttkUtils::GetPointer<T0>(order), (T1 *)triangulation->getData())));
+#endif // TTK_ENABLE_MPI
 
   // On error cancel filter execution
   if(status != 1)

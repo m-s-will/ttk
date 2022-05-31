@@ -222,17 +222,17 @@ int ttkArrayEditor::RequestData(vtkInformation *ttkNotUsed(request),
 
         size_t nComponents = this->TargetArrayIndexation[1] >= 0
                                ? this->TargetArrayIndexation[1]
-                               : this->TargetArrayIndexation[0] >= 0
-                                   ? targetArray->GetNumberOfValues()
-                                       / this->TargetArrayIndexation[0]
-                                   : targetArray->GetNumberOfComponents();
+                             : this->TargetArrayIndexation[0] >= 0
+                               ? targetArray->GetNumberOfValues()
+                                   / this->TargetArrayIndexation[0]
+                               : targetArray->GetNumberOfComponents();
 
         size_t nTuples = this->TargetArrayIndexation[0] >= 0
                            ? this->TargetArrayIndexation[0]
-                           : this->TargetArrayIndexation[1] >= 0
-                               ? targetArray->GetNumberOfValues()
-                                   / this->TargetArrayIndexation[1]
-                               : targetArray->GetNumberOfTuples();
+                         : this->TargetArrayIndexation[1] >= 0
+                           ? targetArray->GetNumberOfValues()
+                               / this->TargetArrayIndexation[1]
+                           : targetArray->GetNumberOfTuples();
         copy->Allocate(nTuples * nComponents);
         copy->SetNumberOfComponents(nComponents);
         copy->SetNumberOfTuples(nTuples);

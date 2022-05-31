@@ -140,9 +140,9 @@ int ttk::MorphologicalOperators::performElementaryMorphoOp(
   Timer t;
   for(int it = 0; it < iterations; it++) {
 
-    const DT *source
-      = it == 0 ? inputLabels
-                : (iterations + it) % 2 == 0 ? outputLabels : temp.data();
+    const DT *source = it == 0                      ? inputLabels
+                       : (iterations + it) % 2 == 0 ? outputLabels
+                                                    : temp.data();
     DT *target = (iterations + it) % 2 == 0 ? temp.data() : outputLabels;
 
     // NOTE: Directly dilating a vertex value to all its neighbors requires

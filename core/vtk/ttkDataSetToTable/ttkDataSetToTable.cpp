@@ -41,10 +41,9 @@ int ttkDataSetToTable::RequestData(vtkInformation *ttkNotUsed(request),
                                    vtkInformationVector *outputVector) {
   ttk::Timer t;
 
-  std::string targetAttributeName
-    = this->DataAssociation == 0
-        ? "Point"
-        : this->DataAssociation == 1 ? "Cell" : "Field";
+  std::string targetAttributeName = this->DataAssociation == 0   ? "Point"
+                                    : this->DataAssociation == 1 ? "Cell"
+                                                                 : "Field";
 
   this->printMsg("Converting " + targetAttributeName + "Data to Table", 0, 0,
                  ttk::debug::LineMode::REPLACE);
@@ -53,10 +52,9 @@ int ttkDataSetToTable::RequestData(vtkInformation *ttkNotUsed(request),
   if(!input)
     return 0;
 
-  auto targetData = this->DataAssociation == 0
-                      ? input->GetPointData()
-                      : this->DataAssociation == 1 ? input->GetCellData()
-                                                   : input->GetFieldData();
+  auto targetData = this->DataAssociation == 0   ? input->GetPointData()
+                    : this->DataAssociation == 1 ? input->GetCellData()
+                                                 : input->GetFieldData();
 
 #ifndef TTK_ENABLE_KAMIKAZE
   if(targetData->GetNumberOfArrays() < 1) {

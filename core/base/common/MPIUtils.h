@@ -266,10 +266,10 @@ namespace ttk {
     int displacements[ttk::MPIsize_];
     MPI_Gather(&localSize, 1, MPI_INT, sizes, 1, MPI_INT, 0, communicator);
     int totalSize = 0;
-    if (ttk::MPIrank_ == 0){
+    if(ttk::MPIrank_ == 0) {
       for(int i = 0; i < ttk::MPIsize_; i++) {
         totalSize += sizes[i];
-        if (i == 0) {
+        if(i == 0) {
           displacements[i] = 0;
         } else {
           displacements[i] = displacements[i - 1] + sizes[i - 1];
@@ -278,38 +278,46 @@ namespace ttk {
     }
     std::vector<int> rootVector(totalSize);
 
-    MPI_Gatherv(sendVector.data(), sendVector.size(), MPI_INT, rootVector.data(), sizes, displacements, MPI_INT, 0, communicator);
+    MPI_Gatherv(sendVector.data(), sendVector.size(), MPI_INT,
+                rootVector.data(), sizes, displacements, MPI_INT, 0,
+                communicator);
     std::vector<int> scatterVector;
 
-    if (ttk::MPIrank_ == 0){
-      // now we transform this 1d vector in a correct vector of sets which we will transform back to scatter it
+    if(ttk::MPIrank_ == 0) {
+      // now we transform this 1d vector in a correct vector of sets which we
+      // will transform back to scatter it
       std::vector<std::unordered_set<int>> setsFromRanks(ttk::MPIsize_);
       auto begin = rootVector.begin();
       auto end = rootVector.begin();
-      for (int i = 0; i < ttk::MPIsize_; i++){
+      for(int i = 0; i < ttk::MPIsize_; i++) {
         end = begin + sizes[i];
         std::unordered_set<int> s(begin, end);
         setsFromRanks[i] = s;
         begin = end;
-        //std::cout << "R" << std::to_string(i) << " nr needs something from " << std::to_string(setsFromRanks[i].size()) << " neighbors." << std::endl;
+        // std::cout << "R" << std::to_string(i) << " nr needs something from "
+        // << std::to_string(setsFromRanks[i].size()) << " neighbors." <<
+        // std::endl;
       }
-      // now we need to check for each rank if they are a neighbor of any other rank. If so, we need to add those to the neighbors
-      for (int i = 0; i < ttk::MPIsize_; i++){
-        for (int j = 0; i < ttk::MPIsize_; i++){
-          if (setsFromRanks[j].find(i) != setsFromRanks[j].end()){
+      // now we need to check for each rank if they are a neighbor of any other
+      // rank. If so, we need to add those to the neighbors
+      for(int i = 0; i < ttk::MPIsize_; i++) {
+        for(int j = 0; i < ttk::MPIsize_; i++) {
+          if(setsFromRanks[j].find(i) != setsFromRanks[j].end()) {
             setsFromRanks[i].emplace(j);
           }
         }
       }
-      // now we transform this vector of sets back into a 1d vector to scatter it
+      // now we transform this vector of sets back into a 1d vector to scatter
+      // it
       for(int i = 0; i < ttk::MPIsize_; i++) {
         sizes[i] = setsFromRanks[i].size();
-        if (i == 0) {
+        if(i == 0) {
           displacements[i] = 0;
         } else {
           displacements[i] = displacements[i - 1] + sizes[i - 1];
         }
-        scatterVector.insert(scatterVector.end(), setsFromRanks[i].begin(), setsFromRanks[i].end());
+        scatterVector.insert(scatterVector.end(), setsFromRanks[i].begin(),
+                             setsFromRanks[i].end());
       }
     }
 
@@ -319,14 +327,13 @@ namespace ttk {
 
     // and then the actual neighbors
     std::vector<int> receivedNeighbors(receivedSize);
-    MPI_Scatterv(scatterVector.data(), sizes, displacements,
-                  MPI_INT, receivedNeighbors.data(),
-                  receivedSize, MPI_INT, 0,
-                  communicator);
+    MPI_Scatterv(scatterVector.data(), sizes, displacements, MPI_INT,
+                 receivedNeighbors.data(), receivedSize, MPI_INT, 0,
+                 communicator);
     // then we turn the vector back into a set
-    std::unordered_set<int> finalSet(receivedNeighbors.begin(), receivedNeighbors.end());
+    std::unordered_set<int> finalSet(
+      receivedNeighbors.begin(), receivedNeighbors.end());
     neighbors = finalSet;
-
 
     return 0;
   }
