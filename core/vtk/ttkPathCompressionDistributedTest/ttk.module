@@ -1,9 +1,0 @@
-NAME
-  ttkPathCompressionDistributedTest
-SOURCES
-  ttkPathCompressionDistributedTest.cpp
-HEADERS
-  ttkPathCompressionDistributedTest.h
-DEPENDS
-  pathCompressionDistributedTest
-  ttkAlgorithm

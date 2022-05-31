@@ -3,11 +3,12 @@
 /// \author Michael Will <mswill@rhrk.uni-kl.de>
 /// \date 2022.
 ///
-/// \brief TTK VTK-filter that wraps the ttk::PathCompression module.
+/// \brief TTK VTK-filter that wraps the ttk::PathCompression
+/// module.
 ///
-/// This VTK filter uses the ttk::PathCompression module to compute an averaging
-/// of the data values of an input point data array defined on the input
-/// vtkDataSet.
+/// This VTK filter uses the ttk::PathCompression module to
+/// compute an averaging of the data values of an input point data array defined
+/// on the input vtkDataSet.
 ///
 /// \param Input vtkDataSet.
 /// \param Output vtkDataSet.
@@ -68,7 +69,8 @@
 class TTKPATHCOMPRESSION_EXPORT ttkPathCompression
   : public ttkAlgorithm // we inherit from the generic ttkAlgorithm class
   ,
-    protected ttk::PathCompression // and we inherit from the base class
+    protected ttk::PathCompression // and we inherit from the
+                                                  // base class
 {
 
 public:
@@ -80,29 +82,13 @@ public:
   vtkTypeMacro(ttkPathCompression, ttkAlgorithm);
 
 protected:
-  /**
-   * TODO 7: Implement the filter constructor and destructor
-   *         (see cpp file)
-   */
   ttkPathCompression();
   ~ttkPathCompression() override;
 
-  /**
-   * TODO 8: Specify the input data type of each input port
-   *         (see cpp file)
-   */
   int FillInputPortInformation(int port, vtkInformation *info) override;
 
-  /**
-   * TODO 9: Specify the data object type of each output port
-   *         (see cpp file)
-   */
   int FillOutputPortInformation(int port, vtkInformation *info) override;
 
-  /**
-   * TODO 10: Pass VTK data to the base code and convert base code output to VTK
-   *          (see cpp file)
-   */
   int RequestData(vtkInformation *request,
                   vtkInformationVector **inputVector,
                   vtkInformationVector *outputVector) override;
