@@ -2302,7 +2302,6 @@ namespace ttk {
       if(isEmptyCheck())
         return -1;
 #endif
-
       return abstractTriangulation_->preconditionDistributedVertices();
     }
 #endif // TTK_ENABLE_MPI
@@ -2535,7 +2534,6 @@ namespace ttk {
                             const SimplexId &xDim,
                             const SimplexId &yDim,
                             const SimplexId &zDim) {
-
       gridDimensions_[0] = xDim;
       gridDimensions_[1] = yDim;
       gridDimensions_[2] = zDim;
@@ -2554,11 +2552,9 @@ namespace ttk {
       ret |= implicitPreconditionsTriangulation_.setInputGrid(
         xOrigin, yOrigin, zOrigin, xSpacing, ySpacing, zSpacing, xDim, yDim,
         zDim);
-
       const auto useImplicitPreconditions = this->processImplicitStrategy();
 
       this->switchGrid(this->hasPeriodicBoundaries_, useImplicitPreconditions);
-
       return ret;
     }
 
