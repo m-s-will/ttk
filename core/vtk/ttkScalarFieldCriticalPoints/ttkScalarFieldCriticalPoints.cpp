@@ -71,6 +71,25 @@ int ttkScalarFieldCriticalPoints::RequestData(
   if(!inputScalarField)
     return 0;
 
+  long int *globalIds2 = triangulation->getGlobalIdsArray();
+  auto rankArray_ = triangulation->getRankArray();
+  auto pointData = input->GetPointData();
+  auto vtkGlobalPointIds = pointData->GetGlobalIds();
+  auto vtkGhostCells = pointData->GetArray("vtkGhostType");
+
+  for(int i = 0; i < triangulation->getNumberOfVertices(); i++) {
+    if(globalIds2[i] == 32640 || globalIds2[i] == 32639
+       || globalIds2[i] == 32897) {
+      printErr("Element " + std::to_string(globalIds2[i])
+               + " possessed with RankArray: " + std::to_string(rankArray_[i])
+               + ", pointdata gid "
+               + std::to_string(vtkGlobalPointIds->GetComponent(i, 0))
+               + " ghostvalue: "
+               + std::to_string(vtkGhostCells->GetComponent(i, 0)));
+    }
+  }
+  return 1;
+
   vtkDataArray *offsetField
     = this->GetOrderArray(input, 0, 1, ForceInputOffsetScalarField);
 
