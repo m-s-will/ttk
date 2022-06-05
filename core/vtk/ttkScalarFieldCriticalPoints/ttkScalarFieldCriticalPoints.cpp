@@ -72,7 +72,7 @@ int ttkScalarFieldCriticalPoints::RequestData(
     return 0;
 
   long int *globalIds2 = triangulation->getGlobalIdsArray();
-  auto rankArray_ = triangulation->getRankArray();
+  auto rankArray = triangulation->getRankArray();
   auto pointData = input->GetPointData();
   auto vtkGlobalPointIds = pointData->GetGlobalIds();
   auto vtkGhostCells = pointData->GetArray("vtkGhostType");
@@ -81,7 +81,7 @@ int ttkScalarFieldCriticalPoints::RequestData(
     if(globalIds2[i] == 32640 || globalIds2[i] == 32639
        || globalIds2[i] == 32897) {
       printErr("Element " + std::to_string(globalIds2[i])
-               + " possessed with RankArray: " + std::to_string(rankArray_[i])
+               + " possessed with RankArray: " + std::to_string(rankArray[i])
                + ", pointdata gid "
                + std::to_string(vtkGlobalPointIds->GetComponent(i, 0))
                + " ghostvalue: "

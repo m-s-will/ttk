@@ -67,27 +67,19 @@ int ttkGhostCellPreconditioning::RequestData(
   if(vtkGlobalPointIds != nullptr && vtkGhostCells != nullptr) {
 #ifdef TTK_ENABLE_MPI
     if(ttk::isRunningWithMPI()) {
-      int numProcs;
-      int rank;
-      MPI_Comm_size(MPI_COMM_WORLD, &numProcs);
-      MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-      if(rank == 0)
+      if(ttk::MPIrank_ == 0)
         this->printMsg(
           "Global Point Ids and Ghost Cells exist, therefore we can continue!");
-      this->printMsg("#Ranks " + std::to_string(numProcs) + ", this is rank "
-                     + std::to_string(rank));
+      this->printMsg("#Ranks " + std::to_string(ttk::MPIsize_) + ", this is rank "
+                     + std::to_string(ttk::MPIrank_));
 
-#ifdef TTK_ENABLE_64BIT_IDS
-      MPI_Datatype MIT = MPI_LONG_LONG_INT;
-#else
-      MPI_Datatype MIT = MPI_INT;
-#endif
+      MPI_Datatype MIT = ttk::getMPIType(static_cast<ttk::SimplexId>(0));
       vtkNew<vtkIntArray> rankArray{};
       rankArray->SetName("RankArray");
       rankArray->SetNumberOfComponents(1);
       rankArray->SetNumberOfTuples(nVertices);
       std::vector<ttk::SimplexId> currentRankUnknownIds;
-      std::vector<std::vector<ttk::SimplexId>> allUnknownIds(numProcs);
+      std::vector<std::vector<ttk::SimplexId>> allUnknownIds(ttk::MPIsize_);
       std::unordered_set<ttk::SimplexId> gIdSet;
       std::unordered_map<ttk::SimplexId, ttk::SimplexId> gIdToLocalMap;
       for(int i = 0; i < nVertices; i++) {
@@ -96,7 +88,7 @@ int ttkGhostCellPreconditioning::RequestData(
         if(ghostCellVal == 0) {
           // if the ghost cell value is 0, then this vertex mainly belongs to
           // this rank
-          rankArray->SetComponent(i, 0, rank);
+          rankArray->SetComponent(i, 0, ttk::MPIrank_);
           gIdSet.insert(globalId);
         } else {
           // otherwise the vertex belongs to another rank and we need to find
@@ -106,11 +98,11 @@ int ttkGhostCellPreconditioning::RequestData(
           gIdToLocalMap[globalId] = i;
         }
       }
-      allUnknownIds[rank] = currentRankUnknownIds;
+      allUnknownIds[ttk::MPIrank_] = currentRankUnknownIds;
       ttk::SimplexId sizeOfCurrentRank;
       // first each rank gets the information which rank needs which globalid
-      for(int r = 0; r < numProcs; r++) {
-        if(r == rank)
+      for(int r = 0; r < ttk::MPIsize_; r++) {
+        if(r == ttk::MPIrank_)
           sizeOfCurrentRank = currentRankUnknownIds.size();
         MPI_Bcast(&sizeOfCurrentRank, 1, MIT, r, MPI_COMM_WORLD);
         allUnknownIds[r].resize(sizeOfCurrentRank);
@@ -122,9 +114,9 @@ int ttkGhostCellPreconditioning::RequestData(
       // globalid map if so, we send the rank value to the requesting rank
       std::vector<std::vector<ttk::SimplexId>> gIdsToSend;
       MPI_Request req;
-      gIdsToSend.resize(numProcs);
-      for(int r = 0; r < numProcs; r++) {
-        if(r != rank) {
+      gIdsToSend.resize(ttk::MPIsize_);
+      for(int r = 0; r < ttk::MPIsize_; r++) {
+        if(r != ttk::MPIrank_) {
           for(ttk::SimplexId gId : allUnknownIds[r]) {
             if(gIdSet.count(gId)) {
               // add the value to the vector which will be sent
@@ -140,12 +132,12 @@ int ttkGhostCellPreconditioning::RequestData(
 
       // receive a variable amount of values from different ranks
       size_t i = 0;
-      while(i < allUnknownIds[rank].size()) {
+      while(i < allUnknownIds[ttk::MPIrank_].size()) {
         std::vector<ttk::SimplexId> receivedGlobals;
-        receivedGlobals.resize(allUnknownIds[rank].size());
+        receivedGlobals.resize(allUnknownIds[ttk::MPIrank_].size());
         MPI_Status status;
         int amount;
-        MPI_Recv(receivedGlobals.data(), allUnknownIds[rank].size(), MIT,
+        MPI_Recv(receivedGlobals.data(), allUnknownIds[ttk::MPIrank_].size(), MIT,
                  MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
         int sourceRank = status.MPI_SOURCE;
         MPI_Get_count(&status, MIT, &amount);
