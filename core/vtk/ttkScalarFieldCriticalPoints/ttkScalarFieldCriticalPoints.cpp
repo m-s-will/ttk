@@ -77,21 +77,6 @@ int ttkScalarFieldCriticalPoints::RequestData(
   auto vtkGlobalPointIds = pointData->GetGlobalIds();
   auto vtkGhostCells = pointData->GetArray("vtkGhostType");
 
-  for(int i = 0; i < triangulation->getNumberOfVertices(); i++) {
-    if(globalIds2[i] == 32640 || globalIds2[i] == 32639
-       || globalIds2[i] == 32897) {
-      if (rankArray[i] != 3)
-        printMsg("ALARM ALARM ALARM");
-      printMsg("Element " + std::to_string(globalIds2[i])
-               + " possessed with RankArray: " + std::to_string(rankArray[i])
-               + ", pointdata gid "
-               + std::to_string(vtkGlobalPointIds->GetComponent(i, 0))
-               + " ghostvalue: "
-               + std::to_string(vtkGhostCells->GetComponent(i, 0)));
-    }
-  }
-  return 1;
-
   vtkDataArray *offsetField
     = this->GetOrderArray(input, 0, 1, ForceInputOffsetScalarField);
 

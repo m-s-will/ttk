@@ -127,10 +127,6 @@ int ttkGhostCellPreconditioning::RequestData(
             }
           }
           // send whole vector of data
-          if( ttk::MPIrank_ == 3 && r == 0){
-            this->printMsg("R3 sending to R0: " + std::to_string(gIdsToSend.size()));
-            this->printMsg(std::to_string(gIdsToSend[0]) + " " + std::to_string(gIdsToSend[1]) + " " + std::to_string(gIdsToSend[2]) +" " + std::to_string(gIdsToSend[3]) +" " + std::to_string(gIdsToSend[4]));
-          }
           MPI_Send(gIdsToSend.data(), gIdsToSend.size(), MIT, r, 101,
                     ttkGhostCellPreconditioningComm);
         } else {
@@ -146,34 +142,10 @@ int ttkGhostCellPreconditioning::RequestData(
             int sourceRank = status.MPI_SOURCE;
             MPI_Get_count(&status, MIT, &amount);
             receivedGlobals.resize(amount);
-            if( ttk::MPIrank_ == 0 && sourceRank == 3)
-                this->printMsg("R0 receiving from R3: " + std::to_string(amount));
-
-            bool found1 = false;
-            bool found2 = false;
-            bool found3 = false;
             for(ttk::SimplexId receivedGlobal : receivedGlobals) {
               ttk::SimplexId localVal = gIdToLocalMap[receivedGlobal];
-              if(receivedGlobal == 32640 || receivedGlobal == 32639
-                || receivedGlobal == 32897) {
-                  printMsg("Element " + std::to_string(receivedGlobal)
-                  + " possessed with RankArray: " + std::to_string(sourceRank));
-                  if(receivedGlobal == 32640)
-                    found1 = true;
-                  if(receivedGlobal == 32639)
-                    found2 = true;
-                  if(receivedGlobal == 32897)
-                    found3 = true;
-
-              }
               rankArray->SetComponent(localVal, 0, sourceRank);
               i++;
-            }
-            if (ttk::MPIrank_ == 0 && sourceRank == 3 && !(found1 && found2 && found3)){
-              printMsg("HALT STOP!");
-              for(ttk::SimplexId receivedGlobal : receivedGlobals) {
-                printMsg(std::to_string(receivedGlobal));
-              }
             }
           }
         }
