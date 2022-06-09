@@ -73,8 +73,13 @@ int ttkGhostCellPreconditioning::RequestData(
       if(ttk::MPIrank_ == 0)
         this->printMsg(
           "Global Point Ids and Ghost Cells exist, therefore we can continue!");
+<<<<<<< HEAD
       this->printMsg("#Ranks " + std::to_string(ttk::MPIsize_) + ", this is rank "
                      + std::to_string(ttk::MPIrank_));
+=======
+      this->printMsg("#Ranks " + std::to_string(ttk::MPIsize_)
+                     + ", this is rank " + std::to_string(ttk::MPIrank_));
+>>>>>>> ttk/mpi
 
       MPI_Datatype MIT = ttk::getMPIType(static_cast<ttk::SimplexId>(0));
       vtkNew<vtkIntArray> rankArray{};
@@ -107,10 +112,18 @@ int ttkGhostCellPreconditioning::RequestData(
       for(int r = 0; r < ttk::MPIsize_; r++) {
         if(r == ttk::MPIrank_)
           sizeOfCurrentRank = currentRankUnknownIds.size();
+<<<<<<< HEAD
         MPI_Bcast(&sizeOfCurrentRank, 1, MIT, r, ttkGhostCellPreconditioningComm);
         allUnknownIds[r].resize(sizeOfCurrentRank);
         MPI_Bcast(
           allUnknownIds[r].data(), sizeOfCurrentRank, MIT, r, ttkGhostCellPreconditioningComm);
+=======
+        MPI_Bcast(
+          &sizeOfCurrentRank, 1, MIT, r, ttkGhostCellPreconditioningComm);
+        allUnknownIds[r].resize(sizeOfCurrentRank);
+        MPI_Bcast(allUnknownIds[r].data(), sizeOfCurrentRank, MIT, r,
+                  ttkGhostCellPreconditioningComm);
+>>>>>>> ttk/mpi
       }
 
       // then we check if the needed globalid values are present in the local
@@ -128,7 +141,7 @@ int ttkGhostCellPreconditioning::RequestData(
           }
           // send whole vector of data
           MPI_Send(gIdsToSend.data(), gIdsToSend.size(), MIT, r, 101,
-                    ttkGhostCellPreconditioningComm);
+                   ttkGhostCellPreconditioningComm);
         } else {
           // receive a variable amount of values from different ranks
           size_t i = 0;
@@ -142,16 +155,15 @@ int ttkGhostCellPreconditioning::RequestData(
             int sourceRank = status.MPI_SOURCE;
             MPI_Get_count(&status, MIT, &amount);
             receivedGlobals.resize(amount);
-            for(ttk::SimplexId receivedGlobal : receivedGlobals) {
-              ttk::SimplexId localVal = gIdToLocalMap[receivedGlobal];
-              rankArray->SetComponent(localVal, 0, sourceRank);
-              i++;
+            ttk::SimplexId localVal = gIdToLocalMap[receivedGlobal];
+            rankArray->SetComponent(localVal, 0, sourceRank);
+            i++;
             }
           }
         }
       }
-
-
+      // free the communicator once we are done with everything MPI
+      MPI_Comm_free(&ttkGhostCellPreconditioningComm);
       output->GetPointData()->AddArray(rankArray);
 
       this->printMsg("Preprocessed RankArray", 1.0, tm.getElapsedTime(),
