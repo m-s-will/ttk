@@ -73,13 +73,8 @@ int ttkGhostCellPreconditioning::RequestData(
       if(ttk::MPIrank_ == 0)
         this->printMsg(
           "Global Point Ids and Ghost Cells exist, therefore we can continue!");
-<<<<<<< HEAD
-      this->printMsg("#Ranks " + std::to_string(ttk::MPIsize_) + ", this is rank "
-                     + std::to_string(ttk::MPIrank_));
-=======
       this->printMsg("#Ranks " + std::to_string(ttk::MPIsize_)
                      + ", this is rank " + std::to_string(ttk::MPIrank_));
->>>>>>> ttk/mpi
 
       MPI_Datatype MIT = ttk::getMPIType(static_cast<ttk::SimplexId>(0));
       vtkNew<vtkIntArray> rankArray{};
@@ -112,18 +107,11 @@ int ttkGhostCellPreconditioning::RequestData(
       for(int r = 0; r < ttk::MPIsize_; r++) {
         if(r == ttk::MPIrank_)
           sizeOfCurrentRank = currentRankUnknownIds.size();
-<<<<<<< HEAD
-        MPI_Bcast(&sizeOfCurrentRank, 1, MIT, r, ttkGhostCellPreconditioningComm);
-        allUnknownIds[r].resize(sizeOfCurrentRank);
-        MPI_Bcast(
-          allUnknownIds[r].data(), sizeOfCurrentRank, MIT, r, ttkGhostCellPreconditioningComm);
-=======
         MPI_Bcast(
           &sizeOfCurrentRank, 1, MIT, r, ttkGhostCellPreconditioningComm);
         allUnknownIds[r].resize(sizeOfCurrentRank);
         MPI_Bcast(allUnknownIds[r].data(), sizeOfCurrentRank, MIT, r,
                   ttkGhostCellPreconditioningComm);
->>>>>>> ttk/mpi
       }
 
       // then we check if the needed globalid values are present in the local
