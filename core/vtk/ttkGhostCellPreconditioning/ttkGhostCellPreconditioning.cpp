@@ -43,6 +43,18 @@ int ttkGhostCellPreconditioning::FillOutputPortInformation(
   return 0;
 }
 
+// returns true if bounding boxes intersect, false if not
+bool checkForIntersection(double *myBB, double *theirBB) {
+  return !(
+    myBB[0] > theirBB[1] // my left side is right of their right side
+    || myBB[1] < theirBB[0] // my right side is left of their left side
+    || myBB[2] > theirBB[3] // my bottom side is above their top side
+    || myBB[3] < theirBB[2] // my top side is under their bottom side
+    || myBB[4] > theirBB[5] // my front side is behind their back side
+    || myBB[5] < theirBB[4] // my back side is in front of their front side
+  );
+}
+
 int ttkGhostCellPreconditioning::RequestData(
   vtkInformation *ttkNotUsed(request),
   vtkInformationVector **inputVector,
@@ -75,6 +87,35 @@ int ttkGhostCellPreconditioning::RequestData(
           "Global Point Ids and Ghost Cells exist, therefore we can continue!");
       this->printMsg("#Ranks " + std::to_string(ttk::MPIsize_)
                      + ", this is rank " + std::to_string(ttk::MPIrank_));
+      ttk::Timer bbTimer{};
+      double *boundingBox = input->GetBounds();
+      std::vector<double *> rankBoundingBoxes(ttk::MPIsize_);
+      rankBoundingBoxes[ttk::MPIrank_] = boundingBox;
+      for(int r = 0; r < ttk::MPIsize_; r++) {
+        if(r != ttk::MPIrank_)
+          rankBoundingBoxes[r] = (double *)malloc(6 * sizeof(double));
+        MPI_Bcast(rankBoundingBoxes[r], 6, MPI_DOUBLE, r, MPI_COMM_WORLD);
+      }
+
+      double epsilon = 0.00001;
+      // inflate our own bounding box by epsilon
+      for(int i = 0; i < 6; i++) {
+        if(i % 2 == 0)
+          boundingBox[i] -= epsilon;
+        if(i % 2 == 1)
+          boundingBox[i] += epsilon;
+      }
+      std::vector<int> neighbors;
+      for(int i = 0; i < ttk::MPIsize_; i++) {
+        if(i != ttk::MPIrank_) {
+          double *theirBoundingBox = rankBoundingBoxes[i];
+          if(checkForIntersection(boundingBox, theirBoundingBox)) {
+            neighbors.push_back(i);
+          }
+        }
+      }
+      this->printMsg("Finished with neighborhood computation", 1.0,
+                     bbTimer.getElapsedTime());
 
       MPI_Datatype MIT = ttk::getMPIType(static_cast<ttk::SimplexId>(0));
       vtkNew<vtkIntArray> rankArray{};
@@ -85,6 +126,11 @@ int ttkGhostCellPreconditioning::RequestData(
       std::vector<std::vector<ttk::SimplexId>> allUnknownIds(ttk::MPIsize_);
       std::unordered_set<ttk::SimplexId> gIdSet;
       std::unordered_map<ttk::SimplexId, ttk::SimplexId> gIdToLocalMap;
+      // then we check if the needed globalid values are present in the local
+      // globalid map if so, we send the rank value to the requesting rank
+
+      ttk::Timer broadcastTimer{};
+
       for(int i = 0; i < nVertices; i++) {
         int ghostCellVal = vtkGhostCells->GetComponent(i, 0);
         ttk::SimplexId globalId = vtkGlobalPointIds->GetComponent(i, 0);
@@ -113,10 +159,62 @@ int ttkGhostCellPreconditioning::RequestData(
         MPI_Bcast(allUnknownIds[r].data(), sizeOfCurrentRank, MIT, r,
                   ttkGhostCellPreconditioningComm);
       }
+      std::vector<size_t> S(allUnknownIds.size());
+      std::transform(allUnknownIds.begin(), allUnknownIds.end(), S.begin(),
+                     std::mem_fn(&std::vector<ttk::SimplexId>::size));
+      size_t maxSize = *std::max_element(S.begin(), S.end());
+
+      this->printMsg(
+        "Finished with preprocessing", 1.0, broadcastTimer.getElapsedTime());
+
+      std::vector<ttk::SimplexId> gIdsToSend;
+      gIdsToSend.reserve(maxSize);
+      ttk::Timer neighborTimer{};
+      std::vector<ttk::SimplexId> receivedGlobals;
+      receivedGlobals.resize(allUnknownIds[ttk::MPIrank_].size());
+
+      for(int neighbor : neighbors) {
+        for(ttk::SimplexId gId : allUnknownIds[neighbor]) {
+          if(gIdSet.count(gId)) {
+            // add the value to the vector which will be sent
+            gIdsToSend.push_back(gId);
+          }
+        }
+        MPI_Status status;
+        int amount;
+        this->printMsg("Rank " + std::to_string(ttk::MPIrank_) + " is sending "
+                       + std::to_string(gIdsToSend.size())
+                       + " values to and receiving from Rank "
+                       + std::to_string(neighbor));
+
+        MPI_Sendrecv(gIdsToSend.data(), gIdsToSend.size(), MIT, neighbor,
+                     ttk::MPIrank_, receivedGlobals.data(),
+                     allUnknownIds[ttk::MPIrank_].size(), MIT, neighbor,
+                     neighbor, ttkGhostCellPreconditioningComm, &status);
+
+        MPI_Get_count(&status, MIT, &amount);
+        receivedGlobals.resize(amount);
+        this->printMsg("Rank " + std::to_string(ttk::MPIrank_)
+                       + " succesfully sent to and received "
+                       + std::to_string(amount) + " values from Rank "
+                       + std::to_string(neighbor));
+
+        for(ttk::SimplexId receivedGlobal : receivedGlobals) {
+          ttk::SimplexId localVal = gIdToLocalMap[receivedGlobal];
+          rankArray->SetComponent(localVal, 0, neighbor);
+        }
+        // cleanup
+        gIdsToSend.clear();
+        receivedGlobals.resize(allUnknownIds[ttk::MPIrank_].size());
+      }
+      this->printMsg(
+        "Finished with sendrecvs", 1.0, neighborTimer.getElapsedTime());
 
       // then we check if the needed globalid values are present in the local
       // globalid map if so, we send the rank value to the requesting rank
-      std::vector<ttk::SimplexId> gIdsToSend;
+
+      /*ttk::Timer allTimer{};
+
       for(int r = 0; r < ttk::MPIsize_; r++) {
         if(r != ttk::MPIrank_) {
           // send the needed values to r
@@ -133,23 +231,25 @@ int ttkGhostCellPreconditioning::RequestData(
         } else {
           // receive a variable amount of values from different ranks
           size_t i = 0;
-          std::vector<ttk::SimplexId> receivedGlobals;
           while(i < allUnknownIds[ttk::MPIrank_].size()) {
-            receivedGlobals.resize(allUnknownIds[ttk::MPIrank_].size());
             MPI_Status status;
             int amount;
-            MPI_Recv(receivedGlobals.data(), allUnknownIds[ttk::MPIrank_].size(), MIT,
-                    MPI_ANY_SOURCE, MPI_ANY_TAG, ttkGhostCellPreconditioningComm, &status);
-            int sourceRank = status.MPI_SOURCE;
-            MPI_Get_count(&status, MIT, &amount);
+            MPI_Recv(receivedGlobals.data(),
+      allUnknownIds[ttk::MPIrank_].size(), MIT, MPI_ANY_SOURCE, MPI_ANY_TAG,
+      ttkGhostCellPreconditioningComm, &status); int sourceRank =
+      status.MPI_SOURCE; MPI_Get_count(&status, MIT, &amount);
             receivedGlobals.resize(amount);
-            ttk::SimplexId localVal = gIdToLocalMap[receivedGlobal];
-            rankArray->SetComponent(localVal, 0, sourceRank);
-            i++;
+            for(ttk::SimplexId receivedGlobal : receivedGlobals) {
+              ttk::SimplexId localVal = gIdToLocalMap[receivedGlobal];
+              rankArray->SetComponent(localVal, 0, sourceRank);
+              i++;
             }
           }
         }
       }
+      this->printMsg("Finished with all sends", 1.0, allTimer
+      .getElapsedTime());*/
+
       // free the communicator once we are done with everything MPI
       MPI_Comm_free(&ttkGhostCellPreconditioningComm);
       output->GetPointData()->AddArray(rankArray);
