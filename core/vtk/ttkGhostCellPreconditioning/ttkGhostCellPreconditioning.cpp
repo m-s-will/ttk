@@ -140,20 +140,20 @@ int ttkGhostCellPreconditioning::RequestData(
         }
       }
 
-      ttk::SimplexId sizeOfCurrentRank;
+      ttk::SimplexId sizeOfCurrentRank = currentRankUnknownIds.size();
       std::vector<ttk::SimplexId> gIdsToSend;
       std::vector<ttk::SimplexId> receivedGlobals;
-      receivedGlobals.resize(currentRankUnknownIds.size());
+      receivedGlobals.resize(sizeOfCurrentRank);
       ttk::SimplexId sizeOfNeighbor;
       std::vector<ttk::SimplexId> neighborUnknownIds;
       for(int neighbor : neighbors) {
-        sizeOfCurrentRank = currentRankUnknownIds.size();
         // we first send the size and then all needed ids to the neighbor
         MPI_Sendrecv(&sizeOfCurrentRank, 1, MIT, neighbor, ttk::MPIrank_,
                      &sizeOfNeighbor, 1, MIT, neighbor, neighbor,
                      ttkGhostCellPreconditioningComm, MPI_STATUS_IGNORE);
         neighborUnknownIds.resize(sizeOfNeighbor);
         gIdsToSend.reserve(sizeOfNeighbor);
+
         MPI_Sendrecv(currentRankUnknownIds.data(), sizeOfCurrentRank, MIT,
                      neighbor, ttk::MPIrank_, neighborUnknownIds.data(),
                      sizeOfNeighbor, MIT, neighbor, neighbor,
@@ -185,7 +185,7 @@ int ttkGhostCellPreconditioning::RequestData(
         }
         // cleanup
         gIdsToSend.clear();
-        receivedGlobals.resize(allUnknownIds[ttk::MPIrank_].size());
+        receivedGlobals.resize(sizeOfCurrentRank);
       }
 
       // free the communicator once we are done with everything MPI
