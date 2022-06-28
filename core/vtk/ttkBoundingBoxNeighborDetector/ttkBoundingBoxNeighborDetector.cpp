@@ -121,8 +121,8 @@ int ttkBoundingBoxNeighborDetector::RequestData(
   if(ttk::isRunningWithMPI()) {
     int numProcs;
     int rank;
-    MPI_Comm_size(MPI_COMM_WORLD, &numProcs);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(ttk::MPIcomm_, &numProcs);
+    MPI_Comm_rank(ttk::MPIcomm_, &rank);
     if(rank == 0)
       this->printMsg(
         "MPI is initialized, therefore we are in distributed mode!");
@@ -134,7 +134,7 @@ int ttkBoundingBoxNeighborDetector::RequestData(
     for(int r = 0; r < numProcs; r++) {
       if(r != rank)
         rankBoundingBoxes[r] = (double *)malloc(6 * sizeof(double));
-      MPI_Bcast(rankBoundingBoxes[r], 6, MPI_DOUBLE, r, MPI_COMM_WORLD);
+      MPI_Bcast(rankBoundingBoxes[r], 6, MPI_DOUBLE, r, ttk::MPIcomm_);
     }
 
     // double epsilon = std::numeric_limits<double>::epsilon();
