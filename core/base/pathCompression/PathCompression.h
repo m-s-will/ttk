@@ -356,7 +356,7 @@ namespace ttk {
                          edgesWithTargets.data(), sizes, displacements,
                          MPI_CHAR, ttk::MPIcomm_);
           this->printMsg("R" + std::to_string(ttk::MPIrank_)
-                         + " got the results");
+                         + " got the result");
 
           // now each rank has a vector consisting of gIds, the ranks to which
           // they belong and the ascending / descending target we have all the
