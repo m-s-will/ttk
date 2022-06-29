@@ -10,6 +10,7 @@
 #include <vtkCommand.h>
 #include <vtkDataSet.h>
 #if TTK_ENABLE_MPI
+#include <ttkArrayPreconditioning.h> // TODO: circular depend, move order computation to MPIUtils.h
 #include <vtkCellData.h>
 #include <vtkGenerateGlobalIds.h>
 #include <vtkGhostCellsGenerator.h>
@@ -166,7 +167,20 @@ vtkDataArray *ttkAlgorithm::GetOrderArray(vtkDataSet *const inputData,
 
       this->printMsg("Initializing order array.", 0, 0, this->threadNumber_,
                      ttk::debug::LineMode::REPLACE);
+#if TTK_ENABLE_MPI
 
+      vtkNew<ttkArrayPreconditioning> orderGenerator;
+      orderGenerator->SetInputData(inputData);
+      orderGenerator->Update();
+      inputData->ShallowCopy(orderGenerator->GetOutputDataObject(0));
+      auto newOrderArray
+        = inputData
+            ->GetAttributesAsFieldData(
+              this->GetInputArrayAssociation(scalarArrayIdx, inputData))
+            ->GetArray(this->GetOrderArrayName(scalarArray).data());
+      return newOrderArray;
+
+#else
       auto nVertices = scalarArray->GetNumberOfTuples();
       auto newOrderArray = vtkSmartPointer<ttkSimplexIdTypeArray>::New();
       newOrderArray->SetName(this->GetOrderArrayName(scalarArray).data());
@@ -187,7 +201,7 @@ vtkDataArray *ttkAlgorithm::GetOrderArray(vtkDataSet *const inputData,
         ->GetAttributesAsFieldData(
           this->GetInputArrayAssociation(scalarArrayIdx, inputData))
         ->AddArray(newOrderArray);
-
+#endif
       this->printMsg("Initializing order array.", 1, timer.getElapsedTime(),
                      this->threadNumber_);
 
