@@ -313,8 +313,7 @@ namespace ttk {
               &localSize, 1, MPI_INT, NULL, 0, MPI_INT, 0, ttk::MPIcomm_);
             MPI_Gatherv(foreignVertices.data(),
                         foreignVertices.size() * sizeof(globalIdOwner),
-                        MPI_CHAR, NULL, NULL, NULL, MPI_CHAR, 0,
-                        ttk::MPIcomm_);
+                        MPI_CHAR, NULL, NULL, NULL, MPI_CHAR, 0, ttk::MPIcomm_);
           }
 
           // we need to receive the results to which the gids are pointing from

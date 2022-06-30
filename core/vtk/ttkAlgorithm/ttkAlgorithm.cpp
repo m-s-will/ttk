@@ -10,7 +10,6 @@
 #include <vtkCommand.h>
 #include <vtkDataSet.h>
 #if TTK_ENABLE_MPI
-#include <ttkArrayPreconditioning.h> // TODO: circular depend, move order computation to MPIUtils.h
 #include <vtkCellData.h>
 #include <vtkGenerateGlobalIds.h>
 #include <vtkGhostCellsGenerator.h>
@@ -167,26 +166,27 @@ vtkDataArray *ttkAlgorithm::GetOrderArray(vtkDataSet *const inputData,
 
       this->printMsg("Initializing order array.", 0, 0, this->threadNumber_,
                      ttk::debug::LineMode::REPLACE);
-#if TTK_ENABLE_MPI
 
-      vtkNew<ttkArrayPreconditioning> orderGenerator;
-      orderGenerator->SetInputData(inputData);
-      orderGenerator->Update();
-      inputData->ShallowCopy(orderGenerator->GetOutputDataObject(0));
-      auto newOrderArray
-        = inputData
-            ->GetAttributesAsFieldData(
-              this->GetInputArrayAssociation(scalarArrayIdx, inputData))
-            ->GetArray(this->GetOrderArrayName(scalarArray).data());
-      return newOrderArray;
-
-#else
       auto nVertices = scalarArray->GetNumberOfTuples();
       auto newOrderArray = vtkSmartPointer<ttkSimplexIdTypeArray>::New();
       newOrderArray->SetName(this->GetOrderArrayName(scalarArray).data());
       newOrderArray->SetNumberOfComponents(1);
       newOrderArray->SetNumberOfTuples(nVertices);
+#if TTK_ENABLE_MPI
+      if(ttk::isRunningWithMPI()) {
+        this->MPIPipelinePreconditioning(inputData);
+        auto vtkGlobalPointIds = inputData->GetPointData()->GetGlobalIds();
+        auto rankArray = inputData->GetPointData()->GetArray("RankArray");
+        ttkTypeMacroAI(
+          scalarArray->GetDataType(), vtkGlobalPointIds->GetDataType(),
+          (ttk::produceOrdering<T0, T1>(
+            ttkUtils::GetPointer<ttk::SimplexId>(newOrderArray),
+            ttkUtils::GetPointer<T0>(scalarArray),
+            ttkUtils::GetPointer<T1>(vtkGlobalPointIds),
+            ttkUtils::GetPointer<int>(rankArray), nVertices, 500)));
+      }
 
+#else
       switch(scalarArray->GetDataType()) {
         vtkTemplateMacro(ttk::preconditionOrderArray(
           nVertices,
@@ -195,13 +195,13 @@ vtkDataArray *ttkAlgorithm::GetOrderArray(vtkDataSet *const inputData,
             ttkUtils::GetVoidPointer(newOrderArray)),
           this->threadNumber_));
       }
+#endif
 
       // append order array temporarily to input
       inputData
         ->GetAttributesAsFieldData(
           this->GetInputArrayAssociation(scalarArrayIdx, inputData))
         ->AddArray(newOrderArray);
-#endif
       this->printMsg("Initializing order array.", 1, timer.getElapsedTime(),
                      this->threadNumber_);
 
