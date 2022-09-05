@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ServerManagerConfiguration>
+  <ProxyGroup name="filters">
+    <SourceProxy name="ttkDistributeDataToRanks" class="ttkDistributeDataToRanks" label="TTK DistributeDataToRanks">
+      <Documentation long_help="DistributeDataToRanks Long" short_help="DistributeDataToRanks Short">This filter is used to distribute a dataset only available on one rank to all the other ranks.</Documentation>
+
+      <!-- INPUT DATA OBJECTS -->
+      <InputProperty name="Input" command="SetInputConnection">
+        <ProxyGroupDomain name="groups">
+          <Group name="sources" />
+          <Group name="filters" />
+        </ProxyGroupDomain>
+        <DataTypeDomain name="input_type">
+          <DataType value="vtkDataSet" />
+        </DataTypeDomain>
+        <Documentation>A vtkDataSet which will be distributed.</Documentation>
+      </InputProperty>
+
+      <!-- INPUT PARAMETER WIDGETS -->
+
+
+      <!-- OUTPUT PARAMETER WIDGETS -->
+
+      <!-- A string parameter that controls the name of the output array -->
+
+      <!-- Create a UI group that contains all output parameter widgets (here only one) -->
+
+
+      <!-- DEBUG -->
+      ${DEBUG_WIDGETS}
+
+      <!-- MENU CATEGORY -->
+      <Hints>
+        <ShowInMenu category="TTK - Misc" />
+      </Hints>
+    </SourceProxy>
+  </ProxyGroup>
+</ServerManagerConfiguration>

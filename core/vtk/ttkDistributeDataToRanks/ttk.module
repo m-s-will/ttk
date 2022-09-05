@@ -1,0 +1,8 @@
+NAME
+  ttkDistributeDataToRanks
+SOURCES
+  ttkDistributeDataToRanks.cpp
+HEADERS
+  ttkDistributeDataToRanks.h
+DEPENDS
+  ttkAlgorithm
