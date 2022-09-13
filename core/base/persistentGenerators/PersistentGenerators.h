@@ -16,6 +16,30 @@
 /// Technical Report, arXiv:2206.13932, 2022
 ///
 /// \sa ttk::DiscreteMorseSandwich
+///
+/// \b Online \b examples: \n
+///   - <a
+///   href="https://topology-tool-kit.github.io/examples/persistentGenerators_at/">Persistent
+///   Generators AT example</a> \n
+///   - <a
+///   href="https://topology-tool-kit.github.io/examples/persistentGenerators_casting/">Persistent
+///   Generators Casting example</a> \n
+///   - <a
+///   href="https://topology-tool-kit.github.io/examples/persistentGenerators_darkSky/">Persistent
+///   Generators DarkSky example</a> \n
+///   - <a
+///   href="https://topology-tool-kit.github.io/examples/persistentGenerators_fertility/">Persistent
+///   Generators Fertility example</a> \n
+///   - <a
+///   href="https://topology-tool-kit.github.io/examples/persistentGenerators_houseHoldAnalysis/">Persistent
+///   Generators Household Analysis example</a> \n
+///   - <a
+///   href="https://topology-tool-kit.github.io/examples/persistentGenerators_periodicPicture/">Persistent
+///   Generators Periodic Picture example</a> \n
+///   - <a
+///   href="https://topology-tool-kit.github.io/examples/persistentGenerators_skull/">Persistent
+///   Generators Skull example</a> \n
+///
 
 #pragma once
 
@@ -442,10 +466,10 @@ int ttk::PersistentGenerators::computePersistentGenerators(
     // (eliminateBoundariesSandwich boundaries right before
     // simplification)
     std::vector<PersistencePair> sadSadPairs{};
-    this->getSaddleSaddlePairs(sadSadPairs, paired1Saddles, paired2Saddles,
-                               true, generators, criticalCellsByDim[1],
-                               criticalCellsByDim[2], critCellsOrder[1],
-                               triangulation);
+    this->getSaddleSaddlePairs(
+      sadSadPairs, paired1Saddles, dim == 3 ? paired2Saddles : pairedMaxima,
+      true, generators, criticalCellsByDim[1], criticalCellsByDim[2],
+      critCellsOrder[1], triangulation);
   }
 
   // detect topological handles

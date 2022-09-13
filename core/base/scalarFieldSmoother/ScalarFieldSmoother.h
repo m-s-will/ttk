@@ -13,6 +13,27 @@
 /// etc.).
 ///
 /// \sa ttkScalarFieldSmoother.cpp %for a usage example.
+///
+/// \b Online \b examples: \n
+///   - <a
+///   href="https://topology-tool-kit.github.io/examples/1manifoldLearning/">1-Manifold
+///   Learning example</a> \n
+///   - <a
+///   href="https://topology-tool-kit.github.io/examples/2manifoldLearning/">
+///   2-Manifold Learning example</a> \n
+///   - <a href="https://topology-tool-kit.github.io/examples/dragon/">Dragon
+/// example</a> \n
+///   - <a
+///   href="https://topology-tool-kit.github.io/examples/harmonicSkeleton/">
+///   Harmonic Skeleton example</a> \n
+///   - <a href="https://topology-tool-kit.github.io/examples/morseMolecule/">
+/// Morse molecule example</a> \n
+///   - <a
+///   href="https://topology-tool-kit.github.io/examples/interactionSites/">
+///   Interaction sites example</a> \n
+///   - <a
+///   href="https://topology-tool-kit.github.io/examples/morseMolecule/">
+///   Morse Molecule example</a> \n
 
 #pragma once
 
@@ -53,9 +74,7 @@ namespace ttk {
 
     template <class dataType, class triangulationType = AbstractTriangulation>
     int smooth(const triangulationType *triangulation,
-               const int &numberOfIterations,
-               const int *rankArray = nullptr,
-               const SimplexId *globalIds = nullptr) const;
+               const int &numberOfIterations) const;
 
   protected:
     int dimensionNumber_{1};
@@ -68,9 +87,7 @@ namespace ttk {
 // template functions
 template <class dataType, class triangulationType>
 int ttk::ScalarFieldSmoother::smooth(const triangulationType *triangulation,
-                                     const int &numberOfIterations,
-                                     const int *rankArray,
-                                     const SimplexId *globalIds) const {
+                                     const int &numberOfIterations) const {
 
   Timer t;
 
@@ -84,14 +101,23 @@ int ttk::ScalarFieldSmoother::smooth(const triangulationType *triangulation,
   if(!outputData_)
     return -4;
 #endif
+  int *rankArray{nullptr};
+  SimplexId *globalIds{nullptr};
   bool useMPI = false;
+  const std::unordered_map<SimplexId, SimplexId> *map = nullptr;
   TTK_FORCE_USE(useMPI);
+  TTK_FORCE_USE(map);
   TTK_FORCE_USE(rankArray);
   TTK_FORCE_USE(globalIds);
 
 #if TTK_ENABLE_MPI
-  if(ttk::isRunningWithMPI() && rankArray != nullptr && globalIds != nullptr)
+  rankArray = triangulation->getRankArray();
+  globalIds = (SimplexId *)triangulation->getGlobalIdsArray();
+  if(ttk::isRunningWithMPI() && rankArray != nullptr && globalIds != nullptr) {
     useMPI = true;
+    map = triangulation->getVertexGlobalIdMap();
+  }
+
 #endif
   SimplexId vertexNumber = triangulation->getNumberOfVertices();
 
@@ -154,10 +180,8 @@ int ttk::ScalarFieldSmoother::smooth(const triangulationType *triangulation,
     if(useMPI) {
       // after each iteration we need to exchange the ghostcell values with our
       // neighbors
-      std::unordered_map<SimplexId, SimplexId> map;
-      triangulation->getVertexGlobalIdMap(map);
       exchangeGhostCells<dataType, SimplexId>(
-        outputData, rankArray, globalIds, map, vertexNumber, ttk::MPIcomm_);
+        outputData, rankArray, globalIds, *map, vertexNumber, ttk::MPIcomm_);
     }
 #endif
 

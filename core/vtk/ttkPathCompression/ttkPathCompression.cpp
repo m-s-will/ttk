@@ -118,8 +118,14 @@ int ttkPathCompression::RequestData(vtkInformation *ttkNotUsed(request),
          ttkUtils::GetPointer<T0>(order), (T1 *)triangulation->getData(),
          ttkUtils::GetPointer<int>(rankArray),
          ttkUtils::GetPointer<ttk::SimplexId>(globalIds))));
+  } else {
+    ttkTypeMacroIT(
+      order->GetDataType(), triangulation->getType(),
+      (status = this->computeCompression<T0, T1>(
+         ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
+         ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
+         ttkUtils::GetPointer<T0>(order), (T1 *)triangulation->getData())));
   }
-
 #else
   ttkTypeMacroIT(
     order->GetDataType(), triangulation->getType(),
