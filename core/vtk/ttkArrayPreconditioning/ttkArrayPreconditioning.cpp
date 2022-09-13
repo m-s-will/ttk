@@ -100,12 +100,12 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
           orderArray->SetNumberOfComponents(1);
           orderArray->SetNumberOfTuples(nVertices);
 
-          ttkTypeMacroAI(
-            scalarArray->GetDataType(), vtkGlobalPointIds->GetDataType(),
-            (status = processScalarArray<T0, T1>(
+          ttkTypeMacroA(
+            scalarArray->GetDataType(),
+            (status = processScalarArray(
                ttkUtils::GetPointer<ttk::SimplexId>(orderArray),
                ttkUtils::GetPointer<T0>(scalarArray),
-               ttkUtils::GetPointer<T1>(vtkGlobalPointIds),
+               ttkUtils::GetPointer<ttk::LongSimplexId>(vtkGlobalPointIds),
                ttkUtils::GetPointer<int>(rankArray), nVertices, BurstSize)));
 
           // On error cancel filter execution

@@ -31,7 +31,7 @@
 ///   href="https://topology-tool-kit.github.io/examples/persistentGenerators_fertility/">Persistent
 ///   Generators Fertility example</a> \n
 ///   - <a
-///   href="https://topology-tool-kit.github.io/examples/persistentGenerators_houseHoldAnalysis/">Persistent
+///   href="https://topology-tool-kit.github.io/examples/persistentGenerators_householdAnalysis/">Persistent
 ///   Generators Household Analysis example</a> \n
 ///   - <a
 ///   href="https://topology-tool-kit.github.io/examples/persistentGenerators_periodicPicture/">Persistent
@@ -458,7 +458,7 @@ int ttk::PersistentGenerators::computePersistentGenerators(
     std::vector<PersistencePair> sadMaxPairs{};
     this->getMaxSaddlePairs(
       sadMaxPairs, pairedMaxima, paired2Saddles, criticalCellsByDim[dim - 1],
-      critCellsOrder[dim - 1], critCellsOrder[dim], triangulation, false);
+      critCellsOrder[dim - 1], critCellsOrder[dim], triangulation);
   }
 
   if(!criticalCellsByDim[1].empty() && !criticalCellsByDim[2].empty()) {
