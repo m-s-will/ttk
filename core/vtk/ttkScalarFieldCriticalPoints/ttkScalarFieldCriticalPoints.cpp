@@ -71,8 +71,6 @@ int ttkScalarFieldCriticalPoints::RequestData(
   if(!inputScalarField)
     return 0;
 
-  long int *globalIds2 = triangulation->getGlobalIdsArray();
-  auto rankArray = triangulation->getRankArray();
   auto pointData = input->GetPointData();
   auto vtkGlobalPointIds = pointData->GetGlobalIds();
   auto vtkGhostCells = pointData->GetArray("vtkGhostType");
