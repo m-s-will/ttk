@@ -220,8 +220,7 @@ namespace ttk {
         // now we need to transform local ids into global ids to correctly work
         // over all ranks
         if(useMPI) {
-          std::unordered_map<SimplexId, SimplexId> gIdTolIdMap;
-          triangulation->getVertexGlobalIdMap(gIdTolIdMap);
+          auto gIdTolIdMap = triangulation->getVertexGlobalIdMap();
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for num_threads(this->threadNumber_)
 #endif
