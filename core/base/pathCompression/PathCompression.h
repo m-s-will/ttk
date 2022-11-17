@@ -152,6 +152,21 @@ namespace ttk {
               globalIdOwner GIO = {globalIds[i], rankArray[i]};
               foreignVertices.push_back(GIO);
             }
+          } else {
+            for(int j = 0; j < nNeighbors; j++) {
+              triangulation->getVertexNeighbor(i, j, neighborId);
+              // and for the largest neighbor to get to the ascending manifold
+              if(inputData[neighborId] > largest) {
+                previousAsc[i] = neighborId;
+                largest = inputData[neighborId];
+              }
+              // we're checking for the smallest neighbor to get the descending
+              // manifold
+              if(inputData[neighborId] < smallest) {
+                previousDesc[i] = neighborId;
+                smallest = inputData[neighborId];
+              }
+            }
           }
 #else
           for(int j = 0; j < nNeighbors; j++) {

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- TODO 11: Add widgets to the ParaView UI that control the member variables of the vtk filter -->
+<!-- NOTE: Unfortunately the widget types and their properties are not well documented. -->
+<!--       The best thing you can do is to look at filters that have similar widgets you require and copy their source code. -->
+<!--       Good resources are: IcoSphere.xml, PersistenceDiagram.xml, and ArrayEditor.xml -->
+<ServerManagerConfiguration>
+  <ProxyGroup name="filters">
+    <SourceProxy name="ttkPairExtrema" class="ttkPairExtrema" label="TTK PairExtrema">
+      <Documentation long_help="PairExtrema Long" short_help="PairExtrema Short">This filter computes the Saddle Maximum and the split tree using the Descending Segmentation and the critical points.</Documentation>
+
+      <!-- INPUT DATA OBJECTS -->
+
+      <InputProperty name="Segmentation" port_index="0" command="SetInputConnection">
+        <ProxyGroupDomain name="groups">
+            <Group name="sources" />
+            <Group name="filters" />
+        </ProxyGroupDomain>
+        <DataTypeDomain name="input_type">
+            <DataType value="vtkDataSet" />
+        </DataTypeDomain>
+        <Documentation>vtkDataSet containing the Descending Segmentation.</Documentation>
+      </InputProperty>
+
+      <InputProperty name="Critical Points" port_index="1" command="SetInputConnection">
+          <ProxyGroupDomain name="groups">
+              <Group name="sources" />
+              <Group name="filters" />
+          </ProxyGroupDomain>
+          <DataTypeDomain name="input_type">
+              <DataType value="vtkPointSet" />
+          </DataTypeDomain>
+          <Documentation>vtkPointSet that represents the critical points.</Documentation>
+      </InputProperty>
+
+      <!-- INPUT PARAMETER WIDGETS -->
+<StringVectorProperty name="InputArray" label="Input Array" command="SetInputArrayToProcess" element_types="0 0 0 0 2" number_of_elements="5">
+        <ArrayListDomain attribute_type="Scalars" name="array_list">
+          <RequiredProperties>
+            <Property function="Input" name="Critical Points" />
+          </RequiredProperties>
+        </ArrayListDomain>
+        <Documentation>The scalar array on the critical points datasetthat will be used.</Documentation>
+      </StringVectorProperty>
+
+      <!-- This is the VTK way of selecting arrays for processing by calling the SetInputArrayToProcess method -->
+      <!-- (see ttkPairExtrema.cpp for details) -->
+
+      <!-- Create a UI group that contains all input parameter widgets (here only one) -->
+      <!-- OUTPUT PARAMETER WIDGETS -->
+
+
+      <!-- DEBUG -->
+      ${DEBUG_WIDGETS}
+      <PropertyGroup label="Input options">
+        <Property name="InputArray" />
+      </PropertyGroup>
+
+      <!-- MENU CATEGORY -->
+      <Hints>
+        <ShowInMenu category="TTK - Misc" />
+      </Hints>
+    </SourceProxy>
+  </ProxyGroup>
+</ServerManagerConfiguration>

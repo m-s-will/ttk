@@ -1,0 +1,9 @@
+NAME
+  ttkPairExtrema
+SOURCES
+  ttkPairExtrema.cpp
+HEADERS
+  ttkPairExtrema.h
+DEPENDS
+  pairExtrema
+  ttkAlgorithm
