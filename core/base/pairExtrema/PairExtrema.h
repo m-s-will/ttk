@@ -51,10 +51,8 @@ namespace ttk {
       // l4+5
       std::vector<ttk::SimplexId> growingNodes;
       for(auto const& maximum: maxima){
-        this->printMsg("Adding " + std::to_string(maximum.first) + " to growingNodes");
         growingNodes.push_back(maximum.first);
       }
-
       std::vector<ttk::SimplexId> newNodes;
       //l6
       while (!growingNodes.empty()){
@@ -77,6 +75,7 @@ namespace ttk {
           }
           joinTree.emplace_back(ck, ci);
           Li.erase(ck);
+          pathLists[ci] = Li;
           auto mk = maximumLists[ck];
           ttk::SimplexId mkSize = mk.size();
           // get number of join tree arcs incident on ck
@@ -139,7 +138,7 @@ namespace ttk {
         for(int j = 0; j < nNeighbors; j++) {
           triangulation->getVertexNeighbor(gId, j, neighborId);
           // get the manifold result for this neighbor
-          // TODO: problematic if manifold is dense and not sparse, because we need
+          // problematic if manifold is dense and not sparse, because we need
           // the id of the point to which it is ascending, not the id of the segmentation
           ttk::SimplexId maximum = ascendingManifold[neighborId];
           if (pathLists.find(maximum) != pathLists.end()){
@@ -206,7 +205,7 @@ namespace ttk {
         for (ttk::SimplexId i = 0; i < nCriticalPoints; i++){
           if (inputCriticalPoints[i] == 3){
             maxima.emplace(criticalGlobalIds[i], order[i]);
-          } else if (inputCriticalPoints[i] == 1){
+          } else if (inputCriticalPoints[i] == 2){
             saddles.emplace(criticalGlobalIds[i], order[i]);
           }
         }
