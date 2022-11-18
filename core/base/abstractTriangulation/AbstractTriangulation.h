@@ -2751,6 +2751,27 @@ namespace ttk {
       return this->vertexGidToLid_;
     }
 
+    virtual inline std::unordered_map<SimplexId, SimplexId> *
+      getVertexGlobalIdMapWriteMode() {
+      if(this->getDimensionality() != 1 && this->getDimensionality() != 2
+         && this->getDimensionality() != 3) {
+        this->printErr("Only 1D, 2D and 3D datasets are supported");
+      }
+      return &(this->vertexGidToLid_);
+    }
+
+    virtual inline std::vector<int> *getNeighborRanksWriteMode() {
+      return &(this->neighborRanks_);
+    }
+
+    virtual inline const std::vector<int> *getNeighborRanks() const {
+      return &(this->neighborRanks_);
+    }
+
+    virtual inline void setHasPreconditionedDistributedVertices(bool flag) {
+      this->hasPreconditionedDistributedVertices_ = flag;
+    }
+
   protected:
     inline SimplexId getVertexGlobalIdInternal(const SimplexId lvid) const {
       return this->vertGid_[lvid];

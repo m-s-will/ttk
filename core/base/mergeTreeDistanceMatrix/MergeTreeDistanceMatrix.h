@@ -163,7 +163,7 @@ namespace ttk {
               mergeTreeDistance.setBranchDecomposition(branchDecomposition_);
               mergeTreeDistance.setParallelize(parallelize_);
               mergeTreeDistance.setPersistenceThreshold(persistenceThreshold_);
-              mergeTreeDistance.setDebugLevel(2);
+              mergeTreeDistance.setDebugLevel(std::min(debugLevel_, 2));
               mergeTreeDistance.setThreadNumber(this->threadNumber_);
               mergeTreeDistance.setNormalizedWasserstein(
                 normalizedWasserstein_);
@@ -177,6 +177,7 @@ namespace ttk {
               mergeTreeDistance.setCleanTree(true);
               mergeTreeDistance.setIsCalled(true);
               mergeTreeDistance.setPostprocess(false);
+              mergeTreeDistance.setIsPersistenceDiagram(isPersistenceDiagram_);
               if(useDoubleInput_) {
                 double weight = mixDistancesMinMaxPairWeight(isFirstInput);
                 mergeTreeDistance.setMinMaxPairWeight(weight);
