@@ -38,12 +38,13 @@ namespace ttk {
     }
 
     template <typename dataType>
-    int constructJoinTree(std::vector<std::tuple<ttk::SimplexId, ttk::SimplexId>> &joinTree,
-                    std::map<ttk::SimplexId, std::set<ttk::SimplexId>> &pathLists,
-                    std::map<ttk::SimplexId, std::set<ttk::SimplexId>> &maximumLists,
-                    const std::map<ttk::SimplexId, dataType> maxima,
-                    const std::map<ttk::SimplexId, dataType> saddles)
-    {
+    int constructJoinTree(
+      std::vector<std::tuple<ttk::SimplexId, ttk::SimplexId>> &joinTree,
+      std::map<ttk::SimplexId, std::set<ttk::SimplexId>> &pathLists,
+      std::map<ttk::SimplexId, std::set<ttk::SimplexId>> &maximumLists,
+      const std::map<ttk::SimplexId, dataType> maxima,
+      const std::map<ttk::SimplexId, dataType> saddles,
+      const dataType globalMin) {
       // l1-3
       for (auto const& saddle: saddles){
         pathLists[saddle.first] = std::set<ttk::SimplexId>();
@@ -63,7 +64,7 @@ namespace ttk {
           //this->printMsg("Li size: " + std::to_string(Li.size()));
 
           // get the critical point with maximum function value in Li
-          ttk::SimplexId ck = -2;
+          ttk::SimplexId ck = globalMin;
           dataType val = std::numeric_limits<dataType>::lowest();
           for (auto const& potential: Li){
             const auto saddleval = saddles.at(potential);
@@ -187,9 +188,13 @@ namespace ttk {
 
         std::map<ttk::SimplexId, dataType> maxima;
         std::map<ttk::SimplexId, dataType> saddles;
-
+        dataType globalMin = -2;
         // first extract the maxima and the saddles we want
         for (ttk::SimplexId i = 0; i < nCriticalPoints; i++){
+          // extract the global minimum id
+          if(order[i] == 0) {
+            globalMin = criticalGlobalIds[i];
+          }
           if (inputCriticalPoints[i] == 3){
             maxima.emplace(criticalGlobalIds[i], order[i]);
           } else if (inputCriticalPoints[i] == 2){
@@ -217,7 +222,8 @@ namespace ttk {
           }
           this->printMsg(s);
         }*/
-        constructJoinTree<dataType>(joinTree, pathLists, maximumLists, maxima, saddles);
+        constructJoinTree<dataType>(
+          joinTree, pathLists, maximumLists, maxima, saddles, globalMin);
 
         // print the progress of the current subprocedure with elapsed time
         this->printMsg("Computing Averages",

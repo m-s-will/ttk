@@ -91,30 +91,26 @@ int ttkPairExtrema::getSkeletonArcs(
   for(auto const &p : joinTree) {
     pointIds[0] = std::get<0>(p);
     pointIds[1] = std::get<1>(p);
-    if(pointIds[0] != -2 && pointIds[1] != -2) {
-      // add each point only once to the vtkPoints
-      // addedPoints.insert(x).second inserts x and is true if x was not in
-      // addedPoints beforehand
-      if(addedPoints.insert({pointIds[0], currentId}).second) {
-        this->printMsg("point " + std::to_string(pointIds[0]));
-        triangulation->getVertexPoint(
-          pointIds[0], point[0], point[1], point[2]);
-        points->InsertNextPoint(point);
-        currentId++;
-      }
-      if(addedPoints.insert({pointIds[1], currentId}).second) {
-        this->printMsg("point " + std::to_string(pointIds[1]));
-        triangulation->getVertexPoint(
-          pointIds[1], point[0], point[1], point[2]);
-        points->InsertNextPoint(point);
-        currentId++;
-      }
-      this->printMsg("Join Tree Arc: " + std::to_string(pointIds[0]) + " "
-                     + std::to_string(pointIds[1]));
-      pointIds[0] = addedPoints.at(pointIds[0]);
-      pointIds[1] = addedPoints.at(pointIds[1]);
-      skeletonArcs->InsertNextCell(VTK_LINE, 2, pointIds);
+    // add each point only once to the vtkPoints
+    // addedPoints.insert(x).second inserts x and is true if x was not in
+    // addedPoints beforehand
+    if(addedPoints.insert({pointIds[0], currentId}).second) {
+      this->printMsg("point " + std::to_string(pointIds[0]));
+      triangulation->getVertexPoint(pointIds[0], point[0], point[1], point[2]);
+      points->InsertNextPoint(point);
+      currentId++;
     }
+    if(addedPoints.insert({pointIds[1], currentId}).second) {
+      this->printMsg("point " + std::to_string(pointIds[1]));
+      triangulation->getVertexPoint(pointIds[1], point[0], point[1], point[2]);
+      points->InsertNextPoint(point);
+      currentId++;
+    }
+    this->printMsg("Join Tree Arc: " + std::to_string(pointIds[0]) + " "
+                   + std::to_string(pointIds[1]));
+    pointIds[0] = addedPoints.at(pointIds[0]);
+    pointIds[1] = addedPoints.at(pointIds[1]);
+    skeletonArcs->InsertNextCell(VTK_LINE, 2, pointIds);
   }
   skeletonArcs->SetPoints(points);
   outputSkeletonArcs->ShallowCopy(skeletonArcs);
