@@ -95,6 +95,25 @@ int ExplicitTriangulation::preconditionBoundaryEdgesInternal() {
     return -1;
   }
 
+<<<<<<< dev
+=======
+#if TTK_ENABLE_MPI
+  this->preconditionEdgeRankArray();
+  if(ttk::isRunningWithMPI()) {
+    ttk::SimplexId edgeNumber = edgeList_.size();
+    std::vector<unsigned char> charBoundary(edgeNumber, false);
+    for(int i = 0; i < edgeNumber; ++i) {
+      charBoundary[i] = boundaryEdges_[i] ? '1' : '0';
+    }
+    ttk::exchangeGhostEdges<unsigned char, ExplicitTriangulation>(
+      charBoundary.data(), this, ttk::MPIcomm_);
+    for(int i = 0; i < edgeNumber; ++i) {
+      boundaryEdges_[i] = (charBoundary[i] == '1');
+    }
+  }
+#endif
+
+>>>>>>> local
   this->printMsg("Extracted boundary edges", 1.0, tm.getElapsedTime(), 1);
 
   return 0;
@@ -134,6 +153,24 @@ int ExplicitTriangulation::preconditionBoundaryTrianglesInternal() {
     return -1;
   }
 
+<<<<<<< dev
+=======
+#if TTK_ENABLE_MPI
+  this->preconditionTriangleRankArray();
+  if(ttk::isRunningWithMPI()) {
+    ttk::SimplexId triangleNumber = triangleList_.size();
+    std::vector<unsigned char> charBoundary(triangleNumber, false);
+    for(int i = 0; i < triangleNumber; ++i) {
+      charBoundary[i] = boundaryTriangles_[i] ? '1' : '0';
+    }
+    ttk::exchangeGhostTriangles<unsigned char, ExplicitTriangulation>(
+      charBoundary.data(), this, ttk::MPIcomm_);
+    for(int i = 0; i < triangleNumber; ++i) {
+      boundaryTriangles_[i] = (charBoundary[i] == '1');
+    }
+  }
+#endif
+>>>>>>> local
   this->printMsg("Extracted boundary triangles", 1.0, tm.getElapsedTime(), 1);
 
   return 0;
@@ -815,15 +852,17 @@ size_t ttk::ExplicitTriangulation::computeCellRangeOffsets(
 
 template <typename Func0, typename Func1, typename Func2>
 int ttk::ExplicitTriangulation::exchangeDistributedInternal(
+  std::vector<std::vector<SimplexId>> &globalIdPerOwnedGhostCell,
+  std::vector<std::vector<SimplexId>> &globalIdPerLocalGhostCell,
   const Func0 &getGlobalSimplexId,
   const Func1 &storeGlobalSimplexId,
   const Func2 &iterCond,
   const int nSimplicesPerCell) {
 
   // per neighbor, owned ghost cell simplex global ids to transfer back
-  std::vector<std::vector<SimplexId>> globalIdPerOwnedGhostCell(ttk::MPIsize_);
+  globalIdPerOwnedGhostCell.resize(ttk::MPIsize_);
   // per neighbor, non-owned ghost cell simplex global ids to transfer back
-  std::vector<std::vector<SimplexId>> globalIdPerLocalGhostCell(ttk::MPIsize_);
+  globalIdPerLocalGhostCell.resize(ttk::MPIsize_);
 
   const auto MIT{ttk::getMPIType(ttk::SimplexId{})};
 
@@ -1011,6 +1050,8 @@ int ExplicitTriangulation::preconditionDistributedEdges() {
 
   const auto nEdgesPerCell{this->getDimensionality() == 3 ? 6 : 3};
   this->exchangeDistributedInternal(
+    ghostEdgesPerOwner_,
+    remoteGhostEdges_,
     [this](const SimplexId lcid, const int j) {
       SimplexId leid{};
       this->getCellEdgeInternal(lcid, j, leid);
@@ -1143,6 +1184,8 @@ int ExplicitTriangulation::preconditionDistributedTriangles() {
 
   const auto nTrianglesPerCell{4};
   this->exchangeDistributedInternal(
+    ghostTrianglesPerOwner_,
+    remoteGhostTriangles_,
     [this](const SimplexId lcid, const int j) {
       SimplexId ltid{};
       this->getCellTriangleInternal(lcid, j, ltid);

@@ -2768,9 +2768,46 @@ namespace ttk {
       return &(this->neighborRanks_);
     }
 
+    virtual inline const std::vector<std::vector<SimplexId>> *
+      getGhostEdgesPerOwner() const {
+      return &(this->ghostEdgesPerOwner_);
+    }
+
+    virtual inline const std::vector<std::vector<SimplexId>> *
+      getRemoteGhostEdges() const {
+      return &(this->remoteGhostEdges_);
+    }
+
+    virtual inline const std::vector<std::vector<SimplexId>> *
+      getGhostTrianglesPerOwner() const {
+      return &(this->ghostTrianglesPerOwner_);
+    }
+
+    virtual inline const std::vector<std::vector<SimplexId>> *
+      getRemoteGhostTriangles() const {
+      return &(this->remoteGhostTriangles_);
+    }
+
     virtual inline void setHasPreconditionedDistributedVertices(bool flag) {
       this->hasPreconditionedDistributedVertices_ = flag;
     }
+
+<<<<<<< dev
+=======
+    virtual inline bool hasPreconditionedDistributedVertices() const {
+      return this->hasPreconditionedDistributedVertices_;
+    }
+    virtual inline bool hasPreconditionedDistributedCells() const {
+      return this->hasPreconditionedDistributedCells_;
+    }
+    virtual inline bool hasPreconditionedDistributedEdges() const {
+      return this->hasPreconditionedDistributedEdges_;
+    }
+    virtual inline bool hasPreconditionedDistributedTriangles() const {
+      return this->hasPreconditionedDistributedTriangles_;
+    }
+
+>>>>>>> local
 
   protected:
     inline SimplexId getVertexGlobalIdInternal(const SimplexId lvid) const {
@@ -3646,6 +3683,24 @@ namespace ttk {
     // global ids of local (owned) cells that are ghost cells of other
     // (neighboring) ranks (per MPI rank)
     std::vector<std::vector<SimplexId>> remoteGhostCells_{};
+<<<<<<< dev
+=======
+    // global ids of (local) ghost vertices per each MPI (neighboring) rank
+    std::vector<std::vector<SimplexId>> ghostVerticesPerOwner_{};
+    // global ids of local (owned) vertices that are ghost vertices of other
+    // (neighboring) ranks (per MPI rank)
+    std::vector<std::vector<SimplexId>> remoteGhostVertices_{};
+    // global ids of (local) ghost edges per each MPI (neighboring) rank
+    std::vector<std::vector<SimplexId>> ghostEdgesPerOwner_{};
+    // global ids of local (owned) edges that are ghost edges of other
+    // (neighboring) ranks (per MPI rank)
+    std::vector<std::vector<SimplexId>> remoteGhostEdges_{};
+    // global ids of (local) ghost triangles per each MPI (neighboring) rank
+    std::vector<std::vector<SimplexId>> ghostTrianglesPerOwner_{};
+    // global ids of local (owned) triangles that are ghost triangles of other
+    // (neighboring) ranks (per MPI rank)
+    std::vector<std::vector<SimplexId>> remoteGhostTriangles_{};
+>>>>>>> local
 
     std::vector<SimplexId> edgeLidToGid_{};
     std::unordered_map<SimplexId, SimplexId> edgeGidToLid_{};
