@@ -95,8 +95,6 @@ int ExplicitTriangulation::preconditionBoundaryEdgesInternal() {
     return -1;
   }
 
-<<<<<<< dev
-=======
 #if TTK_ENABLE_MPI
   this->preconditionEdgeRankArray();
   if(ttk::isRunningWithMPI()) {
@@ -113,7 +111,6 @@ int ExplicitTriangulation::preconditionBoundaryEdgesInternal() {
   }
 #endif
 
->>>>>>> local
   this->printMsg("Extracted boundary edges", 1.0, tm.getElapsedTime(), 1);
 
   return 0;
@@ -201,8 +198,6 @@ int ExplicitTriangulation::preconditionBoundaryTrianglesInternal() {
     return -1;
   }
 
-<<<<<<< dev
-=======
 #if TTK_ENABLE_MPI
   this->preconditionTriangleRankArray();
   if(ttk::isRunningWithMPI()) {
@@ -218,7 +213,6 @@ int ExplicitTriangulation::preconditionBoundaryTrianglesInternal() {
     }
   }
 #endif
->>>>>>> local
   this->printMsg("Extracted boundary triangles", 1.0, tm.getElapsedTime(), 1);
 
   return 0;

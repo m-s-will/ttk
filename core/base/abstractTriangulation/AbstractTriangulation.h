@@ -2851,8 +2851,6 @@ namespace ttk {
       this->hasPreconditionedDistributedVertices_ = flag;
     }
 
-<<<<<<< dev
-=======
     virtual inline bool hasPreconditionedDistributedVertices() const {
       return this->hasPreconditionedDistributedVertices_;
     }
@@ -2865,8 +2863,6 @@ namespace ttk {
     virtual inline bool hasPreconditionedDistributedTriangles() const {
       return this->hasPreconditionedDistributedTriangles_;
     }
-
->>>>>>> local
 
   protected:
     inline SimplexId getVertexGlobalIdInternal(const SimplexId lvid) const {
@@ -3707,8 +3703,6 @@ namespace ttk {
     // global ids of local (owned) cells that are ghost cells of other
     // (neighboring) ranks (per MPI rank)
     std::vector<std::vector<SimplexId>> remoteGhostCells_{};
-<<<<<<< dev
-=======
     // global ids of (local) ghost vertices per each MPI (neighboring) rank
     std::vector<std::vector<SimplexId>> ghostVerticesPerOwner_{};
     // global ids of local (owned) vertices that are ghost vertices of other
@@ -3724,7 +3718,6 @@ namespace ttk {
     // global ids of local (owned) triangles that are ghost triangles of other
     // (neighboring) ranks (per MPI rank)
     std::vector<std::vector<SimplexId>> remoteGhostTriangles_{};
->>>>>>> local
 
     std::array<double, 6> localBounds_;
     std::array<double, 6> globalBounds_;
