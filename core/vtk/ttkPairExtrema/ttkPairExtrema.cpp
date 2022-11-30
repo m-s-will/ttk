@@ -2,15 +2,14 @@
 
 #include <vtkInformation.h>
 
-#include <vtkDataArray.h>
-#include <vtkDataSet.h>
-#include <vtkPointSet.h>
-#include <vtkObjectFactory.h>
-#include <vtkPointData.h>
-#include <vtkSmartPointer.h>
-#include <vtkUnstructuredGrid.h>
 #include <ttkMacros.h>
 #include <ttkUtils.h>
+#include <vtkDataArray.h>
+#include <vtkDataSet.h>
+#include <vtkObjectFactory.h>
+#include <vtkPointData.h>
+#include <vtkPointSet.h>
+#include <vtkSmartPointer.h>
 
 // A VTK macro that enables the instantiation of this class via ::New()
 // You do not have to modify this
@@ -78,6 +77,51 @@ int ttkPairExtrema::FillOutputPortInformation(int port, vtkInformation *info) {
   return 0;
 }
 
+template <class triangulationType = ttk::AbstractTriangulation>
+int ttkPairExtrema::getSkeletonArcs(
+  vtkUnstructuredGrid *outputSkeletonArcs,
+  std::vector<std::tuple<ttk::SimplexId, ttk::SimplexId>> &joinTree,
+  const triangulationType *triangulation) {
+  vtkNew<vtkUnstructuredGrid> skeletonArcs{};
+  ttk::SimplexId pointIds[2];
+  vtkNew<vtkPoints> points{};
+  float point[3];
+  std::map<ttk::SimplexId, ttk::SimplexId> addedPoints;
+  ttk::SimplexId currentId = 0;
+  for(auto const &p : joinTree) {
+    pointIds[0] = std::get<0>(p);
+    pointIds[1] = std::get<1>(p);
+    if(pointIds[0] != -2 && pointIds[1] != -2) {
+      // add each point only once to the vtkPoints
+      // addedPoints.insert(x).second inserts x and is true if x was not in
+      // addedPoints beforehand
+      if(addedPoints.insert({pointIds[0], currentId}).second) {
+        this->printMsg("point " + std::to_string(pointIds[0]));
+        triangulation->getVertexPoint(
+          pointIds[0], point[0], point[1], point[2]);
+        points->InsertNextPoint(point);
+        currentId++;
+      }
+      if(addedPoints.insert({pointIds[1], currentId}).second) {
+        this->printMsg("point " + std::to_string(pointIds[1]));
+        triangulation->getVertexPoint(
+          pointIds[1], point[0], point[1], point[2]);
+        points->InsertNextPoint(point);
+        currentId++;
+      }
+      this->printMsg("Join Tree Arc: " + std::to_string(pointIds[0]) + " "
+                     + std::to_string(pointIds[1]));
+      pointIds[0] = addedPoints.at(pointIds[0]);
+      pointIds[1] = addedPoints.at(pointIds[1]);
+      skeletonArcs->InsertNextCell(VTK_LINE, 2, pointIds);
+    }
+  }
+  skeletonArcs->SetPoints(points);
+  outputSkeletonArcs->ShallowCopy(skeletonArcs);
+
+  return 1;
+}
+
 /**
  * TODO 10: Pass VTK data to the base code and convert base code output to VTK
  *
@@ -103,13 +147,12 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
     return 0;
 
   auto manifoldPointData = inputDataSet->GetPointData();
-  auto manifoldGlobalIds = manifoldPointData->GetArray("GlobalPointIds");
   auto ascendingManifold = manifoldPointData->GetArray("AscendingManifold");
   auto criticalPointData = inputCriticalPoints->GetPointData();
   auto criticalGlobalIds = criticalPointData->GetArray("GlobalPointIds");
   auto criticalType = criticalPointData->GetArray("CriticalType");
   auto order = ttkAlgorithm::GetOrderArray(inputCriticalPoints, 0);
-  if(!manifoldGlobalIds | !ascendingManifold | !criticalGlobalIds | !criticalType | !order ) {
+  if(!ascendingManifold | !criticalGlobalIds | !criticalType | !order) {
     this->printErr("Unable to retrieve input arrays.");
     return 0;
   }
@@ -127,8 +170,8 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
   // If all checks pass then log which array is going to be processed.
   this->printMsg("Starting computation...");
 
-  ttk::SimplexId nPairs = criticalType->GetNumberOfTuples();
-  std::vector<std::tuple<ttk::SimplexId, ttk::SimplexId>> pairs{};
+  ttk::SimplexId nCriticalPoints = criticalType->GetNumberOfTuples();
+  std::vector<std::tuple<ttk::SimplexId, ttk::SimplexId>> joinTree{};
 
   // Get ttk::triangulation of the input vtkDataSet (will create one if one does
   // not exist already).
@@ -143,35 +186,32 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
   // Templatize over the different input array data types and call the base code
   int status = 0; // this integer checks if the base code returns an error
   // construct the tree
-  ttkTypeMacroIT(order->GetDataType(), triangulation->getType(),
-                      (status = this->computePairs<T0, T1>(
-                      pairs,
-                      ttkUtils::GetPointer<char>(criticalType),
-                      ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
-                      ttkUtils::GetPointer<T0>(order), (T1 *)triangulation->getData(),
-                      ttkUtils::GetPointer<ttk::SimplexId>(manifoldGlobalIds),
-                      ttkUtils::GetPointer<ttk::SimplexId>(criticalGlobalIds),
-                      nPairs)));
+  ttkTypeMacroIT(
+    order->GetDataType(), triangulation->getType(),
+    (status = this->computePairs<T0, T1>(
+       joinTree, ttkUtils::GetPointer<char>(criticalType),
+       ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
+       ttkUtils::GetPointer<T0>(order), (T1 *)triangulation->getData(),
+       ttkUtils::GetPointer<ttk::SimplexId>(criticalGlobalIds),
+       nCriticalPoints)));
 
-  pairs.resize(nPairs);
   // On error cancel filter execution
   if(status != 1)
     return 0;
 
-  // Construct output, see ttkFTMTree.cpp
+  // for (auto const& p: joinTree){
+  //   this->printMsg("Join Tree Arc: " + std::to_string(std::get<0>(p)) + " " +
+  //   std::to_string(std::get<1>(p)));
+  // }
+  //  Construct output, see ttkFTMTree.cpp
   auto outputSkeletonArcs = vtkUnstructuredGrid::GetData(outputVector, 0);
   auto outputSegmentation = vtkDataSet::GetData(outputVector, 1);
 
-  // get arcs from the pairs
-  /*
-  if(getSkeletonArcs(outputSkeletonArcs, &pairs, &nPairs) == 0) {
-#ifndef TTK_ENABLE_KAMIKAZE
-    this->printErr("Error : wrong properties on skeleton arcs.");
-    return 0;
-#endif
-  }
-  */
-  TTK_FORCE_USE(outputSkeletonArcs);
+  ttkTypeMacroT(triangulation->getType(),
+                status = getSkeletonArcs<T0>(outputSkeletonArcs, joinTree,
+                                             (T0 *)triangulation->getData()));
+
+  this->printMsg("Finished getSkeletonArcs");
   outputSegmentation->ShallowCopy(inputDataSet);
 
 

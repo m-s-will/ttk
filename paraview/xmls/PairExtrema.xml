@@ -48,6 +48,8 @@
       <!-- Create a UI group that contains all input parameter widgets (here only one) -->
       <!-- OUTPUT PARAMETER WIDGETS -->
 
+      <OutputPort name="Skeleton Arcs" index="0" id="port0" />
+      <OutputPort name="Segmentation" index="1" id="port1" />
 
       <!-- DEBUG -->
       ${DEBUG_WIDGETS}

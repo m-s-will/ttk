@@ -104,8 +104,6 @@ namespace ttk {
    *
    * @param[out] scalarArray the scalar array which we want to fill and which is
    * filled on the other ranks
-<<<<<<< dev
-=======
    * @param[in] triangulation the triangulation for the data
    * @param[in] rankToSend Destination process identifier
    * @param[in] communicator the communicator over which the ranks are connected
@@ -402,7 +400,6 @@ namespace ttk {
    *
    * @param[out] scalarArray the scalar array which we want to fill and which is
    * filled on the other ranks
->>>>>>> local
    * @param[in] rankArray the owner array for the scalar data
    * @param[in] globalIds the global id array for the scalar data
    * @param[in] gidToLidMap a map which translates global ids to local,

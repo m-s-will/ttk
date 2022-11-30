@@ -36,6 +36,7 @@
 
 // VTK Includes
 #include <ttkAlgorithm.h>
+#include <vtkUnstructuredGrid.h>
 
 /* Note on including VTK modules
  *
@@ -94,6 +95,11 @@ protected:
 
   int FillOutputPortInformation(int port, vtkInformation *info) override;
 
+  template <class triangulationType = ttk::AbstractTriangulation>
+  int getSkeletonArcs(
+    vtkUnstructuredGrid *outputSkeletonArcs,
+    std::vector<std::tuple<ttk::SimplexId, ttk::SimplexId>> &joinTree,
+    const triangulationType *triangulation);
 
   int RequestData(vtkInformation *request,
                   vtkInformationVector **inputVector,

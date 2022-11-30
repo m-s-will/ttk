@@ -116,19 +116,13 @@ namespace ttk {
       return 1;
     }
 
-
-
-
-    template <typename dataType,
-              typename triangulationType>
-    int findAscPaths(std::map<ttk::SimplexId, std::set<ttk::SimplexId>> &pathLists,
-                    std::map<ttk::SimplexId, std::set<ttk::SimplexId>> &maximumLists,
-                    //const std::map<ttk::SimplexId, dataType> maxima,
-                    const std::map<ttk::SimplexId, dataType> saddles,
-                    const ttk::SimplexId *ascendingManifold,
-                    //const ttk::SimplexId *manifoldGlobalIds,
-                    const triangulationType *triangulation)
-    {
+    template <typename dataType, typename triangulationType>
+    int findAscPaths(
+      std::map<ttk::SimplexId, std::set<ttk::SimplexId>> &pathLists,
+      std::map<ttk::SimplexId, std::set<ttk::SimplexId>> &maximumLists,
+      const std::map<ttk::SimplexId, dataType> saddles,
+      const ttk::SimplexId *ascendingManifold,
+      const triangulationType *triangulation) {
       // construct the maximumLists for each saddle, the maxima which can be reached from this saddle
       // and the pathLists for each maximum, the saddles points which can reach this maximum
       ttk::SimplexId neighborId;
@@ -158,17 +152,15 @@ namespace ttk {
     }
     template <class dataType,
               class triangulationType = ttk::AbstractTriangulation>
-    int computePairs(std::vector<std::tuple<ttk::SimplexId, ttk::SimplexId>> &pairs,
-                        const char *inputCriticalPoints,
-                        const ttk::SimplexId *ascendingManifold,
-                        const dataType *order,
-                        const triangulationType *triangulation,
-                        const ttk::SimplexId *manifoldGlobalIds,
-                        const ttk::SimplexId *criticalGlobalIds,
-                        ttk::SimplexId& nPairs) {
+    int computePairs(
+      std::vector<std::tuple<ttk::SimplexId, ttk::SimplexId>> &joinTree,
+      const char *inputCriticalPoints,
+      const ttk::SimplexId *ascendingManifold,
+      const dataType *order,
+      const triangulationType *triangulation,
+      const ttk::SimplexId *criticalGlobalIds,
+      ttk::SimplexId &nCriticalPoints) {
 
-      TTK_FORCE_USE(pairs);
-      TTK_FORCE_USE(manifoldGlobalIds);
       // start global timer
       ttk::Timer globalTimer;
 
@@ -193,11 +185,6 @@ namespace ttk {
                        0, // elapsed time so far
                        this->threadNumber_);
 
-        ttk::SimplexId nVertices = triangulation->getNumberOfVertices();
-        //this->printMsg("nVertices: " + std::to_string(nVertices));
-        auto nCriticalPoints = nPairs;
-        //this->printMsg("nCriticalPoints: " + std::to_string(nCriticalPoints));
-
         std::map<ttk::SimplexId, dataType> maxima;
         std::map<ttk::SimplexId, dataType> saddles;
 
@@ -215,30 +202,22 @@ namespace ttk {
         std::map<ttk::SimplexId, std::set<ttk::SimplexId>> pathLists{};
         std::map<ttk::SimplexId, std::set<ttk::SimplexId>> maximumLists{};
 
-        //findAscPaths<dataType, triangulationType>(pathLists, maximumLists, maxima, saddles, ascendingManifold, manifoldGlobalIds, triangulation);
         findAscPaths<dataType, triangulationType>(pathLists, maximumLists, saddles, ascendingManifold, triangulation);
         /*for (auto const& m: maximumLists){
-          std::string s = "Saddle id: " + std::to_string(m.first) + ", maxima ids: ";
-          for (auto const& id: m.second){
-            s = s + std::to_string(id) + " ";
+          std::string s = "Saddle id: " + std::to_string(m.first) + ", maxima
+        ids: "; for (auto const& id: m.second){ s = s + std::to_string(id) + "
+        ";
           }
           this->printMsg(s);
         }
         for (auto const& p: pathLists){
-          std::string s = "Maximum id: " + std::to_string(p.first) + ", saddle ids and vals: ";
-          for (auto const& id: p.second){
-            s = s + std::to_string(id) + ": " + std::to_string(saddles[id]) + ", ";
+          std::string s = "Maximum id: " + std::to_string(p.first) + ", saddle
+        ids and vals: "; for (auto const& id: p.second){ s = s +
+        std::to_string(id) + ": " + std::to_string(saddles[id]) + ", ";
           }
           this->printMsg(s);
         }*/
-
-        std::vector<std::tuple<ttk::SimplexId, ttk::SimplexId>> joinTree{};
         constructJoinTree<dataType>(joinTree, pathLists, maximumLists, maxima, saddles);
-        for (auto const& p: joinTree){
-          this->printMsg("Join Tree Arc: " + std::to_string(std::get<0>(p)) + " " + std::to_string(std::get<1>(p)));
-        }
-
-
 
         // print the progress of the current subprocedure with elapsed time
         this->printMsg("Computing Averages",
