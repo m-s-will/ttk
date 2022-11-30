@@ -698,9 +698,6 @@ namespace ttk {
     if(!ttk::isRunningWithMPI()) {
       return -1;
     }
-    if(neighbors == nullptr) {
-      return -1;
-    }
     for(int r = 0; r < ttk::MPIsize_; r++) {
       getGhostDataScalarsWithoutTriangulation<DT, IT, globalIdType>(
         scalarArray, rankArray, globalIds, gidToLidMap, neighbors, r, nVerts,
