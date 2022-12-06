@@ -60,7 +60,7 @@ namespace ttk {
         //l7-14
         for (auto const& ci: growingNodes){
           //this->printMsg("ci: " + std::to_string(ci));
-          auto Li = pathLists.at(ci);
+          auto Li = pathLists[ci];
           //this->printMsg("Li size: " + std::to_string(Li.size()));
 
           // get the critical point with maximum function value in Li
@@ -136,14 +136,21 @@ namespace ttk {
           // problematic if manifold is dense and not sparse, because we need
           // the id of the point to which it is ascending, not the id of the segmentation
           ttk::SimplexId maximum = ascendingManifold[neighborId];
+          this->printMsg("Neighbor " + std::to_string(neighborId) + " of point "
+                         + std::to_string(gId) + " reaching maximum "
+                         + std::to_string(maximum));
           if (pathLists.find(maximum) != pathLists.end()){
-            pathLists[maximum].insert(gId);
+            pathLists.at(maximum).insert(gId);
           } else {
+            this->printMsg("Created Pathlist for maximum "
+                           + std::to_string(maximum));
             pathLists[maximum] = {gId};
           }
           if (maximumLists.find(gId) != maximumLists.end()){
-            maximumLists[gId].insert(maximum);
+            maximumLists.at(gId).insert(maximum);
           } else {
+            this->printMsg("Created Maximumlist for saddle "
+                           + std::to_string(gId));
             maximumLists[gId] = {maximum};
           }
         }
@@ -181,7 +188,7 @@ namespace ttk {
         ttk::Timer localTimer;
 
         // print the progress of the current subprocedure (currently 0%)
-        this->printMsg("Computing Averages",
+        this->printMsg("Computing extremum pairs",
                        0, // progress form 0-1
                        0, // elapsed time so far
                        this->threadNumber_);
@@ -189,6 +196,7 @@ namespace ttk {
         std::map<ttk::SimplexId, dataType> maxima;
         std::map<ttk::SimplexId, dataType> saddles;
         dataType globalMin = -2;
+        const int dimension = triangulation->getDimensionality();
         // first extract the maxima and the saddles we want
         for (ttk::SimplexId i = 0; i < nCriticalPoints; i++){
           // extract the global minimum id
@@ -196,37 +204,51 @@ namespace ttk {
             globalMin = criticalGlobalIds[i];
           }
           if (inputCriticalPoints[i] == 3){
+            this->printMsg("Added " + std::to_string(criticalGlobalIds[i])
+                           + " to maxima.");
             maxima.emplace(criticalGlobalIds[i], order[i]);
-          } else if (inputCriticalPoints[i] == 2){
-            saddles.emplace(criticalGlobalIds[i], order[i]);
+          } else if(inputCriticalPoints[i] == (dimension - 1)) {
+            //} else if (inputCriticalPoints[i] == 2){
+            // we need to throw out genus changing saddles
+            ttk::SimplexId gId = criticalGlobalIds[i];
+            ttk::SimplexId neighborId;
+            int nNeighbors = triangulation->getVertexNeighborNumber(gId);
+            std::vector<ttk::SimplexId> upperLink;
+            std::vector<ttk::SimplexId> lowerLink;
+            std::set<ttk::SimplexId> reachableMaxima;
+            dataType critOrder = order[gId];
+            reachableMaxima.insert(ascendingManifold[gId]);
+            for(int j = 0; j < nNeighbors; j++) {
+              triangulation->getVertexNeighbor(gId, j, neighborId);
+              reachableMaxima.insert(ascendingManifold[neighborId]);
+              if(order[neighborId] < critOrder)
+                lowerLink.emplace_back(neighborId);
+              if(order[neighborId] > critOrder)
+                upperLink.emplace_back(neighborId);
+            }
+            // TODO: for join tree?? for Split tree invert upper and lower link
+            // and check for reachable minima
+            if(reachableMaxima.size() > 1
+               && !(upperLink.size() == 0 && lowerLink.size() > 0)) {
+              this->printMsg("#Upperlink: " + std::to_string(upperLink.size())
+                             + ", #lowerlink: "
+                             + std::to_string(lowerLink.size()));
+              this->printMsg("Added " + std::to_string(gId) + " to saddles.");
+              saddles.emplace(gId, order[i]);
+            }
           }
         }
 
-        //this->printMsg("Maxima Size: " + std::to_string(maxima.size()));
-        //this->printMsg("Saddles size: " + std::to_string(saddles.size()));
         std::map<ttk::SimplexId, std::set<ttk::SimplexId>> pathLists{};
         std::map<ttk::SimplexId, std::set<ttk::SimplexId>> maximumLists{};
 
         findAscPaths<dataType, triangulationType>(pathLists, maximumLists, saddles, ascendingManifold, triangulation);
-        /*for (auto const& m: maximumLists){
-          std::string s = "Saddle id: " + std::to_string(m.first) + ", maxima
-        ids: "; for (auto const& id: m.second){ s = s + std::to_string(id) + "
-        ";
-          }
-          this->printMsg(s);
-        }
-        for (auto const& p: pathLists){
-          std::string s = "Maximum id: " + std::to_string(p.first) + ", saddle
-        ids and vals: "; for (auto const& id: p.second){ s = s +
-        std::to_string(id) + ": " + std::to_string(saddles[id]) + ", ";
-          }
-          this->printMsg(s);
-        }*/
+
         constructJoinTree<dataType>(
           joinTree, pathLists, maximumLists, maxima, saddles, globalMin);
 
         // print the progress of the current subprocedure with elapsed time
-        this->printMsg("Computing Averages",
+        this->printMsg("Computing extremum pairs",
                        1, // progress
                        localTimer.getElapsedTime(), this->threadNumber_);
       }
