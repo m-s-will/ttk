@@ -208,32 +208,20 @@ namespace ttk {
                            + " to maxima.");
             maxima.emplace(criticalGlobalIds[i], order[i]);
           } else if(inputCriticalPoints[i] == (dimension - 1)) {
-            //} else if (inputCriticalPoints[i] == 2){
-            // we need to throw out genus changing saddles
             ttk::SimplexId gId = criticalGlobalIds[i];
             ttk::SimplexId neighborId;
             int nNeighbors = triangulation->getVertexNeighborNumber(gId);
-            std::vector<ttk::SimplexId> upperLink;
-            std::vector<ttk::SimplexId> lowerLink;
             std::set<ttk::SimplexId> reachableMaxima;
-            dataType critOrder = order[gId];
             reachableMaxima.insert(ascendingManifold[gId]);
             for(int j = 0; j < nNeighbors; j++) {
               triangulation->getVertexNeighbor(gId, j, neighborId);
               reachableMaxima.insert(ascendingManifold[neighborId]);
-              if(order[neighborId] < critOrder)
-                lowerLink.emplace_back(neighborId);
-              if(order[neighborId] > critOrder)
-                upperLink.emplace_back(neighborId);
             }
-            // TODO: for join tree?? for Split tree invert upper and lower link
-            // and check for reachable minima
-            if(reachableMaxima.size() > 1
-               && !(upperLink.size() == 0 && lowerLink.size() > 0)) {
-              this->printMsg("#Upperlink: " + std::to_string(upperLink.size())
-                             + ", #lowerlink: "
-                             + std::to_string(lowerLink.size()));
+            // we only care about vertices with an upperlink of at least 2
+            if(reachableMaxima.size() > 1) {
               this->printMsg("Added " + std::to_string(gId) + " to saddles.");
+              this->printMsg("#reachable Maxima "
+                             + std::to_string(reachableMaxima.size()));
               saddles.emplace(gId, order[i]);
             }
           }
