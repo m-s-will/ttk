@@ -20,6 +20,115 @@
 #include <Triangulation.h>
 
 namespace ttk {
+  template <class dataType>
+  class UF {
+  private:
+    int rank_;
+    UF *parent_;
+    dataType order_;
+    SimplexId id_;
+
+  public:
+    inline UF(const SimplexId &id) {
+      rank_ = 0;
+      parent_ = this;
+      order_ = -1;
+      id_ = id;
+    }
+
+    inline UF(const SimplexId &id, const dataType &order) {
+      rank_ = 0;
+      parent_ = this;
+      order_ = order;
+      id_ = id;
+    }
+
+    inline UF(const UF &other) {
+      rank_ = other.rank_;
+      parent_ = this;
+      order_ = other.order_;
+      id_ = other.id_;
+    }
+
+    inline void setOrder(const dataType &d) {
+      order_ = d;
+    }
+
+    inline void setId(const SimplexId &id) {
+      id_ = id;
+    }
+
+    inline const dataType &getOrder() const {
+      return order_;
+    }
+
+    inline const SimplexId &getId() const {
+      return id_;
+    }
+
+    inline UF *find() {
+      if(parent_ == this)
+        return this;
+      else {
+        parent_ = parent_->find();
+        return parent_;
+      }
+    }
+
+    inline int getRank() const {
+      return rank_;
+    }
+
+    inline void setParent(UF *parent) {
+      parent_ = parent;
+    }
+
+    inline void setRank(const int &rank) {
+      rank_ = rank;
+    }
+
+    static inline UF *makeUnion(UF *uf0, UF *uf1) {
+      uf0 = uf0->find();
+      uf1 = uf1->find();
+
+      if(uf0 == uf1) {
+        return uf0;
+      } else if(uf0->getRank() > uf1->getRank()) {
+        uf1->setParent(uf0);
+        return uf0;
+      } else if(uf0->getRank() < uf1->getRank()) {
+        uf0->setParent(uf1);
+        return uf1;
+      } else {
+        uf1->setParent(uf0);
+        uf0->setRank(uf0->getRank() + 1);
+        return uf0;
+      }
+    }
+
+    static inline UF *makeUnion(std::vector<UF *> &sets) {
+      UF *n = nullptr;
+
+      if(!sets.size())
+        return nullptr;
+
+      if(sets.size() == 1)
+        return sets[0];
+
+      for(int i = 0; i < (int)sets.size() - 1; i++)
+        n = makeUnion(sets[i], sets[i + 1]);
+
+      return n;
+    }
+
+    inline bool operator<(const UF &other) const {
+      return rank_ < other.rank_;
+    }
+
+    inline bool operator>(const UF &other) const {
+      return rank_ > other.rank_;
+    }
+  };
 
   /**
    * The PairExtrema class provides methods to compute for each vertex of a
@@ -40,6 +149,7 @@ namespace ttk {
     template <typename dataType>
     int constructJoinTree(
       std::vector<std::tuple<ttk::SimplexId, ttk::SimplexId>> &joinTree,
+      std::map<ttk::SimplexId, UF<dataType> *> &components,
       std::map<ttk::SimplexId, std::set<ttk::SimplexId>> &pathLists,
       std::map<ttk::SimplexId, std::set<ttk::SimplexId>> &maximumLists,
       const std::map<ttk::SimplexId, dataType> maxima,
@@ -58,10 +168,8 @@ namespace ttk {
       //l6
       while (!growingNodes.empty()){
         //l7-14
-        for (auto const& ci: growingNodes){
-          //this->printMsg("ci: " + std::to_string(ci));
+        for(auto const &ci : growingNodes) {
           auto Li = pathLists[ci];
-          //this->printMsg("Li size: " + std::to_string(Li.size()));
 
           // get the critical point with maximum function value in Li
           ttk::SimplexId ck = globalMin;
@@ -75,6 +183,11 @@ namespace ttk {
             }
           }
           joinTree.emplace_back(ck, ci);
+          // TODO: union of those elements, later on check UF and don't walk
+          // over whole joinTree the representative element is the largest
+          // maximum
+          components[ck] = components[ci]
+            = UF<dataType>::makeUnion(components[ci], components[ck]);
           Li.erase(ck);
           pathLists[ci] = Li;
           auto mk = maximumLists[ck];
@@ -89,7 +202,8 @@ namespace ttk {
             newNodes.emplace_back(ck);
           }
         }
-        //l15-20
+        // l15-20
+        //  apply union find
         for (auto const& ck: newNodes){
           for (auto const& arc: joinTree){
             if (std::get<0>(arc) == ck){
@@ -195,6 +309,7 @@ namespace ttk {
 
         std::map<ttk::SimplexId, dataType> maxima;
         std::map<ttk::SimplexId, dataType> saddles;
+        std::map<ttk::SimplexId, UF<dataType> *> components;
         dataType globalMin = -2;
         const int dimension = triangulation->getDimensionality();
         // first extract the maxima and the saddles we want
@@ -206,6 +321,9 @@ namespace ttk {
           if (inputCriticalPoints[i] == 3){
             this->printMsg("Added " + std::to_string(criticalGlobalIds[i])
                            + " to maxima.");
+            components.emplace(
+              criticalGlobalIds[i],
+              new UF<dataType>(criticalGlobalIds[i], order[i]));
             maxima.emplace(criticalGlobalIds[i], order[i]);
           } else if(inputCriticalPoints[i] == (dimension - 1)) {
             ttk::SimplexId gId = criticalGlobalIds[i];
@@ -222,6 +340,9 @@ namespace ttk {
               this->printMsg("Added " + std::to_string(gId) + " to saddles.");
               this->printMsg("#reachable Maxima "
                              + std::to_string(reachableMaxima.size()));
+              components.emplace(
+                criticalGlobalIds[i],
+                new UF<dataType>(criticalGlobalIds[i], order[i]));
               saddles.emplace(gId, order[i]);
             }
           }
@@ -232,8 +353,8 @@ namespace ttk {
 
         findAscPaths<dataType, triangulationType>(pathLists, maximumLists, saddles, ascendingManifold, triangulation);
 
-        constructJoinTree<dataType>(
-          joinTree, pathLists, maximumLists, maxima, saddles, globalMin);
+        constructJoinTree<dataType>(joinTree, components, pathLists,
+                                    maximumLists, maxima, saddles, globalMin);
 
         // print the progress of the current subprocedure with elapsed time
         this->printMsg("Computing extremum pairs",
