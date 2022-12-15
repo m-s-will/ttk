@@ -20,113 +20,11 @@
 #include <Triangulation.h>
 
 namespace ttk {
-  template <class dataType>
-  class UF {
-  private:
-    int rank_;
-    UF *parent_;
-    dataType order_;
-    SimplexId id_;
-
-  public:
-    inline UF(const SimplexId &id) {
-      rank_ = 0;
-      parent_ = this;
-      order_ = -1;
-      id_ = id;
-    }
-
-    inline UF(const SimplexId &id, const dataType &order) {
-      rank_ = 0;
-      parent_ = this;
-      order_ = order;
-      id_ = id;
-    }
-
-    inline UF(const UF &other) {
-      rank_ = other.rank_;
-      parent_ = this;
-      order_ = other.order_;
-      id_ = other.id_;
-    }
-
-    inline void setOrder(const dataType &d) {
-      order_ = d;
-    }
-
-    inline void setId(const SimplexId &id) {
-      id_ = id;
-    }
-
-    inline const dataType &getOrder() const {
-      return order_;
-    }
-
-    inline const SimplexId &getId() const {
-      return id_;
-    }
-
-    inline UF *find() {
-      if(parent_ == this)
-        return this;
-      else {
-        parent_ = parent_->find();
-        return parent_;
-      }
-    }
-
-    inline int getRank() const {
-      return rank_;
-    }
-
-    inline void setParent(UF *parent) {
-      parent_ = parent;
-    }
-
-    inline void setRank(const int &rank) {
-      rank_ = rank;
-    }
-
-    static inline UF *makeUnion(UF *uf0, UF *uf1) {
-      uf0 = uf0->find();
-      uf1 = uf1->find();
-
-      if(uf0 == uf1) {
-        return uf0;
-      } else if(uf0->getRank() > uf1->getRank()) {
-        uf1->setParent(uf0);
-        return uf0;
-      } else if(uf0->getRank() < uf1->getRank()) {
-        uf0->setParent(uf1);
-        return uf1;
-      } else {
-        uf1->setParent(uf0);
-        uf0->setRank(uf0->getRank() + 1);
-        return uf0;
-      }
-    }
-
-    static inline UF *makeUnion(std::vector<UF *> &sets) {
-      UF *n = nullptr;
-
-      if(!sets.size())
-        return nullptr;
-
-      if(sets.size() == 1)
-        return sets[0];
-
-      for(int i = 0; i < (int)sets.size() - 1; i++)
-        n = makeUnion(sets[i], sets[i + 1]);
-
-      return n;
-    }
-
-    inline bool operator<(const UF &other) const {
-      return rank_ < other.rank_;
-    }
-
-    inline bool operator>(const UF &other) const {
-      return rank_ > other.rank_;
+  struct PairCmp {
+    bool
+      operator()(const std::pair<ttk::SimplexId, ttk::SimplexId> &lhs,
+                 const std::pair<ttk::SimplexId, ttk::SimplexId> &rhs) const {
+      return lhs.second < rhs.second;
     }
   };
 
@@ -146,14 +44,13 @@ namespace ttk {
       return 0;
     }
 
-    template <typename dataType>
     int constructJoinTree(
-      std::vector<std::tuple<ttk::SimplexId, ttk::SimplexId>> &joinTree,
+      std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &joinTree,
       std::map<ttk::SimplexId, std::set<ttk::SimplexId>> &pathLists,
       std::map<ttk::SimplexId, std::set<ttk::SimplexId>> &maximumLists,
-      const std::map<ttk::SimplexId, dataType> maxima,
-      const std::map<ttk::SimplexId, dataType> saddles,
-      const dataType globalMin) {
+      const std::map<ttk::SimplexId, ttk::SimplexId> maxima,
+      const std::map<ttk::SimplexId, ttk::SimplexId> saddles,
+      const ttk::SimplexId globalMin) {
       // l1-3
       for (auto const& saddle: saddles){
         pathLists[saddle.first] = std::set<ttk::SimplexId>();
@@ -172,7 +69,7 @@ namespace ttk {
 
           // get the critical point with maximum function value in Li
           ttk::SimplexId ck = globalMin;
-          dataType val = std::numeric_limits<dataType>::lowest();
+          ttk::SimplexId val = std::numeric_limits<ttk::SimplexId>::lowest();
           for (auto const& potential: Li){
             const auto saddleval = saddles.at(potential);
             //this->printMsg("SaddleVal: " + std::to_string(saddleval));
@@ -192,7 +89,7 @@ namespace ttk {
           // get number of join tree arcs incident on ck
           ttk::SimplexId joinArcs = 0;
           for (auto const& arc: joinTree){
-            if ((std::get<0>(arc) == ck) || (std::get<1>(arc) == ck))
+            if((arc.first == ck) || (arc.second == ck))
               joinArcs++;
           }
           if (joinArcs == mkSize){
@@ -203,8 +100,8 @@ namespace ttk {
         //  apply union find
         for (auto const& ck: newNodes){
           for (auto const& arc: joinTree){
-            if (std::get<0>(arc) == ck){
-              auto ci = std::get<1>(arc);
+            if(arc.first == ck) {
+              auto ci = arc.second;
               auto Lk = pathLists[ck];
               auto Li = pathLists[ci];
               Lk.insert(Li.begin(), Li.end());
@@ -228,111 +125,75 @@ namespace ttk {
       return 1;
     }
 
-    template <typename dataType>
     int constructJoinTreeV2(
-      std::vector<std::tuple<ttk::SimplexId, ttk::SimplexId>> &joinTree,
-      std::map<ttk::SimplexId, std::tuple<ttk::SimplexId, ttk::SimplexId>>
+      std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &joinTree,
+      std::map<ttk::SimplexId,
+               std::set<std::pair<ttk::SimplexId, ttk::SimplexId>, PairCmp>>
         &triplets,
-      std::map<ttk::SimplexId, std::set<ttk::SimplexId>> &pathLists,
-      std::map<ttk::SimplexId, std::set<ttk::SimplexId>> &maximumLists,
-      const std::map<ttk::SimplexId, dataType> maxima,
-      const std::map<ttk::SimplexId, dataType> saddles,
-      const dataType globalMin) {
-      while(!triplets.empty()) {
-        for(auto it = triplets.cbegin(); it != triplets.cend();) {
-          ttk::SimplexId lowId = std::get<0>(it->second);
-          ttk::SimplexId highId = std::get<1>(it->second);
-          if(lowId == highId) {
+      std::map<ttk::SimplexId, ttk::SimplexId> &largestSaddleForMax,
+      const ttk::SimplexId globalMin) {
+      int step = 0;
+      while(triplets.size() > 1) {
+        this->printMsg("============================================");
+        this->printMsg("Running step " + std::to_string(step)
+                       + ", #triplets: " + std::to_string(triplets.size())
+                       + ", Jointree size: " + std::to_string(joinTree.size()));
+        step++;
+        for(auto it = triplets.begin(); it != triplets.end();) {
+          if(it->second.size() <= 1) {
+            this->printMsg("Removing saddle " + std::to_string(it->first));
             it = triplets.erase(it);
           } else {
             ttk::SimplexId saddle = it->first;
+            ttk::SimplexId lowId = it->second.begin()->first;
+            this->printMsg("Saddle-lowest Max: " + std::to_string(saddle) + "-"
+                           + std::to_string(lowId));
             ++it;
-            // do the work
-          }
-        }
-      }
-      /*// l1-3
-      for (auto const& saddle: saddles){
-        pathLists[saddle.first] = std::set<ttk::SimplexId>();
-      }
-      // l4+5
-      std::vector<ttk::SimplexId> growingNodes;
-      for(auto const& maximum: maxima){
-        growingNodes.push_back(maximum.first);
-      }
-      std::vector<ttk::SimplexId> newNodes;
-      //l6
-      while (!growingNodes.empty()){
-        //l7-14
-        for(auto const &ci : growingNodes) {
-          auto Li = pathLists[ci];
-
-          // get the critical point with maximum function value in Li
-          ttk::SimplexId ck = globalMin;
-          dataType val = std::numeric_limits<dataType>::lowest();
-          for (auto const& potential: Li){
-            const auto saddleval = saddles.at(potential);
-            //this->printMsg("SaddleVal: " + std::to_string(saddleval));
-            if (saddleval > val){
-              ck = potential;
-              val = saddleval;
-            }
-          }
-          joinTree.emplace_back(ck, ci);
-          // TODO: union of those elements, later on check UF and don't walk
-          // over whole joinTree the representative element is the largest
-          // maximum
-          Li.erase(ck);
-          pathLists[ci] = Li;
-          auto mk = maximumLists[ck];
-          ttk::SimplexId mkSize = mk.size();
-          // get number of join tree arcs incident on ck
-          ttk::SimplexId joinArcs = 0;
-          for (auto const& arc: joinTree){
-            if ((std::get<0>(arc) == ck) || (std::get<1>(arc) == ck))
-              joinArcs++;
-          }
-          if (joinArcs == mkSize){
-            newNodes.emplace_back(ck);
-          }
-        }
-        // l15-20
-        //  apply union find
-        for (auto const& ck: newNodes){
-          for (auto const& arc: joinTree){
-            if (std::get<0>(arc) == ck){
-              auto ci = std::get<1>(arc);
-              auto Lk = pathLists[ck];
-              auto Li = pathLists[ci];
-              Lk.insert(Li.begin(), Li.end());
-              pathLists[ck] = Lk;
-              for (auto const& keylists: maximumLists){
-                auto Mj = keylists.second;
-                std::set<ttk::SimplexId>::iterator search = Mj.find(ci);
-                if (search != Mj.end()){
-                  Mj.erase(search);
-                  Mj.insert(ck);
-                  maximumLists[keylists.first] = Mj;
+            // we want to check if smallest maximum per saddle and largest
+            // saddle per maximum match
+            if(largestSaddleForMax[lowId] == saddle) {
+              // we have a match
+              joinTree.emplace_back(saddle, lowId);
+              // now we need to swap the pointers
+              for(auto &triplet : triplets) {
+                for(auto vectit = triplet.second.begin();
+                    vectit != triplet.second.end();) {
+                  if(vectit->first == lowId) {
+                    this->printMsg("Erasing maximum " + std::to_string(lowId)
+                                   + " for saddle "
+                                   + std::to_string(triplet.first));
+                    vectit = triplet.second.erase(vectit);
+                    // if we had to erase something in this triplet, we have to
+                    // connect the saddles
+                    if(saddle != triplet.first)
+                      joinTree.emplace_back(saddle, triplet.first);
+                  } else {
+                    ++vectit;
+                  }
                 }
               }
             }
           }
         }
-        //l21+22
-        growingNodes.swap(newNodes);
-        newNodes.clear();
-      }*/
+      }
+      // the final saddle is connected to the global minimum
+      this->printMsg("Final saddle: " + std::to_string(triplets.begin()->first)
+                     + ", size: "
+                     + std::to_string(triplets.begin()->second.size()));
+      // joinTree.emplace_back(triplets.begin()->first, globalMin);
       return 1;
     }
 
-    template <typename dataType, typename triangulationType>
+    template <typename triangulationType>
     int findAscPaths(
-      std::map<ttk::SimplexId, std::tuple<ttk::SimplexId, ttk::SimplexId>>
+      std::map<ttk::SimplexId,
+               std::set<std::pair<ttk::SimplexId, ttk::SimplexId>, PairCmp>>
         &triplets,
+      std::map<ttk::SimplexId, ttk::SimplexId> &largestSaddleForMax,
       std::map<ttk::SimplexId, std::set<ttk::SimplexId>> &pathLists,
       std::map<ttk::SimplexId, std::set<ttk::SimplexId>> &maximumLists,
-      const std::map<ttk::SimplexId, dataType> maxima,
-      const std::map<ttk::SimplexId, dataType> saddles,
+      const std::map<ttk::SimplexId, ttk::SimplexId> maxima,
+      const std::map<ttk::SimplexId, ttk::SimplexId> saddles,
       const ttk::SimplexId *ascendingManifold,
       const triangulationType *triangulation) {
       // construct the maximumLists for each saddle, the maxima which can be reached from this saddle
@@ -341,56 +202,46 @@ namespace ttk {
       for (auto const& saddle: saddles){
         ttk::SimplexId gId = saddle.first;
         int nNeighbors = triangulation->getVertexNeighborNumber(gId);
-        // we create a triplet from the saddle and the lowest and highest
-        // maximum reachable
-        dataType highestOrder = 0;
-        ttk::SimplexId highestGId = -1;
-        dataType lowestOrder = std::numeric_limits<dataType>::max();
-        ttk::SimplexId lowestGId = -1;
-
         for(int j = 0; j < nNeighbors; j++) {
           triangulation->getVertexNeighbor(gId, j, neighborId);
           // get the manifold result for this neighbor
           // problematic if manifold is dense and not sparse, because we need
           // the id of the point to which it is ascending, not the id of the segmentation
           ttk::SimplexId maximum = ascendingManifold[neighborId];
-          if(maxima.at(maximum) > highestOrder) {
-            highestGId = maximum;
-            highestOrder = maxima.at(maximum);
-          }
-          if(maxima.at(maximum) < lowestOrder) {
-            lowestGId = maximum;
-            lowestOrder = maxima.at(maximum);
-          }
-          this->printMsg("Neighbor " + std::to_string(neighborId) + " of point "
-                         + std::to_string(gId) + " reaching maximum "
-                         + std::to_string(maximum));
           if (pathLists.find(maximum) != pathLists.end()){
             pathLists.at(maximum).insert(gId);
+            // always save the largest saddle reachable from the maximum
+            // separately
+            if(saddles.at(largestSaddleForMax.at(maximum)) < saddles.at(gId)) {
+              largestSaddleForMax[maximum] = gId;
+            }
           } else {
             this->printMsg("Created Pathlist for maximum "
                            + std::to_string(maximum));
             pathLists[maximum] = {gId};
+            largestSaddleForMax[maximum] = gId;
           }
           if (maximumLists.find(gId) != maximumLists.end()){
             maximumLists.at(gId).insert(maximum);
+            triplets.at(gId).emplace(
+              std::make_pair(maximum, maxima.at(maximum)));
           } else {
             this->printMsg("Created Maximumlist for saddle "
                            + std::to_string(gId));
             maximumLists[gId] = {maximum};
+            triplets[gId] = {std::make_pair(maximum, maxima.at(maximum))};
           }
         }
-        triplets[gId] = std::make_tuple(lowestGId, highestGId);
       }
       return 1;
     }
-    template <class dataType,
-              class triangulationType = ttk::AbstractTriangulation>
+
+    template <class triangulationType = ttk::AbstractTriangulation>
     int computePairs(
-      std::vector<std::tuple<ttk::SimplexId, ttk::SimplexId>> &joinTree,
+      std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &joinTree,
       const char *inputCriticalPoints,
       const ttk::SimplexId *ascendingManifold,
-      const dataType *order,
+      const ttk::SimplexId *order,
       const triangulationType *triangulation,
       const ttk::SimplexId *criticalGlobalIds,
       ttk::SimplexId &nCriticalPoints) {
@@ -419,9 +270,9 @@ namespace ttk {
                        0, // elapsed time so far
                        this->threadNumber_);
 
-        std::map<ttk::SimplexId, dataType> maxima;
-        std::map<ttk::SimplexId, dataType> saddles;
-        dataType globalMin = -2;
+        std::map<ttk::SimplexId, ttk::SimplexId> maxima;
+        std::map<ttk::SimplexId, ttk::SimplexId> saddles;
+        ttk::SimplexId globalMin = -2;
         const int dimension = triangulation->getDimensionality();
         // first extract the maxima and the saddles we want
         for (ttk::SimplexId i = 0; i < nCriticalPoints; i++){
@@ -455,19 +306,29 @@ namespace ttk {
 
         std::map<ttk::SimplexId, std::set<ttk::SimplexId>> pathLists{};
         std::map<ttk::SimplexId, std::set<ttk::SimplexId>> maximumLists{};
-        std::map<ttk::SimplexId, std::tuple<ttk::SimplexId, ttk::SimplexId>>
+        std::map<ttk::SimplexId,
+                 std::set<std::pair<ttk::SimplexId, ttk::SimplexId>, PairCmp>>
           triplets{};
+        std::map<ttk::SimplexId, ttk::SimplexId> largestSaddleForMax{};
+        findAscPaths<triangulationType>(
+          triplets, largestSaddleForMax, pathLists, maximumLists, maxima,
+          saddles, ascendingManifold, triangulation);
+        this->printMsg("Finished with AscPaths, starting with JoinTree");
+        std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> joinTreeV2{};
+        constructJoinTree(
+          joinTreeV2, pathLists, maximumLists, maxima, saddles, globalMin);
+        constructJoinTreeV2(joinTree, triplets, largestSaddleForMax, globalMin);
 
-        findAscPaths<dataType, triangulationType>(
-          triplets, pathLists, maximumLists, maxima, saddles, ascendingManifold,
-          triangulation);
-
-        // constructJoinTree<dataType>(joinTree, pathLists,
-        //                             maximumLists, maxima, saddles,
-        //                             globalMin);
-        constructJoinTreeV2<dataType>(joinTree, triplets, pathLists,
-                                      maximumLists, maxima, saddles, globalMin);
-
+        this->printMsg("====================================");
+        for(auto pair : joinTree) {
+          this->printMsg(std::to_string(pair.first) + " - "
+                         + std::to_string(pair.second));
+        }
+        this->printMsg("====================================");
+        for(auto pair : joinTreeV2) {
+          this->printMsg(std::to_string(pair.first) + " - "
+                         + std::to_string(pair.second));
+        }
         // print the progress of the current subprocedure with elapsed time
         this->printMsg("Computing extremum pairs",
                        1, // progress

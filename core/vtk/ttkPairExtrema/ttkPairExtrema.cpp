@@ -80,7 +80,7 @@ int ttkPairExtrema::FillOutputPortInformation(int port, vtkInformation *info) {
 template <class triangulationType = ttk::AbstractTriangulation>
 int ttkPairExtrema::getSkeletonArcs(
   vtkUnstructuredGrid *outputSkeletonArcs,
-  std::vector<std::tuple<ttk::SimplexId, ttk::SimplexId>> &joinTree,
+  std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &joinTree,
   const triangulationType *triangulation) {
   vtkNew<vtkUnstructuredGrid> skeletonArcs{};
   ttk::SimplexId pointIds[2];
@@ -89,8 +89,8 @@ int ttkPairExtrema::getSkeletonArcs(
   std::map<ttk::SimplexId, ttk::SimplexId> addedPoints;
   ttk::SimplexId currentId = 0;
   for(auto const &p : joinTree) {
-    pointIds[0] = std::get<0>(p);
-    pointIds[1] = std::get<1>(p);
+    pointIds[0] = p.first;
+    pointIds[1] = p.second;
     // add each point only once to the vtkPoints
     // addedPoints.insert(x).second inserts x and is true if x was not in
     // addedPoints beforehand
@@ -167,7 +167,7 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
   this->printMsg("Starting computation...");
 
   ttk::SimplexId nCriticalPoints = criticalType->GetNumberOfTuples();
-  std::vector<std::tuple<ttk::SimplexId, ttk::SimplexId>> joinTree{};
+  std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> joinTree{};
 
   // Get ttk::triangulation of the input vtkDataSet (will create one if one does
   // not exist already).
@@ -182,14 +182,14 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
   // Templatize over the different input array data types and call the base code
   int status = 0; // this integer checks if the base code returns an error
   // construct the tree
-  ttkTypeMacroIT(
-    order->GetDataType(), triangulation->getType(),
-    (status = this->computePairs<T0, T1>(
-       joinTree, ttkUtils::GetPointer<char>(criticalType),
-       ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
-       ttkUtils::GetPointer<T0>(order), (T1 *)triangulation->getData(),
-       ttkUtils::GetPointer<ttk::SimplexId>(criticalGlobalIds),
-       nCriticalPoints)));
+  ttkTypeMacroT(triangulation->getType(),
+                (status = this->computePairs<T0>(
+                   joinTree, ttkUtils::GetPointer<char>(criticalType),
+                   ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
+                   ttkUtils::GetPointer<ttk::SimplexId>(order),
+                   (T0 *)triangulation->getData(),
+                   ttkUtils::GetPointer<ttk::SimplexId>(criticalGlobalIds),
+                   nCriticalPoints)));
 
   // On error cancel filter execution
   if(status != 1)

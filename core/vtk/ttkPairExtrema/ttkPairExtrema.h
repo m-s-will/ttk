@@ -98,7 +98,7 @@ protected:
   template <class triangulationType = ttk::AbstractTriangulation>
   int getSkeletonArcs(
     vtkUnstructuredGrid *outputSkeletonArcs,
-    std::vector<std::tuple<ttk::SimplexId, ttk::SimplexId>> &joinTree,
+    std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &joinTree,
     const triangulationType *triangulation);
 
   int RequestData(vtkInformation *request,
