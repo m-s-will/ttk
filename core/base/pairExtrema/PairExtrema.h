@@ -140,7 +140,7 @@ namespace ttk {
                        + ", Jointree size: " + std::to_string(joinTree.size()));
         step++;
         for(auto it = triplets.begin(); it != triplets.end();) {
-          if(it->second.size() <= 1) {
+          if(it->second.size() == 0) {
             this->printMsg("Removing saddle " + std::to_string(it->first));
             it = triplets.erase(it);
           } else {
