@@ -145,34 +145,33 @@ namespace ttk {
             it = triplets.erase(it);
           } else {
             ttk::SimplexId saddle = it->first;
-            ttk::SimplexId lowId = it->second.begin()->first;
+            std::pair<ttk::SimplexId, ttk::SimplexId> pair
+              = *(it->second.begin());
+            ttk::SimplexId lowId = pair.first;
             this->printMsg("Saddle-lowest Max: " + std::to_string(saddle) + "-"
                            + std::to_string(lowId));
-            ++it;
             // we want to check if smallest maximum per saddle and largest
             // saddle per maximum match
             if(largestSaddleForMax[lowId] == saddle) {
               // we have a match
               joinTree.emplace_back(saddle, lowId);
+              it->second.erase(it->second.begin());
               // now we need to swap the pointers
               for(auto &triplet : triplets) {
-                for(auto vectit = triplet.second.begin();
-                    vectit != triplet.second.end();) {
-                  if(vectit->first == lowId) {
-                    this->printMsg("Erasing maximum " + std::to_string(lowId)
-                                   + " for saddle "
-                                   + std::to_string(triplet.first));
-                    vectit = triplet.second.erase(vectit);
-                    // if we had to erase something in this triplet, we have to
-                    // connect the saddles
-                    if(saddle != triplet.first)
-                      joinTree.emplace_back(saddle, triplet.first);
-                  } else {
-                    ++vectit;
-                  }
+                if(triplet.second.erase(pair) > 0) {
+                  this->printMsg("Erasing maximum " + std::to_string(lowId)
+                                 + " for saddle "
+                                 + std::to_string(triplet.first));
+                  // triplet.second.insert(it->second.begin(),
+                  // it->second.end());
+                  //  if we had to erase something in this triplet, we have to
+                  //  connect the saddles
+                  if(saddle != triplet.first)
+                    joinTree.emplace_back(saddle, triplet.first);
                 }
               }
             }
+            ++it;
           }
         }
       }
@@ -289,7 +288,6 @@ namespace ttk {
             ttk::SimplexId neighborId;
             int nNeighbors = triangulation->getVertexNeighborNumber(gId);
             std::set<ttk::SimplexId> reachableMaxima;
-            reachableMaxima.insert(ascendingManifold[gId]);
             for(int j = 0; j < nNeighbors; j++) {
               triangulation->getVertexNeighbor(gId, j, neighborId);
               reachableMaxima.insert(ascendingManifold[neighborId]);
