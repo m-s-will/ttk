@@ -131,9 +131,12 @@ namespace ttk {
                std::set<std::pair<ttk::SimplexId, ttk::SimplexId>, PairCmp>>
         &triplets,
       std::map<ttk::SimplexId, ttk::SimplexId> &largestSaddleForMax,
+      const std::map<ttk::SimplexId, ttk::SimplexId> saddles,
       const ttk::SimplexId globalMin) {
       int step = 0;
-      while(triplets.size() > 1) {
+      ttk::SimplexId smallestId = -1;
+      ttk::SimplexId smallestVal = std::numeric_limits<ttk::SimplexId>::max();
+      while(triplets.size() > 1 && step < 10) {
         this->printMsg("============================================");
         this->printMsg("Running step " + std::to_string(step)
                        + ", #triplets: " + std::to_string(triplets.size())
@@ -148,12 +151,16 @@ namespace ttk {
             std::pair<ttk::SimplexId, ttk::SimplexId> pair
               = *(it->second.begin());
             ttk::SimplexId lowId = pair.first;
-            this->printMsg("Saddle-lowest Max: " + std::to_string(saddle) + "-"
-                           + std::to_string(lowId));
             // we want to check if smallest maximum per saddle and largest
             // saddle per maximum match
             if(largestSaddleForMax[lowId] == saddle) {
+              if(saddles.at(saddle) < smallestVal) {
+                smallestVal = saddles.at(saddle);
+                smallestId = saddle;
+              }
               // we have a match
+              this->printMsg("Saddle-lowest Max: " + std::to_string(saddle)
+                             + "-" + std::to_string(lowId));
               joinTree.emplace_back(saddle, lowId);
               it->second.erase(it->second.begin());
               // now we need to swap the pointers
@@ -164,10 +171,15 @@ namespace ttk {
                                  + std::to_string(triplet.first));
                   // triplet.second.insert(it->second.begin(),
                   // it->second.end());
-                  //  if we had to erase something in this triplet, we have to
-                  //  connect the saddles
-                  if(saddle != triplet.first)
+                  //   if we had to erase something in this triplet, we have to
+                  //   connect the saddles
+                  if(saddle != triplet.first) {
                     joinTree.emplace_back(saddle, triplet.first);
+                    if(saddles.at(triplet.first) < smallestVal) {
+                      smallestVal = saddles.at(triplet.first);
+                      smallestId = triplet.first;
+                    }
+                  }
                 }
               }
             }
@@ -176,10 +188,7 @@ namespace ttk {
         }
       }
       // the final saddle is connected to the global minimum
-      this->printMsg("Final saddle: " + std::to_string(triplets.begin()->first)
-                     + ", size: "
-                     + std::to_string(triplets.begin()->second.size()));
-      // joinTree.emplace_back(triplets.begin()->first, globalMin);
+      joinTree.emplace_back(smallestId, globalMin);
       return 1;
     }
 
@@ -315,7 +324,8 @@ namespace ttk {
         std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> joinTreeV2{};
         constructJoinTree(
           joinTreeV2, pathLists, maximumLists, maxima, saddles, globalMin);
-        constructJoinTreeV2(joinTree, triplets, largestSaddleForMax, globalMin);
+        constructJoinTreeV2(
+          joinTree, triplets, largestSaddleForMax, saddles, globalMin);
 
         this->printMsg("====================================");
         for(auto pair : joinTree) {
