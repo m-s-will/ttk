@@ -174,6 +174,9 @@ namespace ttk {
                   //   if we had to erase something in this triplet, we have to
                   //   connect the saddles
                   if(saddle != triplet.first) {
+                    this->printMsg("Adding edge between "
+                                   + std::to_string(saddle) + " and "
+                                   + std::to_string(triplet.first));
                     joinTree.emplace_back(saddle, triplet.first);
                     if(saddles.at(triplet.first) < smallestVal) {
                       smallestVal = saddles.at(triplet.first);
