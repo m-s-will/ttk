@@ -202,7 +202,9 @@ namespace ttk {
         &triplets,
       const std::map<ttk::SimplexId, ttk::SimplexId> &largestSaddleForMax) {
       int step = 0;
-      while(triplets.size() > 1) {
+      bool changed = true;
+      while(triplets.size() > 1 && changed) {
+        changed = false;
         this->printMsg("============================================");
         this->printMsg("Running step " + std::to_string(step)
                        + ", #triplets: " + std::to_string(triplets.size())
@@ -210,7 +212,8 @@ namespace ttk {
         step++;
         for(auto it = triplets.begin(); it != triplets.end();) {
           if(it->second.size() < 2) {
-            this->printMsg("Removing saddle " + std::to_string(it->first));
+            // this->printMsg("Removing saddle " + std::to_string(it->first));
+            changed = true;
             it = triplets.erase(it);
           } else {
             ttk::SimplexId saddle = it->first;
@@ -220,23 +223,26 @@ namespace ttk {
             // we want to check if smallest maximum per saddle and largest
             // saddle per maximum match
             if(largestSaddleForMax.at(lowId) == saddle) {
-
+              changed = true;
               // we have a match
-              this->printMsg("Saddle-lowest Max: " + std::to_string(saddle)
-                             + "-" + std::to_string(lowId));
+              // this->printMsg("Saddle-lowest Max: " + std::to_string(saddle)
+              //               + "-" + std::to_string(lowId));
               pairs.emplace_back(saddle, lowId);
               it->second.erase(it->second.begin());
               // now we need to swap the pointers
               for(auto &triplet : triplets) {
                 if(triplet.second.erase(pair) > 0) {
-                  this->printMsg("Erasing maximum " + std::to_string(lowId)
-                                 + " for saddle "
-                                 + std::to_string(triplet.first));
+                  // this->printMsg("Erasing maximum " + std::to_string(lowId)
+                  //                + " for saddle "
+                  //                + std::to_string(triplet.first));
                   triplet.second.insert(it->second.begin(), it->second.end());
                 }
               }
+              // for the persistence pairs, each saddle is only in one pair
+              it = triplets.erase(it);
+            } else {
+              ++it;
             }
-            ++it;
           }
         }
       }
