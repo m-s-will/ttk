@@ -136,7 +136,7 @@ namespace ttk {
       int step = 0;
       ttk::SimplexId smallestId = -1;
       ttk::SimplexId smallestVal = std::numeric_limits<ttk::SimplexId>::max();
-      while(triplets.size() > 1 && step < 10) {
+      while(triplets.size() > 1) {
         this->printMsg("============================================");
         this->printMsg("Running step " + std::to_string(step)
                        + ", #triplets: " + std::to_string(triplets.size())
@@ -192,6 +192,54 @@ namespace ttk {
       }
       // the final saddle is connected to the global minimum
       joinTree.emplace_back(smallestId, globalMin);
+      return 1;
+    }
+
+    int constructPersistencePairs(
+      std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &pairs,
+      std::map<ttk::SimplexId,
+               std::set<std::pair<ttk::SimplexId, ttk::SimplexId>, PairCmp>>
+        &triplets,
+      const std::map<ttk::SimplexId, ttk::SimplexId> &largestSaddleForMax) {
+      int step = 0;
+      while(triplets.size() > 1) {
+        this->printMsg("============================================");
+        this->printMsg("Running step " + std::to_string(step)
+                       + ", #triplets: " + std::to_string(triplets.size())
+                       + ", Pairs size: " + std::to_string(pairs.size()));
+        step++;
+        for(auto it = triplets.begin(); it != triplets.end();) {
+          if(it->second.size() < 2) {
+            this->printMsg("Removing saddle " + std::to_string(it->first));
+            it = triplets.erase(it);
+          } else {
+            ttk::SimplexId saddle = it->first;
+            std::pair<ttk::SimplexId, ttk::SimplexId> pair
+              = *(it->second.begin());
+            ttk::SimplexId lowId = pair.first;
+            // we want to check if smallest maximum per saddle and largest
+            // saddle per maximum match
+            if(largestSaddleForMax.at(lowId) == saddle) {
+
+              // we have a match
+              this->printMsg("Saddle-lowest Max: " + std::to_string(saddle)
+                             + "-" + std::to_string(lowId));
+              pairs.emplace_back(saddle, lowId);
+              it->second.erase(it->second.begin());
+              // now we need to swap the pointers
+              for(auto &triplet : triplets) {
+                if(triplet.second.erase(pair) > 0) {
+                  this->printMsg("Erasing maximum " + std::to_string(lowId)
+                                 + " for saddle "
+                                 + std::to_string(triplet.first));
+                  triplet.second.insert(it->second.begin(), it->second.end());
+                }
+              }
+            }
+            ++it;
+          }
+        }
+      }
       return 1;
     }
 
@@ -284,12 +332,17 @@ namespace ttk {
         std::map<ttk::SimplexId, ttk::SimplexId> maxima;
         std::map<ttk::SimplexId, ttk::SimplexId> saddles;
         ttk::SimplexId globalMin = -2;
+        ttk::SimplexId globalMax = -2;
+        ttk::SimplexId highestOrder = 0;
         const int dimension = triangulation->getDimensionality();
         // first extract the maxima and the saddles we want
         for (ttk::SimplexId i = 0; i < nCriticalPoints; i++){
           // extract the global minimum id
           if(order[i] == 0) {
             globalMin = criticalGlobalIds[i];
+          } else if(order[i] > highestOrder) {
+            highestOrder = order[i];
+            globalMax = criticalGlobalIds[i];
           }
           if (inputCriticalPoints[i] == 3){
             this->printMsg("Added " + std::to_string(criticalGlobalIds[i])
@@ -327,10 +380,12 @@ namespace ttk {
         std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> joinTreeV2{};
         constructJoinTree(
           joinTreeV2, pathLists, maximumLists, maxima, saddles, globalMin);
-        constructJoinTreeV2(
-          joinTree, triplets, largestSaddleForMax, saddles, globalMin);
+        // constructJoinTreeV2(
+        //   joinTree, triplets, largestSaddleForMax, saddles, globalMin);
+        constructPersistencePairs(joinTree, triplets, largestSaddleForMax);
+        joinTree.emplace_back(globalMin, globalMax);
 
-        this->printMsg("====================================");
+        /*this->printMsg("====================================");
         for(auto pair : joinTree) {
           this->printMsg(std::to_string(pair.first) + " - "
                          + std::to_string(pair.second));
@@ -339,7 +394,7 @@ namespace ttk {
         for(auto pair : joinTreeV2) {
           this->printMsg(std::to_string(pair.first) + " - "
                          + std::to_string(pair.second));
-        }
+        }*/
         // print the progress of the current subprocedure with elapsed time
         this->printMsg("Computing extremum pairs",
                        1, // progress
