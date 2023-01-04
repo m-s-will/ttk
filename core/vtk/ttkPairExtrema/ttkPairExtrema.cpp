@@ -77,7 +77,7 @@ int ttkPairExtrema::FillOutputPortInformation(int port, vtkInformation *info) {
   return 0;
 }
 
-template <class triangulationType = ttk::AbstractTriangulation>
+template <class triangulationType>
 int ttkPairExtrema::getSkeletonArcs(
   vtkUnstructuredGrid *outputSkeletonArcs,
   std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &joinTree,
