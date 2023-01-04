@@ -28,6 +28,14 @@ namespace ttk {
     }
   };
 
+  struct InversePairCmp {
+    bool
+      operator()(const std::pair<ttk::SimplexId, ttk::SimplexId> &lhs,
+                 const std::pair<ttk::SimplexId, ttk::SimplexId> &rhs) const {
+      return lhs.second > rhs.second;
+    }
+  };
+
   /**
    * The PairExtrema class provides methods to compute for each vertex of a
    * triangulation the average scalar value of itself and its direct neighbors.
@@ -200,7 +208,9 @@ namespace ttk {
       std::map<ttk::SimplexId,
                std::set<std::pair<ttk::SimplexId, ttk::SimplexId>, PairCmp>>
         &triplets,
-      const std::map<ttk::SimplexId, ttk::SimplexId> &largestSaddleForMax) {
+      std::map<ttk::SimplexId,
+               std::set<std::pair<ttk::SimplexId, ttk::SimplexId>,
+                        InversePairCmp>> &largestSaddlesForMax) {
       int step = 0;
       bool changed = true;
       while(triplets.size() > 1 && changed) {
@@ -211,31 +221,44 @@ namespace ttk {
                        + ", Pairs size: " + std::to_string(pairs.size()));
         step++;
         for(auto it = triplets.begin(); it != triplets.end();) {
-          if(it->second.size() < 2) {
-            // this->printMsg("Removing saddle " + std::to_string(it->first));
+          if(it->second.size() == 0) {
             changed = true;
             it = triplets.erase(it);
           } else {
             ttk::SimplexId saddle = it->first;
             std::pair<ttk::SimplexId, ttk::SimplexId> pair
-              = *(it->second.begin());
-            ttk::SimplexId lowId = pair.first;
+              = *(it->second.begin()); // the lowest maximum id and val for the
+                                       // current saddle
+            ttk::SimplexId lowId = pair.first; // only the maximum id
+            std::pair<ttk::SimplexId, ttk::SimplexId> largestSaddlePair
+              = *(largestSaddlesForMax.at(lowId).begin());
             // we want to check if smallest maximum per saddle and largest
             // saddle per maximum match
-            if(largestSaddleForMax.at(lowId) == saddle) {
+            if(largestSaddlePair.first == saddle) {
               changed = true;
-              // we have a match
-              // this->printMsg("Saddle-lowest Max: " + std::to_string(saddle)
-              //               + "-" + std::to_string(lowId));
               pairs.emplace_back(saddle, lowId);
               it->second.erase(it->second.begin());
               // now we need to swap the pointers
               for(auto &triplet : triplets) {
-                if(triplet.second.erase(pair) > 0) {
-                  // this->printMsg("Erasing maximum " + std::to_string(lowId)
-                  //                + " for saddle "
-                  //                + std::to_string(triplet.first));
+                if(triplet.second.erase(pair)
+                   > 0) { // if the maximum can be reached from this saddle, we
+                          // need to replace it by the other maxima from the
+                          // chosen saddle
                   triplet.second.insert(it->second.begin(), it->second.end());
+                }
+              }
+              // we also need to update largestSaddlesForMax for all maxima
+              // having had this saddle as their largest
+              largestSaddlesForMax.at(lowId).erase(
+                largestSaddlesForMax.at(lowId).begin());
+              for(auto &saddleList : largestSaddlesForMax) {
+                if(saddleList.second.erase(largestSaddlePair)
+                   > 0) { // if the saddle can be reached from this maximum, we
+                          // need to replace it by the other saddles from the
+                          // chosen maximum
+                  saddleList.second.insert(
+                    largestSaddlesForMax.at(lowId).begin(),
+                    largestSaddlesForMax.at(lowId).end());
                 }
               }
               // for the persistence pairs, each saddle is only in one pair
@@ -254,7 +277,9 @@ namespace ttk {
       std::map<ttk::SimplexId,
                std::set<std::pair<ttk::SimplexId, ttk::SimplexId>, PairCmp>>
         &triplets,
-      std::map<ttk::SimplexId, ttk::SimplexId> &largestSaddleForMax,
+      std::map<ttk::SimplexId,
+               std::set<std::pair<ttk::SimplexId, ttk::SimplexId>,
+                        InversePairCmp>> &largestSaddlesForMax,
       std::map<ttk::SimplexId, std::set<ttk::SimplexId>> &pathLists,
       std::map<ttk::SimplexId, std::set<ttk::SimplexId>> &maximumLists,
       const std::map<ttk::SimplexId, ttk::SimplexId> maxima,
@@ -275,24 +300,20 @@ namespace ttk {
           ttk::SimplexId maximum = ascendingManifold[neighborId];
           if (pathLists.find(maximum) != pathLists.end()){
             pathLists.at(maximum).insert(gId);
-            // always save the largest saddle reachable from the maximum
+            // always save the largest saddles reachable from the maximum
             // separately
-            if(saddles.at(largestSaddleForMax.at(maximum)) < saddles.at(gId)) {
-              largestSaddleForMax[maximum] = gId;
-            }
+            largestSaddlesForMax.at(maximum).emplace(
+              std::make_pair(gId, saddles.at(gId)));
           } else {
-            this->printMsg("Created Pathlist for maximum "
-                           + std::to_string(maximum));
             pathLists[maximum] = {gId};
-            largestSaddleForMax[maximum] = gId;
+            largestSaddlesForMax[maximum]
+              = {std::make_pair(gId, saddles.at(gId))};
           }
           if (maximumLists.find(gId) != maximumLists.end()){
             maximumLists.at(gId).insert(maximum);
             triplets.at(gId).emplace(
               std::make_pair(maximum, maxima.at(maximum)));
           } else {
-            this->printMsg("Created Maximumlist for saddle "
-                           + std::to_string(gId));
             maximumLists[gId] = {maximum};
             triplets[gId] = {std::make_pair(maximum, maxima.at(maximum))};
           }
@@ -350,9 +371,7 @@ namespace ttk {
             highestOrder = order[i];
             globalMax = criticalGlobalIds[i];
           }
-          if (inputCriticalPoints[i] == 3){
-            this->printMsg("Added " + std::to_string(criticalGlobalIds[i])
-                           + " to maxima.");
+          if(inputCriticalPoints[i] == 3) {
             maxima.emplace(criticalGlobalIds[i], order[i]);
           } else if(inputCriticalPoints[i] == (dimension - 1)) {
             ttk::SimplexId gId = criticalGlobalIds[i];
@@ -365,9 +384,6 @@ namespace ttk {
             }
             // we only care about vertices with an upperlink of at least 2
             if(reachableMaxima.size() > 1) {
-              this->printMsg("Added " + std::to_string(gId) + " to saddles.");
-              this->printMsg("#reachable Maxima "
-                             + std::to_string(reachableMaxima.size()));
               saddles.emplace(gId, order[i]);
             }
           }
@@ -378,29 +394,22 @@ namespace ttk {
         std::map<ttk::SimplexId,
                  std::set<std::pair<ttk::SimplexId, ttk::SimplexId>, PairCmp>>
           triplets{};
-        std::map<ttk::SimplexId, ttk::SimplexId> largestSaddleForMax{};
+        std::map<
+          ttk::SimplexId,
+          std::set<std::pair<ttk::SimplexId, ttk::SimplexId>, InversePairCmp>>
+          largestSaddlesForMax{};
         findAscPaths<triangulationType>(
-          triplets, largestSaddleForMax, pathLists, maximumLists, maxima,
+          triplets, largestSaddlesForMax, pathLists, maximumLists, maxima,
           saddles, ascendingManifold, triangulation);
+        largestSaddlesForMax.at(globalMax) = {std::make_pair(globalMin, 0)};
         this->printMsg("Finished with AscPaths, starting with JoinTree");
         std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> joinTreeV2{};
-        constructJoinTree(
-          joinTreeV2, pathLists, maximumLists, maxima, saddles, globalMin);
-        // constructJoinTreeV2(
-        //   joinTree, triplets, largestSaddleForMax, saddles, globalMin);
-        constructPersistencePairs(joinTree, triplets, largestSaddleForMax);
+        // constructJoinTree(
+        //  joinTreeV2, pathLists, maximumLists, maxima, saddles, globalMin);
+        //  constructJoinTreeV2(
+        //    joinTree, triplets, largestSaddleForMax, saddles, globalMin);
+        constructPersistencePairs(joinTree, triplets, largestSaddlesForMax);
         joinTree.emplace_back(globalMin, globalMax);
-
-        /*this->printMsg("====================================");
-        for(auto pair : joinTree) {
-          this->printMsg(std::to_string(pair.first) + " - "
-                         + std::to_string(pair.second));
-        }
-        this->printMsg("====================================");
-        for(auto pair : joinTreeV2) {
-          this->printMsg(std::to_string(pair.first) + " - "
-                         + std::to_string(pair.second));
-        }*/
         // print the progress of the current subprocedure with elapsed time
         this->printMsg("Computing extremum pairs",
                        1, // progress
