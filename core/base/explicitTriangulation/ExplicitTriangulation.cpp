@@ -95,7 +95,8 @@ int ExplicitTriangulation::preconditionBoundaryEdgesInternal() {
     return -1;
   }
 
-#if TTK_ENABLE_MPI
+#ifdef TTK_ENABLE_MPI
+
   this->preconditionEdgeRankArray();
   if(ttk::isRunningWithMPI()) {
     ttk::SimplexId edgeNumber = edgeList_.size();
@@ -103,20 +104,46 @@ int ExplicitTriangulation::preconditionBoundaryEdgesInternal() {
     for(int i = 0; i < edgeNumber; ++i) {
       charBoundary[i] = boundaryEdges_[i] ? '1' : '0';
     }
-    ttk::exchangeGhostEdges<unsigned char, ExplicitTriangulation>(
-      charBoundary.data(), this, ttk::MPIcomm_);
+    ttk::exchangeGhostDataWithoutTriangulation<unsigned char, ttk::SimplexId,
+                                               ttk::SimplexId>(
+      charBoundary.data(),
+      [this](const SimplexId a) { return this->edgeRankArray_[a]; },
+      this->edgeLidToGid_.data(), this->edgeGidToLid_, edgeNumber,
+      ttk::MPIcomm_, this->getNeighborRanks());
     for(int i = 0; i < edgeNumber; ++i) {
       boundaryEdges_[i] = (charBoundary[i] == '1');
     }
   }
-#endif
+
+#endif // TTK_ENABLE_MPI
 
   this->printMsg("Extracted boundary edges", 1.0, tm.getElapsedTime(), 1);
 
   return 0;
 }
 
-#if TTK_ENABLE_MPI
+#ifdef TTK_ENABLE_MPI
+
+int ExplicitTriangulation::preconditionVertexRankArray() {
+  this->vertexRankArray_.resize(this->vertexNumber_);
+  if(ttk::isRunningWithMPI()) {
+    ttk::produceRankArray(this->vertexRankArray_, this->vertGid_,
+                          this->vertexGhost_, this->vertexNumber_,
+                          this->boundingBox_.data(), this->neighborRanks_);
+  }
+  return 0;
+}
+
+int ExplicitTriangulation::preconditionCellRankArray() {
+  this->cellRankArray_.resize(this->cellNumber_);
+  if(ttk::isRunningWithMPI()) {
+    ttk::produceRankArray(this->cellRankArray_, this->cellGid_,
+                          this->cellGhost_, this->cellNumber_,
+                          this->boundingBox_.data(), this->neighborRanks_);
+  }
+  return 0;
+}
+
 int ExplicitTriangulation::preconditionEdgeRankArray() {
   ttk::SimplexId edgeNumber = this->getNumberOfEdgesInternal();
   edgeRankArray_.resize(edgeNumber, 0);
@@ -163,7 +190,9 @@ int ExplicitTriangulation::preconditionTriangleRankArray() {
   }
   return 0;
 }
-#endif
+
+#endif // TTK_ENABLE_MPI
+
 int ExplicitTriangulation::preconditionBoundaryTrianglesInternal() {
 
   if(this->cellArray_ == nullptr || this->vertexNumber_ == 0) {
@@ -198,7 +227,8 @@ int ExplicitTriangulation::preconditionBoundaryTrianglesInternal() {
     return -1;
   }
 
-#if TTK_ENABLE_MPI
+#ifdef TTK_ENABLE_MPI
+
   this->preconditionTriangleRankArray();
   if(ttk::isRunningWithMPI()) {
     ttk::SimplexId triangleNumber = triangleList_.size();
@@ -206,13 +236,19 @@ int ExplicitTriangulation::preconditionBoundaryTrianglesInternal() {
     for(int i = 0; i < triangleNumber; ++i) {
       charBoundary[i] = boundaryTriangles_[i] ? '1' : '0';
     }
-    ttk::exchangeGhostTriangles<unsigned char, ExplicitTriangulation>(
-      charBoundary.data(), this, ttk::MPIcomm_);
+    ttk::exchangeGhostDataWithoutTriangulation<unsigned char, ttk::SimplexId,
+                                               ttk::SimplexId>(
+      charBoundary.data(),
+      [this](const SimplexId a) { return this->triangleRankArray_[a]; },
+      this->triangleLidToGid_.data(), this->triangleGidToLid_, triangleNumber,
+      ttk::MPIcomm_, this->getNeighborRanks());
     for(int i = 0; i < triangleNumber; ++i) {
       boundaryTriangles_[i] = (charBoundary[i] == '1');
     }
   }
-#endif
+
+#endif // TTK_ENABLE_MPI
+
   this->printMsg("Extracted boundary triangles", 1.0, tm.getElapsedTime(), 1);
 
   return 0;
@@ -269,7 +305,8 @@ int ExplicitTriangulation::preconditionBoundaryVerticesInternal() {
     printErr("Unsupported dimension for vertex boundary precondition");
     return -1;
   }
-#if TTK_ENABLE_MPI
+
+#ifdef TTK_ENABLE_MPI
 
   if(ttk::isRunningWithMPI()) {
     this->preconditionDistributedVertices();
@@ -281,12 +318,14 @@ int ExplicitTriangulation::preconditionBoundaryVerticesInternal() {
       charBoundary.data(), this, ttk::MPIcomm_);
 
     for(int i = 0; i < vertexNumber_; ++i) {
-      if(vertRankArray_[i] != ttk::MPIrank_) {
+      if(vertexRankArray_[i] != ttk::MPIrank_) {
         boundaryVertices_[i] = (charBoundary[i] == '1');
       }
     }
   }
-#endif
+
+#endif // TTK_ENABLE_MPI
+
   this->printMsg("Extracted boundary vertices", 1.0, tm.getElapsedTime(), 1);
 
   return 0;
@@ -694,12 +733,10 @@ int ExplicitTriangulation::preconditionDistributedCells() {
     this->printErr("Missing global cell identifiers array!");
     return -2;
   }
-  if(this->cellRankArray_ == nullptr) {
-    this->printErr("Missing cell RankArray!");
-    return -3;
-  }
 
   Timer tm{};
+
+  this->preconditionCellRankArray();
 
   // number of local cells (with ghost cells...)
   const auto nLocCells{this->getNumberOfCells()};
@@ -1287,10 +1324,8 @@ int ExplicitTriangulation::preconditionDistributedVertices() {
     this->printErr("Missing global vertex identifiers array!");
     return -2;
   }
-  if(this->vertRankArray_ == nullptr) {
-    this->printErr("Missing vertex RankArray!");
-    return -3;
-  }
+
+  this->preconditionVertexRankArray();
 
   // number of local vertices (with ghost vertices...)
   const auto nLocVertices{this->getNumberOfVertices()};
@@ -1303,9 +1338,9 @@ int ExplicitTriangulation::preconditionDistributedVertices() {
   this->ghostVerticesPerOwner_.resize(ttk::MPIsize_);
 
   for(LongSimplexId lvid = 0; lvid < nLocVertices; ++lvid) {
-    if(this->vertRankArray_[lvid] != ttk::MPIrank_) {
+    if(this->vertexRankArray_[lvid] != ttk::MPIrank_) {
       // store ghost cell global ids (per rank)
-      this->ghostVerticesPerOwner_[this->vertRankArray_[lvid]].emplace_back(
+      this->ghostVerticesPerOwner_[this->vertexRankArray_[lvid]].emplace_back(
         this->vertGid_[lvid]);
     }
   }

@@ -84,8 +84,7 @@ int DiscreteGradient::buildGradient(const triangulationType &triangulation,
 
 template <typename triangulationType>
 int DiscreteGradient::setCriticalPoints(
-  const std::vector<Cell> &criticalPoints,
-  std::vector<size_t> &nCriticalPointsByDim,
+  const std::array<std::vector<SimplexId>, 4> &criticalCellsByDim,
   std::vector<std::array<float, 3>> &points,
   std::vector<char> &cellDimensions,
   std::vector<SimplexId> &cellIds,
@@ -93,16 +92,12 @@ int DiscreteGradient::setCriticalPoints(
   std::vector<SimplexId> &PLVertexIdentifiers,
   const triangulationType &triangulation) const {
 
-  const auto nCritPoints = criticalPoints.size();
-
-  const int numberOfDimensions = getNumberOfDimensions();
-  nCriticalPointsByDim.resize(numberOfDimensions, 0);
-
-  // sequential loop over critical points
-  for(size_t i = 0; i < nCritPoints; ++i) {
-    const Cell &cell = criticalPoints[i];
-    nCriticalPointsByDim[cell.dim_]++;
+  std::array<size_t, 5> partSums{};
+  for(size_t i = 0; i < criticalCellsByDim.size(); ++i) {
+    partSums[i + 1] = partSums[i] + criticalCellsByDim[i].size();
   }
+
+  const auto nCritPoints = partSums.back();
 
   points.resize(nCritPoints);
   cellDimensions.resize(nCritPoints);
@@ -110,26 +105,37 @@ int DiscreteGradient::setCriticalPoints(
   isOnBoundary.resize(nCritPoints);
   PLVertexIdentifiers.resize(nCritPoints);
 
-  // for all critical cells
+  for(size_t i = 0; i < criticalCellsByDim.size(); ++i) {
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for num_threads(threadNumber_)
 #endif // TTK_ENABLE_OPENMP
-  for(size_t i = 0; i < nCritPoints; ++i) {
-    const Cell &cell = criticalPoints[i];
-    const int cellDim = cell.dim_;
-    const SimplexId cellId = cell.id_;
+    for(size_t j = 0; j < criticalCellsByDim[i].size(); ++j) {
+      const SimplexId cellId = criticalCellsByDim[i][j];
+      const int cellDim = i;
+      const auto o{partSums[i] + j};
 
-    triangulation.getCellIncenter(cell.id_, cell.dim_, points[i].data());
-    cellDimensions[i] = cellDim;
-    cellIds[i] = cellId;
-    isOnBoundary[i] = this->isBoundary(cell, triangulation);
-    PLVertexIdentifiers[i] = this->getCellGreaterVertex(cell, triangulation);
+      triangulation.getCellIncenter(cellId, i, points[o].data());
+      cellDimensions[o] = cellDim;
+#ifdef TTK_ENABLE_MPI
+      ttk::SimplexId globalId{-1};
+      triangulation.getDistributedGlobalCellId(cellId, cellDim, globalId);
+      cellIds[o] = globalId;
+#else
+      cellIds[o] = cellId;
+#endif // TTK_ENABLE_MPI
+      const Cell cell{static_cast<int>(i), cellId};
+      isOnBoundary[o] = this->isBoundary(cell, triangulation);
+      PLVertexIdentifiers[o] = this->getCellGreaterVertex(cell, triangulation);
+    }
   }
 
-  std::vector<std::vector<std::string>> rows(numberOfDimensions);
-  for(int i = 0; i < numberOfDimensions; ++i) {
-    rows[i] = std::vector<std::string>{"#" + std::to_string(i) + "-cell(s)",
-                                       std::to_string(nCriticalPointsByDim[i])};
+  const auto nDims{
+    criticalCellsByDim[3].empty() ? criticalCellsByDim[2].empty() ? 1 : 2 : 3};
+  std::vector<std::vector<std::string>> rows(nDims);
+  for(int i = 0; i < nDims; ++i) {
+    rows[i]
+      = std::vector<std::string>{"#" + std::to_string(i) + "-cell(s)",
+                                 std::to_string(criticalCellsByDim[i].size())};
   }
   this->printMsg(rows);
 
@@ -145,33 +151,49 @@ int DiscreteGradient::setCriticalPoints(
   std::vector<SimplexId> &PLVertexIdentifiers,
   const triangulationType &triangulation) const {
 
-  std::vector<Cell> criticalPoints;
-  getCriticalPoints(criticalPoints, triangulation);
-  std::vector<size_t> nCriticalPointsByDim;
-  setCriticalPoints(criticalPoints, nCriticalPointsByDim, points,
-                    cellDimensions, cellIds, isOnBoundary, PLVertexIdentifiers,
-                    triangulation);
+  std::array<std::vector<SimplexId>, 4> criticalCellsByDim;
+  getCriticalPoints(criticalCellsByDim, triangulation);
+  setCriticalPoints(criticalCellsByDim, points, cellDimensions, cellIds,
+                    isOnBoundary, PLVertexIdentifiers, triangulation);
 
   return 0;
 }
 
 template <typename triangulationType>
 int DiscreteGradient::getCriticalPoints(
-  std::vector<Cell> &criticalPoints,
+  std::array<std::vector<SimplexId>, 4> &criticalCellsByDim,
   const triangulationType &triangulation) const {
 
-  // foreach dimension
-  const int numberOfDimensions = getNumberOfDimensions();
-  for(int i = 0; i < numberOfDimensions; ++i) {
+  const auto dims{this->getNumberOfDimensions()};
+  for(int i = 0; i < dims; ++i) {
 
-    // foreach cell of that dimension
-    const SimplexId numberOfCells = getNumberOfCells(i, triangulation);
+    // map: store critical cell per dimension per thread
+    std::vector<std::vector<SimplexId>> critCellsPerThread(this->threadNumber_);
+    const auto numberOfCells{this->getNumberOfCells(i, triangulation)};
+
+    // use static scheduling to ensure that critical cells
+    // are sorted by id
+
+#ifdef TTK_ENABLE_OPENMP
+#pragma omp parallel for num_threads(this->threadNumber_) schedule(static)
+#endif // TTK_ENABLE_OPENMP
     for(SimplexId j = 0; j < numberOfCells; ++j) {
-      const Cell cell(i, j);
-
-      if(isCellCritical(cell)) {
-        criticalPoints.push_back(cell);
+#ifdef TTK_ENABLE_OPENMP
+      const auto tid = omp_get_thread_num();
+#else
+      const auto tid = 0;
+#endif // TTK_ENABLE_OPENMP
+      if(this->isCellCritical(i, j)) {
+        critCellsPerThread[tid].emplace_back(j);
       }
+    }
+
+    // reduce: aggregate critical cells per thread
+    criticalCellsByDim[i] = std::move(critCellsPerThread[0]);
+    for(size_t j = 1; j < critCellsPerThread.size(); ++j) {
+      const auto &vec{critCellsPerThread[j]};
+      criticalCellsByDim[i].insert(
+        criticalCellsByDim[i].end(), vec.begin(), vec.end());
     }
   }
 
@@ -507,73 +529,88 @@ int DiscreteGradient::processLowerStars(
     };
 
     lowerStar(Lx, x, offsets, triangulation);
-
-    // Lx[1] empty => x is a local minimum
-
-    if(!Lx[1].empty()) {
-      // get delta: 1-cell (edge) with minimal G value (steeper gradient)
-      size_t minId = 0;
-      for(size_t i = 1; i < Lx[1].size(); ++i) {
-        const auto &a = Lx[1][minId].lowVerts_[0];
-        const auto &b = Lx[1][i].lowVerts_[0];
-        if(a > b) {
-          // edge[i] < edge[0]
-          minId = i;
+    // In case the vertex is a ghost, the gradient of the
+    // simplices of its star is set to GHOST_GRADIENT
+#ifdef TTK_ENABLE_MPI
+    if(ttk::isRunningWithMPI()
+       && triangulation.getVertexRank(x) != ttk::MPIrank_) {
+      int sizeDim = Lx.size();
+      for(int i = 0; i < sizeDim; i++) {
+        int nCells = Lx[i].size();
+        for(int j = 0; j < nCells; j++) {
+          setCellToGhost(Lx[i][j].dim_, Lx[i][j].id_);
         }
       }
+    } else
+#endif // TTK_ENABLE_MPI
 
-      auto &c_delta = Lx[1][minId];
-
-      // store x (0-cell) -> delta (1-cell) V-path
-      pairCells(Lx[0][0], c_delta, triangulation);
-
-      // push every 1-cell in Lx that is not delta into pqZero
-      for(auto &alpha : Lx[1]) {
-        if(alpha.id_ != c_delta.id_) {
-          pqZero.push(alpha);
-        }
-      }
-
-      // push into pqOne every coface of delta in Lx (2-cells only,
-      // 3-cells have not any facet paired yet) such that
-      // numUnpairedFaces == 1
-      insertCofacets(c_delta, Lx);
-
-      while(!pqOne.empty() || !pqZero.empty()) {
-        while(!pqOne.empty()) {
-          auto &c_alpha = pqOne.top().get();
-          pqOne.pop();
-          auto unpairedFaces = numUnpairedFaces(c_alpha, Lx);
-          if(unpairedFaces.first == 0) {
-            pqZero.push(c_alpha);
-          } else {
-            auto &c_pair_alpha = Lx[c_alpha.dim_ - 1][unpairedFaces.second];
-
-            // store (pair_alpha) -> (alpha) V-path
-            pairCells(c_pair_alpha, c_alpha, triangulation);
-
-            // add cofaces of c_alpha and c_pair_alpha to pqOne
-            insertCofacets(c_alpha, Lx);
-            insertCofacets(c_pair_alpha, Lx);
+    {
+      // Lx[1] empty => x is a local minimum
+      if(!Lx[1].empty()) {
+        // get delta: 1-cell (edge) with minimal G value (steeper gradient)
+        size_t minId = 0;
+        for(size_t i = 1; i < Lx[1].size(); ++i) {
+          const auto &a = Lx[1][minId].lowVerts_[0];
+          const auto &b = Lx[1][i].lowVerts_[0];
+          if(a > b) {
+            // edge[i] < edge[0]
+            minId = i;
           }
         }
 
-        // skip pair_alpha from pqZero:
-        // cells in pqZero are not critical if already paired
-        while(!pqZero.empty() && pqZero.top().get().paired_) {
-          pqZero.pop();
+        auto &c_delta = Lx[1][minId];
+
+        // store x (0-cell) -> delta (1-cell) V-path
+        pairCells(Lx[0][0], c_delta, triangulation);
+
+        // push every 1-cell in Lx that is not delta into pqZero
+        for(auto &alpha : Lx[1]) {
+          if(alpha.id_ != c_delta.id_) {
+            pqZero.push(alpha);
+          }
         }
 
-        if(!pqZero.empty()) {
-          auto &c_gamma = pqZero.top().get();
-          pqZero.pop();
+        // push into pqOne every coface of delta in Lx (2-cells only,
+        // 3-cells have not any facet paired yet) such that
+        // numUnpairedFaces == 1
+        insertCofacets(c_delta, Lx);
 
-          // gamma is a critical cell
-          // mark gamma as paired
-          c_gamma.paired_ = true;
+        while(!pqOne.empty() || !pqZero.empty()) {
+          while(!pqOne.empty()) {
+            auto &c_alpha = pqOne.top().get();
+            pqOne.pop();
+            auto unpairedFaces = numUnpairedFaces(c_alpha, Lx);
+            if(unpairedFaces.first == 0) {
+              pqZero.push(c_alpha);
+            } else {
+              auto &c_pair_alpha = Lx[c_alpha.dim_ - 1][unpairedFaces.second];
 
-          // add cofacets of c_gamma to pqOne
-          insertCofacets(c_gamma, Lx);
+              // store (pair_alpha) -> (alpha) V-path
+              pairCells(c_pair_alpha, c_alpha, triangulation);
+
+              // add cofaces of c_alpha and c_pair_alpha to pqOne
+              insertCofacets(c_alpha, Lx);
+              insertCofacets(c_pair_alpha, Lx);
+            }
+          }
+
+          // skip pair_alpha from pqZero:
+          // cells in pqZero are not critical if already paired
+          while(!pqZero.empty() && pqZero.top().get().paired_) {
+            pqZero.pop();
+          }
+
+          if(!pqZero.empty()) {
+            auto &c_gamma = pqZero.top().get();
+            pqZero.pop();
+
+            // gamma is a critical cell
+            // mark gamma as paired
+            c_gamma.paired_ = true;
+
+            // add cofacets of c_gamma to pqOne
+            insertCofacets(c_gamma, Lx);
+          }
         }
       }
     }
@@ -1009,6 +1046,10 @@ bool DiscreteGradient::getAscendingPathThroughWall(
       if(stopIfMultiConnected && nconnections > 1) {
         return true;
       }
+    }
+
+    if(currentId == -1) {
+      return true;
     }
 
     SimplexId oldId;
@@ -1535,7 +1576,7 @@ int DiscreteGradient::setGradientGlyphs(
   for(int i = 0; i < nDims - 1; ++i) {
     const auto nCells = this->getNumberOfCells(i, triangulation);
     for(SimplexId j = 0; j < nCells; ++j) {
-      if(this->getPairedCell(Cell{i, j}, triangulation) != -1) {
+      if(this->getPairedCell(Cell{i, j}, triangulation) > -1) {
         nGlyphsPerDim[i]++;
       }
     }
@@ -1566,7 +1607,7 @@ int DiscreteGradient::setGradientGlyphs(
     for(SimplexId j = 0; j < nCells; ++j) {
       const Cell c{i, j};
       const auto pcid = this->getPairedCell(c, triangulation);
-      if(pcid != -1) {
+      if(pcid > -1) {
         const Cell pc{i + 1, pcid};
         triangulation.getCellIncenter(
           c.id_, c.dim_, points[2 * nProcessedGlyphs].data());
@@ -1575,8 +1616,16 @@ int DiscreteGradient::setGradientGlyphs(
         points_pairOrigins[2 * nProcessedGlyphs] = 0;
         points_pairOrigins[2 * nProcessedGlyphs + 1] = 1;
         cells_pairTypes[nProcessedGlyphs] = i;
+#ifdef TTK_ENABLE_MPI
+        ttk::SimplexId globalId{-1};
+        triangulation.getDistributedGlobalCellId(j, i, globalId);
+        cellIds[2 * nProcessedGlyphs + 0] = globalId;
+        triangulation.getDistributedGlobalCellId(pcid, i + 1, globalId);
+        cellIds[2 * nProcessedGlyphs + 1] = globalId;
+#else
         cellIds[2 * nProcessedGlyphs + 0] = j;
         cellIds[2 * nProcessedGlyphs + 1] = pcid;
+#endif // TTK_ENABLE_MPI
         cellDimensions[2 * nProcessedGlyphs + 0] = i;
         cellDimensions[2 * nProcessedGlyphs + 1] = i + 1;
         nProcessedGlyphs++;
