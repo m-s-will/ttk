@@ -235,7 +235,6 @@ namespace ttk {
         // now we need to transform local ids into global ids to correctly work
         // over all ranks
         if(useMPI) {
-          auto gIdTolIdMap = triangulation->getVertexGlobalIdMap();
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for num_threads(this->threadNumber_)
 #endif
@@ -261,8 +260,8 @@ namespace ttk {
           this->printMsg("Rank " + std::to_string(ttk::MPIrank_)
                          + " got the totalsize " + std::to_string(totalSize));
           std::vector<globalIdOwner> edgesWithTargets(totalSize);
-          int sizes[ttk::MPIsize_];
-          int displacements[ttk::MPIsize_];
+          std::vector<int> sizes(ttk::MPIsize_);
+          std::vector<int> displacements(ttk::MPIsize_);
           std::vector<globalIdOwner> sendValues;
           int receivedSize;
           std::vector<globalIdOwner> receivedIds;
@@ -273,8 +272,8 @@ namespace ttk {
 
             // first we use MPI_Gather to get the size of each rank to populate
             // the displacements
-            MPI_Gather(
-              &localSize, 1, MPI_INT, sizes, 1, MPI_INT, 0, ttk::MPIcomm_);
+            MPI_Gather(&localSize, 1, MPI_INT, sizes.data(), 1, MPI_INT, 0,
+                       ttk::MPIcomm_);
             for(int i = 0; i < ttk::MPIsize_; i++) {
               sizes[i] = sizes[i] * sizeof(globalIdOwner);
             }
@@ -290,8 +289,8 @@ namespace ttk {
             // the end we send the finished edges back
             MPI_Gatherv(foreignVertices.data(),
                         foreignVertices.size() * sizeof(globalIdOwner),
-                        MPI_CHAR, edges.data(), sizes, displacements, MPI_CHAR,
-                        0, ttk::MPIcomm_);
+                        MPI_CHAR, edges.data(), sizes.data(),
+                        displacements.data(), MPI_CHAR, 0, ttk::MPIcomm_);
             this->printMsg("R0 received " + std::to_string(edges.size())
                            + " ids which are needed");
 
@@ -334,8 +333,9 @@ namespace ttk {
           // the ranks and build our map
           // we broadcast sizes and displacements and gather all the results
           // with allgatherv
-          MPI_Bcast(sizes, ttk::MPIsize_, MPI_INT, 0, ttk::MPIcomm_);
-          MPI_Bcast(displacements, ttk::MPIsize_, MPI_INT, 0, ttk::MPIcomm_);
+          MPI_Bcast(sizes.data(), ttk::MPIsize_, MPI_INT, 0, ttk::MPIcomm_);
+          MPI_Bcast(
+            displacements.data(), ttk::MPIsize_, MPI_INT, 0, ttk::MPIcomm_);
           this->printMsg("R" + std::to_string(ttk::MPIrank_)
                          + " received sizes and displacements from R0");
 
@@ -345,8 +345,8 @@ namespace ttk {
 
           // and then the actual gids
           receivedIds.resize(receivedSize);
-          MPI_Scatterv(allValuesFromRanks.data(), sizes, displacements,
-                       MPI_CHAR, receivedIds.data(),
+          MPI_Scatterv(allValuesFromRanks.data(), sizes.data(),
+                       displacements.data(), MPI_CHAR, receivedIds.data(),
                        receivedSize * sizeof(globalIdOwner), MPI_CHAR, 0,
                        ttk::MPIcomm_);
           this->printMsg("R" + std::to_string(ttk::MPIrank_) + " received ids");
@@ -356,7 +356,8 @@ namespace ttk {
           sendValues.resize(receivedSize);
           for(ttk::SimplexId i = 0; i < receivedSize; i++) {
             globalIdOwner currentVal = receivedIds[i];
-            ttk::SimplexId lId = gIdTolIdMap.at(currentVal.globalId);
+            ttk::SimplexId lId
+              = triangulation->getVertexLocalId(currentVal.globalId);
             currentVal.ascendingTarget = currentAsc[lId];
             currentVal.descendingTarget = currentDesc[lId];
             sendValues[i] = currentVal;
@@ -366,8 +367,8 @@ namespace ttk {
 
           MPI_Allgatherv(sendValues.data(),
                          sendValues.size() * sizeof(globalIdOwner), MPI_CHAR,
-                         edgesWithTargets.data(), sizes, displacements,
-                         MPI_CHAR, ttk::MPIcomm_);
+                         edgesWithTargets.data(), sizes.data(),
+                         displacements.data(), MPI_CHAR, ttk::MPIcomm_);
           this->printMsg("R" + std::to_string(ttk::MPIrank_)
                          + " got the results");
 

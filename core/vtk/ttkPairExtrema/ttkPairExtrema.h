@@ -96,10 +96,9 @@ protected:
   int FillOutputPortInformation(int port, vtkInformation *info) override;
 
   template <class triangulationType = ttk::AbstractTriangulation>
-  int getSkeletonArcs(
-    vtkUnstructuredGrid *outputSkeletonArcs,
-    std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &joinTree,
-    const triangulationType *triangulation);
+  int getSkeletonArcs(vtkUnstructuredGrid *outputSkeletonArcs,
+                      std::vector<std::vector<ttk::SimplexId>> &joinTree,
+                      const triangulationType *triangulation);
 
   int RequestData(vtkInformation *request,
                   vtkInformationVector **inputVector,

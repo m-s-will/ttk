@@ -80,17 +80,26 @@ int ttkPairExtrema::FillOutputPortInformation(int port, vtkInformation *info) {
 template <class triangulationType>
 int ttkPairExtrema::getSkeletonArcs(
   vtkUnstructuredGrid *outputSkeletonArcs,
-  std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &joinTree,
+  std::vector<std::vector<ttk::SimplexId>> &joinTree,
   const triangulationType *triangulation) {
   vtkNew<vtkUnstructuredGrid> skeletonArcs{};
   ttk::SimplexId pointIds[2];
+  ttk::SimplexId order[2];
   vtkNew<vtkPoints> points{};
+  vtkNew<vtkLongLongArray> data{};
+  data->SetNumberOfComponents(1);
+  data->SetName("Order");
+  vtkNew<vtkLongLongArray> gIdArray{};
+  gIdArray->SetNumberOfComponents(1);
+  gIdArray->SetName("GlobalPointIds");
   float point[3];
   std::map<ttk::SimplexId, ttk::SimplexId> addedPoints;
   ttk::SimplexId currentId = 0;
   for(auto const &p : joinTree) {
-    pointIds[0] = p.first;
-    pointIds[1] = p.second;
+    pointIds[0] = p[0];
+    pointIds[1] = p[2];
+    order[0] = p[1];
+    order[1] = p[3];
     // add each point only once to the vtkPoints
     // addedPoints.insert(x).second inserts x and is true if x was not in
     // addedPoints beforehand
@@ -98,12 +107,16 @@ int ttkPairExtrema::getSkeletonArcs(
       // this->printMsg("point " + std::to_string(pointIds[0]));
       triangulation->getVertexPoint(pointIds[0], point[0], point[1], point[2]);
       points->InsertNextPoint(point);
+      data->InsertNextTuple1(order[0]);
+      gIdArray->InsertNextTuple1(pointIds[0]);
       currentId++;
     }
     if(addedPoints.insert({pointIds[1], currentId}).second) {
       // this->printMsg("point " + std::to_string(pointIds[1]));
       triangulation->getVertexPoint(pointIds[1], point[0], point[1], point[2]);
       points->InsertNextPoint(point);
+      data->InsertNextTuple1(order[1]);
+      gIdArray->InsertNextTuple1(pointIds[1]);
       currentId++;
     }
     // this->printMsg("Join Tree Arc: " + std::to_string(pointIds[0]) + " "
@@ -114,6 +127,8 @@ int ttkPairExtrema::getSkeletonArcs(
   }
   skeletonArcs->SetPoints(points);
   outputSkeletonArcs->ShallowCopy(skeletonArcs);
+  outputSkeletonArcs->GetPointData()->AddArray(data);
+  outputSkeletonArcs->GetPointData()->AddArray(gIdArray);
 
   return 1;
 }
@@ -146,8 +161,9 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
   auto ascendingManifold = manifoldPointData->GetArray("AscendingManifold");
   auto criticalPointData = inputCriticalPoints->GetPointData();
   auto criticalGlobalIds = criticalPointData->GetArray("GlobalPointIds");
+  auto allGlobalIds = manifoldPointData->GetArray("GlobalPointIds");
   auto criticalType = criticalPointData->GetArray("CriticalType");
-  auto order = ttkAlgorithm::GetOrderArray(inputCriticalPoints, 0);
+  auto order = ttkAlgorithm::GetOrderArray(inputDataSet, 0);
   if(!ascendingManifold | !criticalGlobalIds | !criticalType | !order) {
     this->printErr("Unable to retrieve input arrays.");
     return 0;
@@ -167,7 +183,8 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
   this->printMsg("Starting computation...");
 
   ttk::SimplexId nCriticalPoints = criticalType->GetNumberOfTuples();
-  std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> joinTree{};
+  ttk::SimplexId nPoints = allGlobalIds->GetNumberOfTuples();
+  std::vector<std::vector<ttk::SimplexId>> joinTree{};
 
   // Get ttk::triangulation of the input vtkDataSet (will create one if one does
   // not exist already).
@@ -189,7 +206,8 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
                    ttkUtils::GetPointer<ttk::SimplexId>(order),
                    (T0 *)triangulation->getData(),
                    ttkUtils::GetPointer<ttk::SimplexId>(criticalGlobalIds),
-                   nCriticalPoints)));
+                   ttkUtils::GetPointer<ttk::SimplexId>(allGlobalIds),
+                   nCriticalPoints, nPoints)));
 
   // On error cancel filter execution
   if(status != 1)
