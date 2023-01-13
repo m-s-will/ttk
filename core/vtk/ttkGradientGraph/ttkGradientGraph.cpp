@@ -1,4 +1,4 @@
-#include <ttkPairExtrema.h>
+#include <ttkGradientGraph.h>
 
 #include <vtkInformation.h>
 
@@ -13,7 +13,7 @@
 
 // A VTK macro that enables the instantiation of this class via ::New()
 // You do not have to modify this
-vtkStandardNewMacro(ttkPairExtrema);
+vtkStandardNewMacro(ttkGradientGraph);
 
 /**
  * TODO 7: Implement the filter constructor and destructor in the cpp file.
@@ -27,7 +27,7 @@ vtkStandardNewMacro(ttkPairExtrema);
  * explicitly, by for example allocating memory on the heap that needs
  * to be freed when the filter is destroyed.
  */
-ttkPairExtrema::ttkPairExtrema() {
+ttkGradientGraph::ttkGradientGraph() {
   this->SetNumberOfInputPorts(2);
   this->SetNumberOfOutputPorts(2);
 }
@@ -39,7 +39,7 @@ ttkPairExtrema::ttkPairExtrema() {
  * filter by adding the vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE() key to
  * the port information.
  */
-int ttkPairExtrema::FillInputPortInformation(int port, vtkInformation *info) {
+int ttkGradientGraph::FillInputPortInformation(int port, vtkInformation *info) {
   if(port == 0) {
     info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkDataSet");
     return 1;
@@ -66,7 +66,8 @@ int ttkPairExtrema::FillInputPortInformation(int port, vtkInformation *info) {
  * Note: prior to the execution of the RequestData method the pipeline will
  * initialize empty output data objects based on this information.
  */
-int ttkPairExtrema::FillOutputPortInformation(int port, vtkInformation *info) {
+int ttkGradientGraph::FillOutputPortInformation(int port,
+                                                vtkInformation *info) {
   if(port == 0 || port == 1) {
     info->Set(vtkDataObject::DATA_TYPE_NAME(), "vtkUnstructuredGrid");
     return 1;
@@ -78,9 +79,9 @@ int ttkPairExtrema::FillOutputPortInformation(int port, vtkInformation *info) {
 }
 
 template <class triangulationType>
-int ttkPairExtrema::getSkeletonArcs(
+int ttkGradientGraph::getSkeletonArcs(
   vtkUnstructuredGrid *outputSkeletonArcs,
-  std::vector<std::vector<ttk::SimplexId>> &persistencePairs,
+  std::vector<std::vector<ttk::SimplexId>> &gradientGraph,
   const triangulationType *triangulation) {
   vtkNew<vtkUnstructuredGrid> skeletonArcs{};
   ttk::SimplexId pointIds[2];
@@ -95,7 +96,7 @@ int ttkPairExtrema::getSkeletonArcs(
   float point[3];
   std::map<ttk::SimplexId, ttk::SimplexId> addedPoints;
   ttk::SimplexId currentId = 0;
-  for(auto const &p : persistencePairs) {
+  for(auto const &p : gradientGraph) {
     pointIds[0] = p[0];
     pointIds[1] = p[2];
     order[0] = p[1];
@@ -146,9 +147,9 @@ int ttkPairExtrema::getSkeletonArcs(
  *     2) The output objects are already initialized based on the information
  *        provided by the FillOutputPortInformation method.
  */
-int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
-                               vtkInformationVector **inputVector,
-                               vtkInformationVector *outputVector) {
+int ttkGradientGraph::RequestData(vtkInformation *ttkNotUsed(request),
+                                  vtkInformationVector **inputVector,
+                                  vtkInformationVector *outputVector) {
 
   // Get input object from input vector
   // Note: has to be a vtkDataSet as required by FillInputPortInformation
@@ -173,9 +174,9 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
   // To make sure that the selected array can be processed by this filter,
   // one should also check that the array association and format is correct.
 
-  if((ascendingManifold->GetNumberOfComponents() != 1) |
-     (criticalType->GetNumberOfComponents() != 1) |
-     (order->GetNumberOfComponents() != 1) ) {
+  if((ascendingManifold->GetNumberOfComponents() != 1)
+     | (criticalType->GetNumberOfComponents() != 1)
+     | (order->GetNumberOfComponents() != 1)) {
     this->printErr("Input arrays needs to be a scalar arrays.");
     return 0;
   }
@@ -184,7 +185,7 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
   this->printMsg("Starting computation...");
 
   ttk::SimplexId nCriticalPoints = criticalType->GetNumberOfTuples();
-  std::vector<std::vector<ttk::SimplexId>> persistencePairs{};
+  std::vector<std::vector<ttk::SimplexId>> gradientGraph{};
 
   // Get ttk::triangulation of the input vtkDataSet (will create one if one does
   // not exist already).
@@ -201,7 +202,7 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
   // construct the tree
   ttkTypeMacroT(triangulation->getType(),
                 (status = this->computePairs<T0>(
-                   persistencePairs, ttkUtils::GetPointer<char>(criticalType),
+                   gradientGraph, ttkUtils::GetPointer<char>(criticalType),
                    ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
                    ttkUtils::GetPointer<ttk::SimplexId>(order),
                    ttkUtils::GetPointer<ttk::SimplexId>(criticalOrder),
@@ -213,17 +214,11 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
   if(status != 1)
     return 0;
 
-  //  Construct output, see ttkFTMTree.cpp
   auto outputSkeletonArcs = vtkUnstructuredGrid::GetData(outputVector, 0);
-  auto outputSegmentation = vtkDataSet::GetData(outputVector, 1);
 
-  ttkTypeMacroT(
-    triangulation->getType(),
-    status = getSkeletonArcs<T0>(
-      outputSkeletonArcs, persistencePairs, (T0 *)triangulation->getData()));
-
-  outputSegmentation->ShallowCopy(inputDataSet);
-
+  ttkTypeMacroT(triangulation->getType(),
+                status = getSkeletonArcs<T0>(outputSkeletonArcs, gradientGraph,
+                                             (T0 *)triangulation->getData()));
 
   // return success
   return 1;

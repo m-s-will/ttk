@@ -1,0 +1,9 @@
+NAME
+  ttkGradientGraph
+SOURCES
+  ttkGradientGraph.cpp
+HEADERS
+  ttkGradientGraph.h
+DEPENDS
+  gradientGraph
+  ttkAlgorithm
