@@ -75,11 +75,10 @@ namespace ttk {
         this->printMsg("Running step " + std::to_string(step)
                        + ", #triplets: " + std::to_string(triplets.size())
                        + ", Pairs size: " + std::to_string(pairs.size()));
-        step++;
-        for(auto it = triplets.begin(); it != triplets.end();) {
-          if(it->second.size() == 0) {
+        for(auto it = triplets.begin(); it != triplets.end(); ++it) {
+          if(it->second.size() < 2) {
             changed = true;
-            it = triplets.erase(it);
+            saddlesToRemove.push_back(it->first);
           } else {
             ttk::SimplexId saddle = it->first;
             std::pair<ttk::SimplexId, ttk::SimplexId> pair
@@ -88,6 +87,7 @@ namespace ttk {
             ttk::SimplexId lowId = pair.first; // only the maximum id
             std::pair<ttk::SimplexId, ttk::SimplexId> largestSaddlePair
               = *(largestSaddlesForMax.at(lowId).begin());
+
             std::string text = "Triplet with Saddle " + std::to_string(saddle)
                                + ", maxima ids and values: ";
             this->printMsg("Connected Maxima:");
@@ -115,60 +115,97 @@ namespace ttk {
                 saddle, largestSaddlePair.second, lowId, pair.second});
               saddlesToRemove.push_back(saddle);
               maxToRemove.push_back(lowId);
-
-              // for the persistence pairs, each saddle is only in one pair
-              // it = triplets.erase(it);
             }
-            ++it;
           }
         }
-
+        this->printMsg("Finished pairing for step " + std::to_string(step)
+                       + ", starting removal for "
+                       + std::to_string(saddlesToRemove.size()) + " saddles.");
+        int saddleStep = 0;
         // now we need to swap pointers
+
         for(auto saddle : saddlesToRemove) {
-          this->printMsg("Removing saddle " + std::to_string(saddle));
-          auto saddleSet = triplets.at(saddle);
-          auto pair = *(saddleSet.begin());
+          if(saddleStep % 1000 == 0)
+            this->printMsg(
+              "Removing values for saddle " + std::to_string(saddle),
+              (float)saddleStep / saddlesToRemove.size());
+          saddleStep++;
+          auto saddleSet
+            = triplets.at(saddle); // set containing all the maxima reachable
+                                   // from the saddle to be removed
+          auto pair = *(
+            saddleSet.begin()); // pair contains the maximum with which this
+                                // saddle is paired and the order of the maximum
           saddleSet.erase(saddleSet.begin());
-          // now we need to swap the pointers
-          for(auto &triplet : triplets) {
-            if(triplet.second.erase(pair)
-               > 0) { // if the maximum can be reached from this saddle, we
-                      // need to replace it by the other maxima from the
-                      // chosen saddle
-              triplet.second.insert(saddleSet.begin(), saddleSet.end());
-              if(triplet.second.size() < 2 && triplet.first != saddle) {
-                std::pair<ttk::SimplexId, ttk::SimplexId> saddlePair
-                  = std::make_pair(triplet.first, order[triplet.first]);
-                this->printMsg("Poeser Sattel soll weg! "
-                               + std::to_string(triplet.first) + " "
-                               + std::to_string(order[triplet.first]));
-                for(auto &saddleList : largestSaddlesForMax) {
-                  if(saddleList.second.erase(saddlePair) > 0)
-                    this->printMsg("Poeser Sattel von maximum geloescht! "
-                                   + std::to_string(saddleList.first));
-                } // testen
+          if(saddleSet.size() != 0) {
+            // now we need to swap the pointers, all saddles which could reach
+            // maximum pair.first, now can reach all the other maxima of saddle
+            // we can find this by just checking largestSaddleForMax for the
+            // maximum
+            int didWeDo = 0;
+            auto saddlesForThisMax = largestSaddlesForMax.at(pair.first);
+            std::vector<ttk::SimplexId> saddlesChanged{};
+            for(auto &triplet : triplets) {
+              if(triplet.second.erase(pair)
+                 > 0) { // if the maximum can be reached from other saddles, we
+                        // need to replace it by the other maxima from the
+                        // chosen saddle
+                triplet.second.insert(saddleSet.begin(), saddleSet.end());
+                didWeDo++;
+                saddlesChanged.push_back(triplet.first);
               }
             }
+            if(true) {
+              this->printMsg("Saddle " + std::to_string(saddle)
+                             + ", max das erased wird: "
+                             + std::to_string(pair.first));
+              this->printMsg("#Triplets we had to change: "
+                             + std::to_string(didWeDo));
+              for(auto &val : saddlesChanged) {
+                this->printMsg(std::to_string(val));
+              }
+              this->printMsg("#Saddles for this max: "
+                             + std::to_string(saddlesForThisMax.size()));
+              for(auto &val : saddlesForThisMax) {
+                this->printMsg(std::to_string(val.first));
+              }
+            }
+          } else {
+            triplets.erase(saddle);
+            std::pair<ttk::SimplexId, ttk::SimplexId> saddlePair
+              = std::make_pair(saddle, order[saddle]);
+            for(auto &saddleList : largestSaddlesForMax) {
+              saddleList.second.erase(saddlePair);
+            }
           }
-          triplets.erase(saddle);
         }
+
+        this->printMsg("Finished removing saddles for step "
+                       + std::to_string(step) + ", starting removal for "
+                       + std::to_string(maxToRemove.size()) + " maxima.");
+        int maxStep = 0;
         for(auto max : maxToRemove) {
-          this->printMsg("Removing max  " + std::to_string(max));
+          if(maxStep % 1000 == 0)
+            this->printMsg("Removing max  " + std::to_string(max),
+                           (float)maxStep / maxToRemove.size());
+          maxStep++;
           auto maxSet = largestSaddlesForMax.at(max);
           auto largestSaddlePair = *(maxSet.begin());
           // we also need to update largestSaddlesForMax for all maxima
           // having had this saddle as their largest
-          maxSet.erase(maxSet.begin());
+          // maxSet.erase(maxSet.begin());
           for(auto &saddleList : largestSaddlesForMax) {
-            if(saddleList.second.erase(largestSaddlePair)
-               > 0) { // if the saddle can be reached from this maximum, we
-                      // need to replace it by the other saddles from the
-                      // chosen maximum
+            if(saddleList.second.find(largestSaddlePair)
+               != saddleList.second.end()) { // if the saddle can be reached
+                                             // from this maximum, we
+              // need to replace it by the other saddles from the
+              // chosen maximum
               saddleList.second.insert(maxSet.begin(), maxSet.end());
             }
           }
           largestSaddlesForMax.erase(max);
         }
+        step++;
       }
       return 1;
     }
@@ -303,7 +340,8 @@ namespace ttk {
         findAscPaths<triangulationType>(triplets, largestSaddlesForMax, maxima,
                                         saddles, order, ascendingManifold,
                                         triangulation);
-        largestSaddlesForMax.at(globalMax) = {std::make_pair(globalMin, 0)};
+
+        largestSaddlesForMax[globalMax] = {std::make_pair(globalMin, 0)};
         this->printMsg(
           "Finished with Preprocessing, starting with PersistencePairs");
         constructPersistencePairs(
