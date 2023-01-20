@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ServerManagerConfiguration>
+  <ProxyGroup name="filters">
+    <SourceProxy name="ttkScalarFieldCriticalPoints2" class="ttkScalarFieldCriticalPoints2" label="TTK ScalarFieldCriticalPoints2">
+      <Documentation long_help="ScalarFieldCriticalPoints2 Long" short_help="ScalarFieldCriticalPoints2 Short">TODO.</Documentation>
+
+      <InputProperty name="Input" command="SetInputConnection">
+        <ProxyGroupDomain name="groups">
+          <Group name="sources" />
+          <Group name="filters" />
+        </ProxyGroupDomain>
+        <DataTypeDomain name="input_type">
+          <DataType value="vtkDataSet" />
+        </DataTypeDomain>
+        <InputArrayDomain name="input_array" attribute_type="point" number_of_components="1" />
+        <Documentation>TODO.</Documentation>
+      </InputProperty>
+
+      <StringVectorProperty name="AscendingManifold" command="SetInputArrayToProcess" element_types="0 0 0 0 2" number_of_elements="5" default_values="0 0 0 0 AscendingManifold" default_values_delimiter=' '>
+        <ArrayListDomain attribute_type="Scalars" name="array_list">
+          <RequiredProperties>
+            <Property function="Input" name="Input" />
+          </RequiredProperties>
+        </ArrayListDomain>
+        <Documentation>Ascending Manifold.</Documentation>
+      </StringVectorProperty>
+      <StringVectorProperty name="DescendingManifold" command="SetInputArrayToProcess" element_types="0 0 0 0 2" number_of_elements="5" default_values="1 0 0 0 DescendingManifold" default_values_delimiter=' '>
+        <ArrayListDomain attribute_type="Scalars" name="array_list">
+          <RequiredProperties>
+            <Property function="Input" name="Input" />
+          </RequiredProperties>
+        </ArrayListDomain>
+        <Documentation>Descending Manifold.</Documentation>
+      </StringVectorProperty>
+
+
+      <!-- DEBUG -->
+      ${DEBUG_WIDGETS}
+
+      <!-- MENU CATEGORY -->
+      <Hints>
+        <ShowInMenu category="TTK - Misc" />
+      </Hints>
+    </SourceProxy>
+  </ProxyGroup>
+</ServerManagerConfiguration>
