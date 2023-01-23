@@ -396,6 +396,8 @@ namespace ttk {
                                         triangulation);
 
         largestSaddlesForMax[globalMax] = {std::make_pair(globalMin, 0)};
+
+        largestSaddlesForMax[globalMax] = {std::make_pair(globalMin, 0)};
         this->printMsg(
           "Finished with Preprocessing, starting with PersistencePairs");
         constructPersistencePairs(
