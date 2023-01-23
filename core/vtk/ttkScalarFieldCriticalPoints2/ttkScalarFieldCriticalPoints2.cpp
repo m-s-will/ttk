@@ -122,7 +122,21 @@ int ttkScalarFieldCriticalPoints2::RequestData(vtkInformation *ttkNotUsed(reques
     auto pd = output->GetPointData();
     // pd->AddArray(sizeArray);
     pd->AddArray(typeArray);
-
+    {
+      size_t nPdArrays = inputDataSet->GetPointData()->GetNumberOfArrays();
+      for(size_t a = 0; a < nPdArrays; a++) {
+        auto array = inputDataSet->GetPointData()->GetArray(a);
+        auto oArray = vtkSmartPointer<vtkDataArray>::Take(array->NewInstance());
+        oArray->SetName(array->GetName());
+        oArray->SetNumberOfValues(nCriticalPoints);
+        // TODO: handle non 1-component arrays
+        for(size_t p = 0; p < nCriticalPoints; p++) {
+          auto cp = criticalPoints[p];
+          oArray->SetTuple(p, cp.idx, array);
+        }
+        output->GetPointData()->AddArray(oArray);
+      }
+    }
     // Copy Field Data
     output->GetFieldData()->ShallowCopy(inputDataSet->GetFieldData());
   }

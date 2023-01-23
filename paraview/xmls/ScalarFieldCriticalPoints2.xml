@@ -2,7 +2,7 @@
 <ServerManagerConfiguration>
   <ProxyGroup name="filters">
     <SourceProxy name="ttkScalarFieldCriticalPoints2" class="ttkScalarFieldCriticalPoints2" label="TTK ScalarFieldCriticalPoints2">
-      <Documentation long_help="ScalarFieldCriticalPoints2 Long" short_help="ScalarFieldCriticalPoints2 Short">TODO.</Documentation>
+      <Documentation long_help="ScalarFieldCriticalPoints2 Long" short_help="ScalarFieldCriticalPoints2 Short">TODO</Documentation>
 
       <InputProperty name="Input" command="SetInputConnection">
         <ProxyGroupDomain name="groups">
@@ -16,23 +16,14 @@
         <Documentation>TODO.</Documentation>
       </InputProperty>
 
-      <StringVectorProperty name="AscendingManifold" command="SetInputArrayToProcess" element_types="0 0 0 0 2" number_of_elements="5" default_values="0 0 0 0 AscendingManifold" default_values_delimiter=' '>
+      <StringVectorProperty name="InputArray" label="Input Array" command="SetInputArrayToProcess" element_types="0 0 0 0 2" number_of_elements="5">
         <ArrayListDomain attribute_type="Scalars" name="array_list">
           <RequiredProperties>
             <Property function="Input" name="Input" />
           </RequiredProperties>
         </ArrayListDomain>
-        <Documentation>Ascending Manifold.</Documentation>
+        <Documentation>The scalar array that will be used to compute critical points.</Documentation>
       </StringVectorProperty>
-      <StringVectorProperty name="DescendingManifold" command="SetInputArrayToProcess" element_types="0 0 0 0 2" number_of_elements="5" default_values="1 0 0 0 DescendingManifold" default_values_delimiter=' '>
-        <ArrayListDomain attribute_type="Scalars" name="array_list">
-          <RequiredProperties>
-            <Property function="Input" name="Input" />
-          </RequiredProperties>
-        </ArrayListDomain>
-        <Documentation>Descending Manifold.</Documentation>
-      </StringVectorProperty>
-
 
       <!-- DEBUG -->
       ${DEBUG_WIDGETS}
