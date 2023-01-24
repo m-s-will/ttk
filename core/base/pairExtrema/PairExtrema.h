@@ -68,28 +68,37 @@ namespace ttk {
       saddleMaxPairs.reserve(triplets.size());
       saddlesToDelete.reserve(triplets.size());
       while(triplets.size() > 0 && changed) {
+        ttk::Timer stepTimer;
         changed = false;
         saddleMaxPairs.clear();
         saddlesToDelete.clear();
         this->printMsg("============================================");
         this->printMsg("Running step " + std::to_string(step)
-                       + ", #triplets: " + std::to_string(triplets.size())
-                       + ", Pairs size: " + std::to_string(pairs.size()));
+                         + ", #triplets: " + std::to_string(triplets.size())
+                         + ", Pairs size: " + std::to_string(pairs.size()),
+                       0, 0);
+        ttk::Timer pairingTimer;
 
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel num_threads(this->threadNumber_)
 #endif
         {
+
+#ifdef TTK_ENABLE_OPENMP
           std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>>
             saddleMaxPairs_priv{};
           std::vector<ttk::SimplexId> saddlesToDelete_priv{};
           std::vector<std::vector<ttk::SimplexId>> pairs_priv{};
-#ifdef TTK_ENABLE_OPENMP
-#pragma omp for nowait
+#pragma omp for schedule(guided) nowait
 #endif
           for(size_t i = 0; i < triplets.size(); i++) {
             auto it = triplets.begin();
             advance(it, i);
+            if(i % 10000 == 0)
+              this->printMsg("checking maximum " + std::to_string(i)
+                               + ", thread "
+                               + std::to_string(omp_get_thread_num()),
+                             (float)i / triplets.size());
             if(it->second.size() < 2) {
               changed = true;
 #ifdef TTK_ENABLE_OPENMP
@@ -130,6 +139,7 @@ namespace ttk {
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp critical(deletions)
           {
+            ttk::Timer critTimer;
             saddleMaxPairs.insert(saddleMaxPairs.end(),
                                   saddleMaxPairs_priv.begin(),
                                   saddleMaxPairs_priv.end());
@@ -140,11 +150,9 @@ namespace ttk {
           }
 #endif
         }
-        this->printMsg("Finished finding pairs for step " + std::to_string(step)
-                       + ", starting swapping of pointers for "
-                       + std::to_string(saddleMaxPairs.size()) + " pairs.");
-
-        // now we need to swap pointers
+        // this->printMsg("Finished finding pairs",0.33,
+        // pairingTimer.getElapsedTime()); ttk::Timer swappingTimer;
+        //  now we need to swap pointers
         //#ifdef TTK_ENABLE_OPENMP
         //#pragma omp parallel for num_threads(this->threadNumber_)
         //#endif
@@ -161,7 +169,8 @@ namespace ttk {
           auto &saddleSet = largestSaddlesForMax.at(max);
           // auto largestSaddlePair = *(saddleSet.begin());
           maxSet.erase(maxSet.begin());
-
+          if(maxSet.size() < 2)
+            saddlesToDelete.push_back(saddle);
           // now we need to swap the pointers, all saddles which could reach
           // maximum pair.first, now can reach all the other maxima of saddle
           // we can find this by just checking largestSaddlesForMax for the
@@ -198,10 +207,10 @@ namespace ttk {
           largestSaddlesForMax.erase(max);
         }
 
-        this->printMsg("Finished removing pairs for step "
-                       + std::to_string(step) + ", starting deletion for "
-                       + std::to_string(saddlesToDelete.size())
-                       + " irrelevant saddles.");
+        // this->printMsg("Finished swapping pointers for "
+        //                + std::to_string(saddleMaxPairs.size())
+        //                + " pairs.", 0.66, swappingTimer.getElapsedTime());
+        // ttk::Timer delTimer;
         //#ifdef TTK_ENABLE_OPENMP
         //#pragma omp parallel for num_threads(this->threadNumber_)
         //#endif
@@ -222,6 +231,11 @@ namespace ttk {
           //#endif
           triplets.erase(saddle);
         }
+        // this->printMsg("Finished deletion of " +
+        // std::to_string(saddlesToDelete.size()) + " irrelevant saddles.", 1,
+        // delTimer.getElapsedTime());
+        this->printMsg("Finished step " + std::to_string(step), 1,
+                       stepTimer.getElapsedTime());
         step++;
       }
       return 1;
@@ -311,6 +325,7 @@ namespace ttk {
         ttk::SimplexId globalMax = -2;
         ttk::SimplexId highestOrder = 0;
         const int dimension = triangulation->getDimensionality();
+        ttk::Timer preprocessTimer;
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel num_threads(this->threadNumber_)
         {
@@ -322,7 +337,7 @@ namespace ttk {
           ttk::SimplexId gId = -1;
           ttk::SimplexId thisOrder = -1;
 #ifdef TTK_ENABLE_OPENMP
-#pragma omp for nowait
+#pragma omp for schedule(guided) nowait
 #endif
           for(ttk::SimplexId i = 0; i < nCriticalPoints; i++) {
             gId = criticalGlobalIds[i];
@@ -390,14 +405,17 @@ namespace ttk {
           std::set<std::pair<ttk::SimplexId, ttk::SimplexId>, InversePairCmp>>
           largestSaddlesForMax{};
         this->printMsg("Starting with AscPaths, saddles length: "
-                       + std::to_string(saddles.size()));
+                         + std::to_string(saddles.size()),
+                       0, preprocessTimer.getElapsedTime());
+        ttk::Timer ascTimer;
         findAscPaths<triangulationType>(triplets, largestSaddlesForMax, saddles,
                                         order, ascendingManifold,
                                         triangulation);
 
         largestSaddlesForMax[globalMax] = {std::make_pair(globalMin, 0)};
         this->printMsg(
-          "Finished with Preprocessing, starting with PersistencePairs");
+          "Finished with Preprocessing, starting with PersistencePairs", 0,
+          ascTimer.getElapsedTime());
         constructPersistencePairs(
           persistencePairs, triplets, largestSaddlesForMax, order);
         persistencePairs.emplace_back(std::initializer_list<ttk::SimplexId>{
