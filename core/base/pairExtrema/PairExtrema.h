@@ -69,6 +69,11 @@ namespace ttk {
       int step = 0;
       bool changed = true;
       std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> saddleMaxPairs{};
+      std::vector<ttk::SimplexId> maximumPointer(maximaLocalToGlobal.size());
+      std::iota(std::begin(maximumPointer), std::end(maximumPointer), 0);
+      std::vector<std::tuple<ttk::SimplexId, ttk::SimplexId, ttk::SimplexId>>
+        mergeTree{}; // tuples are saddle, smaller maximum, larger maximum to
+                     // which it merges
       std::set<ttk::SimplexId> saddlesToDelete{};
       saddleMaxPairs.reserve(maximaLocalToGlobal.size());
       this->printMsg("Nr of Maxima: "
@@ -97,6 +102,7 @@ namespace ttk {
 #endif
           for(size_t i = 0; i < largestSaddlesForMax.size(); i++) {
             ttk::SimplexId maximum = i; // only the maximum id
+
             std::pair<ttk::SimplexId, ttk::SimplexId> largestSaddlePair
               = *(largestSaddlesForMax.at(maximum).begin());
 
@@ -110,13 +116,15 @@ namespace ttk {
               // we want to check if smallest maximum per saddle and largest
               // saddle per maximum match
 
-              if(maximumPair.first == maximum) {
+              if(maximumPointer[maximumPair.first] == maximum) {
                 changed = true;
 #ifdef TTK_ENABLE_OPENMP
                 {
                   pairs_priv.emplace_back(std::initializer_list<ttk::SimplexId>{
                     largestSaddle, largestSaddlePair.second,
-                    maximaLocalToGlobal[maximum], maximumPair.second});
+                    maximaLocalToGlobal[maximum],
+                    order[maximaLocalToGlobal
+                            [maximumPointer[maximumPair.first]]]});
                   saddleMaxPairs_priv.push_back(
                     std::make_pair(largestSaddle, maximum));
                 }
@@ -147,7 +155,9 @@ namespace ttk {
           "Finished finding pairs", 0.33, pairTimer.getElapsedTime());
         ttk::Timer swappingTimer;
 
-        // auto t0 = timeNow();
+        auto t0 = timeNow();
+        size_t saddleTime = 0;
+        size_t maxTime = 0;
         for(size_t i = 0; i < saddleMaxPairs.size(); i++) {
           auto pair = saddleMaxPairs[i];
           auto saddle = pair.first;
@@ -158,6 +168,10 @@ namespace ttk {
           auto maxPair = *(
             maxSet.begin()); // pair contains the maximum with which this
                              // saddle is paired and the order of the maximum
+          auto largestMaxPair = *(maxSet.rbegin());
+          auto largestMax = largestMaxPair.first;
+          maximumPointer[pair.second] = largestMax;
+          mergeTree.push_back(std::make_tuple(saddle, max, largestMax));
           auto &saddleSet = largestSaddlesForMax.at(max);
           maxSet.erase(maxSet.begin());
           saddleSet.erase(saddleSet.begin());
@@ -168,8 +182,7 @@ namespace ttk {
           // maximum pair.first, now can reach all the other maxima of saddle
           // we can find this by just checking largestSaddlesForMax for the
           // maximum
-          //#pragma omp task
-          // t0 = timeNow();
+          t0 = timeNow();
           for(auto &val : saddleSet) {
             auto saddleId = val.first;
             auto &triplet = triplets.at(saddleId);
@@ -183,25 +196,21 @@ namespace ttk {
                 saddlesToDelete.insert(saddleId);
             }
           }
-          // this->printMsg("Time for one saddleSet sweep: " +
-          // std::to_string(duration(timeNow()-t0))); t0 = timeNow(); #pragma
-          //omp task
+          saddleTime += duration(timeNow() - t0);
+          t0 = timeNow();
           for(auto &val : maxSet) {
             auto maxId = val.first;
             auto &saddleList = largestSaddlesForMax.at(maxId);
             // if the maximum can be reached from other saddles, we
             // need to replace it by the other maxima from the
             // chosen saddle
-            //#ifdef TTK_ENABLE_OPENMP
-            //#pragma omp critical
-            //#endif
             saddleList.insert(saddleSet.begin(), saddleSet.end());
           }
-          // this->printMsg("Time for one maxSet sweep: " +
-          // std::to_string(duration(timeNow()-t0)));
-
-          //#pragma omp taskwait
+          maxTime += (duration(timeNow() - t0));
         }
+
+        this->printMsg("SaddleTime: " + std::to_string(saddleTime)
+                       + ", maxTime: " + std::to_string(maxTime));
 
         this->printMsg("Finished swapping pointers for "
                          + std::to_string(saddleMaxPairs.size()) + " pairs.",
