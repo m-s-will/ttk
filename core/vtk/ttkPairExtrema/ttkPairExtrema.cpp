@@ -184,6 +184,7 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
   this->printMsg("Starting computation...");
 
   ttk::SimplexId nCriticalPoints = criticalType->GetNumberOfTuples();
+  ttk::SimplexId nPoints = order->GetNumberOfTuples();
   std::vector<std::vector<ttk::SimplexId>> persistencePairs{};
 
   // Get ttk::triangulation of the input vtkDataSet (will create one if one does
@@ -207,7 +208,7 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
                    ttkUtils::GetPointer<ttk::SimplexId>(criticalOrder),
                    (T0 *)triangulation->getData(),
                    ttkUtils::GetPointer<ttk::SimplexId>(criticalGlobalIds),
-                   nCriticalPoints)));
+                   nCriticalPoints, nPoints)));
 
   // On error cancel filter execution
   if(status != 1)

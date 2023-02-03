@@ -52,17 +52,13 @@ namespace ttk {
       int step = 0;
       bool changed = true;
       std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> saddleMaxPairs{};
-      std::vector<ttk::SimplexId> maximumPointer(maximaLocalToGlobal.size());
-      std::iota(std::begin(maximumPointer), std::end(maximumPointer), 0);
+      // std::vector<ttk::SimplexId> maximumPointer(maximaLocalToGlobal.size());
+      // std::iota(std::begin(maximumPointer), std::end(maximumPointer), 0);
       std::vector<std::tuple<ttk::SimplexId, ttk::SimplexId, ttk::SimplexId>>
         mergeTree{}; // tuples are saddle, smaller maximum, larger maximum to
                      // which it merges
-      std::set<ttk::SimplexId> saddlesToDelete{};
-      std::vector<size_t> tripletSize(triplets.size());
-      std::iota(std::begin(tripletSize), std::end(tripletSize), 0);
-      for(size_t i = 0; i < triplets.size(); i++){
-        tripletSize[i] = triplets[i].size();
-      }
+      std::vector<ttk::SimplexId> saddlesToDelete{};
+      saddlesToDelete.reserve(saddlesLocalToGlobal.size());
       saddleMaxPairs.reserve(maximaLocalToGlobal.size());
       this->printMsg("Nr of Maxima: "
                      + std::to_string(maximaLocalToGlobal.size()));
@@ -92,7 +88,6 @@ namespace ttk {
 #endif
           for(size_t i = 0; i < largestSaddlesForMax.size(); i++) {
             ttk::SimplexId maximum = i; // only the maximum id
-            // this->printMsg("maximum: " + std::to_string(maximum));
             ttk::SimplexId largestSaddle = -1;
             if (!maximaToRemove.at(maximum)){
               largestSaddle = *(largestSaddlesForMax.at(maximum).begin());
@@ -107,6 +102,9 @@ namespace ttk {
                 // saddle per maximum match
                 if(maximumForSaddle == maximum) {
                   changed = true;
+                  // this->printMsg("saddle-max pair: " +
+                  // std::to_string(saddlesLocalToGlobal[largestSaddle]) + " " +
+                  // std::to_string(maximaLocalToGlobal[maximum]));
                   maximaToRemove[maximum] = true;
 #ifdef TTK_ENABLE_OPENMP
                   {
@@ -148,8 +146,30 @@ namespace ttk {
         this->printMsg(
           "Finished finding pairs", 0.33, pairTimer.getElapsedTime());
         ttk::Timer swappingTimer;
+
+        /*
+        this->printMsg("Triplets beforehand:");
+        for (size_t i = 0; i < triplets.size(); i++){
+          this->printMsg("Saddle " + std::to_string(saddlesLocalToGlobal[i]));
+          this->printMsg("Maxima:");
+          for (auto &t: triplets[i]){
+            this->printMsg(std::to_string(maximaLocalToGlobal[t]));
+          }
+        }
+        for (size_t i = 0; i < largestSaddlesForMax.size(); i++){
+          this->printMsg("Maximum " + std::to_string(maximaLocalToGlobal[i]));
+          this->printMsg("Saddles:");
+          for (auto &l : largestSaddlesForMax[i]){
+            this->printMsg(std::to_string(saddlesLocalToGlobal[l]));
+          }
+        }*/
+
         std::pair<ttk::SimplexId, ttk::SimplexId> pair;
-        ttk::SimplexId saddle, max, largestMax;
+        ttk::SimplexId saddle, max;
+        // auto t0 = timeNow();
+        // ttk::SimplexId saddleTime = 0;
+        // ttk::SimplexId maxTime = 0;
+        // ttk::SimplexId largestMax;
         for(size_t i = 0; i < saddleMaxPairs.size(); i++) {
           pair = saddleMaxPairs[i];
           saddle = pair.first;
@@ -157,37 +177,33 @@ namespace ttk {
           auto &maxSet
             = triplets.at(saddle); // set containing all the maxima reachable
                                   // from the saddle to be removed
-          largestMax = *(maxSet.rbegin());
-          maximumPointer[max] = largestMax;
-          mergeTree.push_back(std::make_tuple(saddle, max, largestMax));
+          // largestMax = *(maxSet.rbegin());
+          // maximumPointer[max] = largestMax;
+          // mergeTree.push_back(std::make_tuple(saddle, max, largestMax));
           auto &saddleSet = largestSaddlesForMax.at(max);
           maxSet.erase(maxSet.begin());
-          saddleSet.erase(saddleSet.begin());
-          //auto &thisSize = tripletSize.at(saddle);
-          //thisSize--;
-          //if (thisSize < 2)
-          //  saddlesToDelete.insert(saddle);
-          if(maxSet.size() < 2)
-            saddlesToDelete.insert(saddle);
-          // now we need to swap the pointers, all saddles which could reach
-          // maximum pair.first, now can reach all the other maxima of saddle
-          // we can find this by just checking largestSaddlesForMax for the
-          // maximum
+          // saddleSet.erase(saddleSet.begin());
+          // if(maxSet.size() < 2)
+          //   saddlesToDelete.emplace_back(saddle);
+          //  now we need to swap the pointers, all saddles which could reach
+          //  maximum pair.first, now can reach all the other maxima of saddle
+          //  we can find this by just checking largestSaddlesForMax for the
+          //  maximum
+          // t0 = timeNow();
           for(auto &saddleId : saddleSet) {
             auto &triplet = triplets.at(saddleId);
-            //auto &size = tripletSize.at(saddleId);
             triplet.erase(max);
             // if the maximum can be reached from other saddles, we
             // need to replace it by the other maxima from the
             // chosen saddle
-            triplet.insert(maxSet.begin(), maxSet.end());
-            // triplet.insert(largestMax);
-            //size--;
-            //if (size < 2)
-            //  saddlesToDelete.insert(saddleId);
-            if(triplet.size() < 2)
-              saddlesToDelete.insert(saddleId);
+            if(maxSet.size() != 0)
+              triplet.insert(*(maxSet.rbegin()));
+            // triplet.insert(maxSet.begin(), maxSet.end());
+            // if(triplet.size() == 0)
+            //   saddlesToDelete.emplace_back(saddleId);
           }
+          // saddleTime += duration(timeNow() - t0);
+          // t0 = timeNow();
           for(auto &maxId : maxSet) {
             auto &saddleList = largestSaddlesForMax.at(maxId);
             // if the maximum can be reached from other saddles, we
@@ -195,45 +211,52 @@ namespace ttk {
             // chosen saddle
             saddleList.insert(saddleSet.begin(), saddleSet.end());
           }
+          // maxTime += duration(timeNow() - t0);
         }
+// this->printMsg("SaddleTime: " + std::to_string(saddleTime));
+// this->printMsg("maxTime: " + std::to_string(maxTime));
+#pragma omp parallel num_threads(this->threadNumber_)
+        {
+          std::vector<ttk::SimplexId> saddlesToDelete_priv{};
+#pragma omp for schedule(guided) nowait
+          for(size_t i = 0; i < triplets.size(); i++) {
+            if(triplets.at(i).size() == 1)
+              saddlesToDelete_priv.emplace_back(i);
+          }
 
+#pragma omp critical
+          {
+            saddlesToDelete.reserve(saddlesToDelete.size()
+                                    + saddlesToDelete_priv.size());
+            saddlesToDelete.insert(saddlesToDelete.end(),
+                                   saddlesToDelete_priv.begin(),
+                                   saddlesToDelete_priv.end());
+          }
+        }
 
         /*
-        this->printMsg("Triplets beforehand:");
-        for (size_t i = 0; i < triplets.size(); i++){
-          this->printMsg("Saddle " + std::to_string(i));
-          this->printMsg("Maxima:");
-          for (auto &t: triplets[i]){
-            this->printMsg(std::to_string(t));
-          }
-        }
-        for (size_t i = 0; i < largestSaddlesForMax.size(); i++){
-          this->printMsg("Maximum " + std::to_string(i));
-          this->printMsg("Saddles:");
-          for (auto &l : largestSaddlesForMax[i]){
-            this->printMsg(std::to_string(l));
-          }
-        }
-
 
         //collecting everything to do in parallel
-        std::vector<std::set<ttk::SimplexId>> toInsertForSaddles(triplets.size());
-        std::set<ttk::SimplexId> toRemoveForSaddles{};
-        std::vector<std::set<ttk::SimplexId>> toInsertForMaxima(largestSaddlesForMax.size());
-        #pragma omp parallel
+        std::vector<std::set<ttk::SimplexId>>
+        toInsertForSaddles(triplets.size()); std::set<ttk::SimplexId>
+        toRemoveForSaddles{}; std::vector<std::set<ttk::SimplexId>>
+        toInsertForMaxima(largestSaddlesForMax.size()); #pragma omp parallel
+        num_threads(this->threadNumber_)
         {
           std::set<ttk::SimplexId> saddlesToDelete_priv{};
-          std::vector<std::set<ttk::SimplexId>> toInsertForSaddles_priv(triplets.size());
-          std::set<ttk::SimplexId> toRemoveForSaddles_priv{};
-          std::vector<std::set<ttk::SimplexId>> toInsertForMaxima_priv(largestSaddlesForMax.size());
+          std::vector<std::set<ttk::SimplexId>>
+        toInsertForSaddles_priv(triplets.size()); std::set<ttk::SimplexId>
+        toRemoveForSaddles_priv{}; std::vector<std::set<ttk::SimplexId>>
+        toInsertForMaxima_priv(largestSaddlesForMax.size());
 
           #pragma omp for schedule(guided)
           for(size_t i = 0; i < saddleMaxPairs.size(); i++) {
             std::pair<ttk::SimplexId, ttk::SimplexId> pair = saddleMaxPairs[i];
             ttk::SimplexId saddle = pair.first;
             ttk::SimplexId max = pair.second;
-            //this->printMsg("Working on saddle-max pair " + std::to_string(saddle) + " " + std::to_string(max));
-            auto &maxSet = triplets.at(saddle);
+            //this->printMsg("Working on saddle-max pair " +
+        std::to_string(saddle) + " " + std::to_string(max)); auto &maxSet =
+        triplets.at(saddle);
             //ttk::SimplexId largestMax = *(maxSet.rbegin());
             //mergeTree.push_back(std::make_tuple(saddle, max, largestMax));
             auto &saddleSet = largestSaddlesForMax.at(max);
@@ -243,33 +266,42 @@ namespace ttk {
               saddlesToDelete_priv.insert(saddle);
             for(auto &saddleId : saddleSet) {
               toRemoveForSaddles_priv.insert(max);
-              toInsertForSaddles_priv[saddleId].insert(maxSet.begin(), maxSet.end());
-              if (triplets.at(saddleId).size() < 2){
-                //this->printMsg("Removing saddle " + std::to_string(saddlesLocalToGlobal[i]) + " after removing paired maxima " + std::to_string(i));
-                saddlesToDelete_priv.insert(saddleId);
+              toInsertForSaddles_priv[saddleId].insert(maxSet.begin(),
+        maxSet.end()); if (triplets.at(saddleId).size() < 2){
+                //this->printMsg("Removing saddle " +
+        std::to_string(saddlesLocalToGlobal[i]) + " after removing paired maxima
+        " + std::to_string(i)); saddlesToDelete_priv.insert(saddleId);
               }
-              //this->printMsg("saddleid " + std::to_string(saddleId) + " has to remove max " + std::to_string(max));
+              //this->printMsg("saddleid " + std::to_string(saddleId) + " has to
+        remove max " + std::to_string(max));
             }
             for(auto &maxId : maxSet) {
-              toInsertForMaxima_priv[maxId].insert(saddleSet.begin(), saddleSet.end());
+              toInsertForMaxima_priv[maxId].insert(saddleSet.begin(),
+        saddleSet.end());
             }
           }
 
           #pragma omp critical
           {
-            saddlesToDelete.insert(saddlesToDelete_priv.begin(), saddlesToDelete_priv.end());
-            for (size_t i = 0; i < toInsertForSaddles.size(); i++)
-              toInsertForSaddles[i].insert(toInsertForSaddles_priv[i].begin(), toInsertForSaddles_priv[i].end());
-            for (size_t i = 0; i < toInsertForMaxima.size(); i++)
-              toInsertForMaxima[i].insert(toInsertForMaxima_priv[i].begin(), toInsertForMaxima_priv[i].end());
+            saddlesToDelete.reserve(saddlesToDelete.size()+saddlesToDelete_priv.size());
+            saddlesToDelete.insert(saddlesToDelete.end(),
+        saddlesToDelete_priv.begin(), saddlesToDelete_priv.end()); for (size_t i
+        = 0; i < toInsertForSaddles.size(); i++)
+              toInsertForSaddles[i].insert(toInsertForSaddles_priv[i].begin(),
+        toInsertForSaddles_priv[i].end()); for (size_t i = 0; i <
+        toInsertForMaxima.size(); i++)
+              toInsertForMaxima[i].insert(toInsertForMaxima_priv[i].begin(),
+        toInsertForMaxima_priv[i].end());
             //for (size_t i = 0; i < toRemoveForSaddles.size(); i++)
-            //  toRemoveForSaddles[i].insert(toRemoveForSaddles_priv[i].begin(), toRemoveForSaddles_priv[i].end());
-              toRemoveForSaddles.insert(toRemoveForSaddles_priv.begin(), toRemoveForSaddles_priv.end());
+            //  toRemoveForSaddles[i].insert(toRemoveForSaddles_priv[i].begin(),
+        toRemoveForSaddles_priv[i].end());
+              toRemoveForSaddles.insert(toRemoveForSaddles_priv.begin(),
+        toRemoveForSaddles_priv.end());
           }
         }
 
         // do everything in parallel
-        #pragma omp parallel
+        #pragma omp parallel num_threads(this->threadNumber_)
         {
           std::set<ttk::SimplexId> saddlesToDelete_priv{};
 
@@ -277,9 +309,11 @@ namespace ttk {
           for(size_t i = 0; i < toInsertForMaxima.size(); i++){
             if (!maximaToRemove[i])
             {
-              //this->printMsg("Inserting " + std::to_string(toInsertForMaxima[i].size()) + " values for max " + std::to_string(i));
-              largestSaddlesForMax.at(i).insert(toInsertForMaxima[i].begin(), toInsertForMaxima[i].end());
-            } else {
+              //this->printMsg("Inserting " +
+        std::to_string(toInsertForMaxima[i].size()) + " values for max " +
+        std::to_string(i));
+              largestSaddlesForMax.at(i).insert(toInsertForMaxima[i].begin(),
+        toInsertForMaxima[i].end()); } else {
               //this->printMsg("Clearing values for max " + std::to_string(i));
               largestSaddlesForMax.at(i).clear();
             }
@@ -287,27 +321,33 @@ namespace ttk {
 
           #pragma omp for schedule(guided)
           for(size_t i = 0; i < toInsertForSaddles.size(); i++){
-            //this->printMsg("Inserting " + std::to_string(toInsertForSaddles[i].size()) + " values for saddle " + std::to_string(i));
-            triplets.at(i).insert(toInsertForSaddles[i].begin(), toInsertForSaddles[i].end());
+            //this->printMsg("Inserting " +
+        std::to_string(toInsertForSaddles[i].size()) + " values for saddle " +
+        std::to_string(i)); triplets.at(i).insert(toInsertForSaddles[i].begin(),
+        toInsertForSaddles[i].end());
           }
 
           #pragma omp for schedule(guided) nowait
           for(size_t i = 0; i < triplets.size(); i++){
-            //this->printMsg("Erasing " + std::to_string(toRemoveForSaddles.size()) + " values for saddle " + std::to_string(i));
+            //this->printMsg("Erasing " +
+        std::to_string(toRemoveForSaddles.size()) + " values for saddle " +
+        std::to_string(i));
 
             auto v = triplets.at(i);
             if (v.size() > 0){
               std::set<ttk::SimplexId> out;
               std::set_difference(std::begin(v), std::end(v),
-                          std::begin(toRemoveForSaddles), std::end(toRemoveForSaddles),
-                          std::inserter(out, out.end()));
+                          std::begin(toRemoveForSaddles),
+        std::end(toRemoveForSaddles), std::inserter(out, out.end()));
               triplets.at(i) = out;
             }
           }
 
           #pragma omp critical
           {
-            saddlesToDelete.insert(saddlesToDelete_priv.begin(), saddlesToDelete_priv.end());
+            saddlesToDelete.reserve(saddlesToDelete.size()+saddlesToDelete_priv.size());
+            saddlesToDelete.insert(saddlesToDelete.end(),
+        saddlesToDelete_priv.begin(), saddlesToDelete_priv.end());
           }
         }
         */
@@ -334,22 +374,22 @@ namespace ttk {
         this->printMsg("Finished step " + std::to_string(step), 1,
                        stepTimer.getElapsedTime());
         step++;
-        /*
+
+        /*this->printMsg("Triplets afterwards");
         for (size_t i = 0; i < triplets.size(); i++){
-          this->printMsg("Saddle " + std::to_string(i));
+          this->printMsg("Saddle " + std::to_string(saddlesLocalToGlobal[i]));
           this->printMsg("Maxima:");
           for (auto &t: triplets[i]){
-            this->printMsg(std::to_string(t));
+            this->printMsg(std::to_string(maximaLocalToGlobal[t]));
           }
         }
         for (size_t i = 0; i < largestSaddlesForMax.size(); i++){
-          this->printMsg("Maximum " + std::to_string(i) + " " + std::to_string(maximaLocalToGlobal[i]));
-          this->printMsg("Saddles:");
-          for (auto &l : largestSaddlesForMax[i]){
-            this->printMsg(std::to_string(l) + " " + std::to_string(saddlesLocalToGlobal[l]));
+          this->printMsg("Maximum " + std::to_string(i) + " " +
+        std::to_string(maximaLocalToGlobal[i])); this->printMsg("Saddles:"); for
+        (auto &l : largestSaddlesForMax[i]){ this->printMsg(std::to_string(l) +
+        " " + std::to_string(saddlesLocalToGlobal[l]));
           }
-        } */
-
+        }*/
       }
       return 1;
     }
@@ -368,6 +408,8 @@ namespace ttk {
       // construct the maximumLists for each saddle, the maxima which can be reached from this saddle
       // and the pathLists for each maximum, the saddles points which can reach this maximum
       ttk::Timer sortTimer;
+      // sort the maxima and saddles by their order, the maxima ascending, the
+      // saddles descending
       TTK_PSORT(this->threadNumber_, maxima.begin(), maxima.end(),
                 [](std::pair<ttk::SimplexId, ttk::SimplexId> p1,
                    std::pair<ttk::SimplexId, ttk::SimplexId> p2) {
@@ -381,14 +423,15 @@ namespace ttk {
                 });
 
       std::unordered_map<ttk::SimplexId, ttk::SimplexId> maximaGlobalToLocal{};
-      std::unordered_map<ttk::SimplexId, ttk::SimplexId> saddlesGlobalToLocal{};
+      // std::unordered_map<ttk::SimplexId, ttk::SimplexId>
+      // saddlesGlobalToLocal{};
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel num_threads(this->threadNumber_)
       {
         std::unordered_map<ttk::SimplexId, ttk::SimplexId>
           maximaGlobalToLocal_priv{};
-        std::unordered_map<ttk::SimplexId, ttk::SimplexId>
-          saddlesGlobalToLocal_priv{};
+        // std::unordered_map<ttk::SimplexId, ttk::SimplexId>
+        //   saddlesGlobalToLocal_priv{};
 #pragma omp for nowait
         for(size_t i = 0; i < maxima.size(); i++) {
           maximaLocalToGlobal[i] = maxima[i].first;
@@ -405,53 +448,64 @@ namespace ttk {
 #pragma omp for nowait
         for(size_t i = 0; i < saddles.size(); i++) {
           saddlesLocalToGlobal[i] = saddles[i].first;
-          saddlesGlobalToLocal_priv[saddles[i].first] = i;
+          // saddlesGlobalToLocal_priv[saddles[i].first] = i;
         }
 #else
       for(size_t i = 0; i < saddles.size(); i++) {
         saddlesLocalToGlobal[i] = saddles[i].first;
-        saddlesGlobalToLocal[saddles[i].first] = i;
+        // saddlesGlobalToLocal[saddles[i].first] = i;
       }
 #endif
 
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp critical
         {
+          maximaGlobalToLocal.reserve(maximaGlobalToLocal.size()
+                                      + maximaGlobalToLocal_priv.size());
           maximaGlobalToLocal.insert(
             maximaGlobalToLocal_priv.begin(), maximaGlobalToLocal_priv.end());
-          saddlesGlobalToLocal.insert(
-            saddlesGlobalToLocal_priv.begin(), saddlesGlobalToLocal_priv.end());
+          // saddlesGlobalToLocal.insert(
+          //   saddlesGlobalToLocal_priv.begin(),
+          //   saddlesGlobalToLocal_priv.end());
         }
       }
 #endif
-
-    ttk::SimplexId neighborId, gId, thisOrder, maximum;
-    int nNeighbors;
-    for(size_t i = 0; i < saddles.size(); i++) {
-      gId = saddles[i].first;
-      thisOrder = saddles[i].second;
-      nNeighbors = triangulation->getVertexNeighborNumber(gId);
-      for(int j = 0; j < nNeighbors; j++) {
-        triangulation->getVertexNeighbor(gId, j, neighborId);
-        // get the manifold result for this neighbor
-        // problematic if manifold is dense and not sparse, because we need
-        // the id of the point to which it is ascending, not the id of the
-        // segmentation
-        if(order[neighborId] > thisOrder) {
-          maximum = ascendingManifold[neighborId];
-          auto localMax = maximaGlobalToLocal.at(maximum);
-          // this->printMsg("Saddle: " + std::to_string(gId) + " local: " +
-          // std::to_string(saddlesGlobalToLocal.at(gId)) + ", max: " +
-          // std::to_string(maximum) + " local: " +
-          // std::to_string(localMax));
-          triplets[i].emplace(localMax);
-          largestSaddlesForMax[localMax].emplace(i);
+      this->printMsg("Finished sorting and building the normalization arrays",
+                     0, sortTimer.getElapsedTime());
+#pragma omp parallel num_threads(this->threadNumber_)
+      {
+        std::vector<std::set<ttk::SimplexId>> largestSaddlesForMax_priv(
+          maximaGlobalToLocal.size());
+        ttk::SimplexId neighborId, gId, thisOrder, maximum;
+        int nNeighbors;
+#pragma omp for nowait
+        for(size_t i = 0; i < saddles.size(); i++) {
+          gId = saddles[i].first;
+          thisOrder = saddles[i].second;
+          nNeighbors = triangulation->getVertexNeighborNumber(gId);
+          for(int j = 0; j < nNeighbors; j++) {
+            triangulation->getVertexNeighbor(gId, j, neighborId);
+            // get the manifold result for this neighbor
+            // problematic if manifold is dense and not sparse, because we need
+            // the id of the point to which it is ascending, not the id of the
+            // segmentation
+            if(order[neighborId] > thisOrder) {
+              maximum = ascendingManifold[neighborId];
+              auto localMax = maximaGlobalToLocal.at(maximum);
+              triplets[i].emplace(localMax);
+              largestSaddlesForMax_priv[localMax].emplace(i);
+            }
+          }
+        }
+#pragma omp critical
+        {
+          for(size_t i = 0; i < largestSaddlesForMax.size(); i++)
+            largestSaddlesForMax[i].insert(largestSaddlesForMax_priv[i].begin(),
+                                           largestSaddlesForMax_priv[i].end());
         }
       }
+      return 1;
     }
-
-    return 1;
-  }
 
     template <class triangulationType = ttk::AbstractTriangulation>
     int computePairs(std::vector<std::vector<ttk::SimplexId>> &persistencePairs,
@@ -461,7 +515,8 @@ namespace ttk {
                      const ttk::SimplexId *criticalOrder,
                      const triangulationType *triangulation,
                      const ttk::SimplexId *criticalGlobalIds,
-                     ttk::SimplexId &nCriticalPoints) {
+                     ttk::SimplexId &nCriticalPoints,
+                     ttk::SimplexId &nPoints) {
 
       // start global timer
       ttk::Timer globalTimer;
@@ -491,16 +546,12 @@ namespace ttk {
         std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> maxima;
         ttk::SimplexId globalMin = -2;
         ttk::SimplexId globalMax = -2;
-        ttk::SimplexId highestOrder = 0;
         const int dimension = triangulation->getDimensionality();
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel num_threads(this->threadNumber_)
         {
-          ttk::SimplexId highestOrder_private = 0;
-          ttk::SimplexId globalMax_private = -1;
           std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> saddles_priv;
           std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> maxima_priv;
-
 #endif
           ttk::SimplexId gId = -1;
           ttk::SimplexId thisOrder = -1;
@@ -509,27 +560,18 @@ namespace ttk {
 #endif
           for(ttk::SimplexId i = 0; i < nCriticalPoints; i++) {
             gId = criticalGlobalIds[i];
-            // extract the global minimum id
+            // extract the global minimum and maximum id
             thisOrder = criticalOrder[i];
             if(thisOrder == 0) {
               globalMin = gId;
+            } else if(thisOrder == (nPoints - 1)) {
+              globalMax = gId;
             }
-#ifdef TTK_ENABLE_OPENMP
-            else if(thisOrder > highestOrder_private) {
-              highestOrder_private = thisOrder;
-              globalMax_private = gId;
-            }
-#else
-          else if(thisOrder > highestOrder) {
-            highestOrder = thisOrder;
-            globalMax = gId;
-          }
-#endif
             if(inputCriticalPoints[i] == 3) { // maxima
 #ifdef TTK_ENABLE_OPENMP
               maxima_priv.push_back(std::make_pair(gId, thisOrder));
 #else
-            maxima.push_back(std::make_pair(gId, thisOrder));
+              maxima.push_back(std::make_pair(gId, thisOrder));
 #endif
             } else if(inputCriticalPoints[i] == (dimension - 1)
                       || inputCriticalPoints[i] == 4) { // saddles
@@ -548,7 +590,7 @@ namespace ttk {
 #ifdef TTK_ENABLE_OPENMP
                 saddles_priv.push_back(std::make_pair(gId, thisOrder));
 #else
-              saddles.push_back(std::make_pair(gId, thisOrder));
+                saddles.push_back(std::make_pair(gId, thisOrder));
 #endif
               }
             }
@@ -556,13 +598,11 @@ namespace ttk {
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp critical(maxima)
           {
+            saddles.reserve(saddles.size() + saddles_priv.size());
             saddles.insert(
               saddles.end(), saddles_priv.begin(), saddles_priv.end());
+            maxima.reserve(maxima.size() + maxima_priv.size());
             maxima.insert(maxima.end(), maxima_priv.begin(), maxima_priv.end());
-            if(highestOrder_private > highestOrder) {
-              highestOrder = highestOrder_private;
-              globalMax = globalMax_private;
-            }
           }
 #endif
         }
@@ -577,10 +617,10 @@ namespace ttk {
           triplets, largestSaddlesForMax, maximaLocalToGlobal,
           saddlesLocalToGlobal, maxima, saddles, order, ascendingManifold,
           triangulation);
-        auto it = std::find(
-          maximaLocalToGlobal.begin(), maximaLocalToGlobal.end(), globalMax);
-        auto pos = it - maximaLocalToGlobal.begin();
-        largestSaddlesForMax[pos] = {-1};
+        // the global max is always in the last position of the
+        // maximaLocalToGlobal vector and needs to connect with the global
+        // minimum
+        largestSaddlesForMax[maximaLocalToGlobal.size() - 1] = {-1};
         this->printMsg(
           "Finished with Preprocessing, starting with PersistencePairs", 0,
           ascTimer.getElapsedTime());
@@ -588,7 +628,7 @@ namespace ttk {
                                   largestSaddlesForMax, maximaLocalToGlobal,
                                   saddlesLocalToGlobal, order);
         persistencePairs.emplace_back(std::initializer_list<ttk::SimplexId>{
-          globalMin, 0, globalMax, highestOrder});
+          globalMin, 0, globalMax, (nPoints - 1)});
         if(persistencePairs.size() != maxima.size()) {
           this->printMsg("ALARM! MAXIMA SIND NICHT GEPAIRT!!!!");
         }
