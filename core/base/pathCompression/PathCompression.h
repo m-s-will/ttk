@@ -119,6 +119,7 @@ namespace ttk {
 
         // for the first step we initialize each vertex with the id of their
         // largest / smallest neighbor. Afterwards we only compare the arrays
+#pragma omp parallel for num_threads(this->threadNumber_)
         for(ttk::SimplexId i = 0; i < nVertices; i++) {
           int nNeighbors = triangulation->getVertexNeighborNumber(i);
           ttk::SimplexId neighborId;
