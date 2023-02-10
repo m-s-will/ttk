@@ -80,11 +80,12 @@ int ttkPairExtrema::FillOutputPortInformation(int port, vtkInformation *info) {
 template <class triangulationType>
 int ttkPairExtrema::getSkeletonArcs(
   vtkUnstructuredGrid *outputSkeletonArcs,
-  std::vector<std::vector<ttk::SimplexId>> &persistencePairs,
+  std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &persistencePairs,
+  const ttk::SimplexId *order,
   const triangulationType *triangulation) {
   vtkNew<vtkUnstructuredGrid> skeletonArcs{};
   ttk::SimplexId pointIds[2];
-  ttk::SimplexId order[2];
+  ttk::SimplexId pointOrders[2];
   vtkNew<vtkPoints> points{};
   vtkNew<vtkLongLongArray> data{};
   data->SetNumberOfComponents(1);
@@ -96,10 +97,10 @@ int ttkPairExtrema::getSkeletonArcs(
   std::map<ttk::SimplexId, ttk::SimplexId> addedPoints;
   ttk::SimplexId currentId = 0;
   for(auto const &p : persistencePairs) {
-    pointIds[0] = p[0];
-    pointIds[1] = p[2];
-    order[0] = p[1];
-    order[1] = p[3];
+    pointIds[0] = p.first;
+    pointIds[1] = p.second;
+    pointOrders[0] = order[p.first];
+    pointOrders[1] = order[p.second];
     // add each point only once to the vtkPoints
     // addedPoints.insert(x).second inserts x and is true if x was not in
     // addedPoints beforehand
@@ -107,7 +108,7 @@ int ttkPairExtrema::getSkeletonArcs(
       // this->printMsg("point " + std::to_string(pointIds[0]));
       triangulation->getVertexPoint(pointIds[0], point[0], point[1], point[2]);
       points->InsertNextPoint(point);
-      data->InsertNextTuple1(order[0]);
+      data->InsertNextTuple1(pointOrders[0]);
       gIdArray->InsertNextTuple1(pointIds[0]);
       currentId++;
     }
@@ -115,7 +116,7 @@ int ttkPairExtrema::getSkeletonArcs(
       // this->printMsg("point " + std::to_string(pointIds[1]));
       triangulation->getVertexPoint(pointIds[1], point[0], point[1], point[2]);
       points->InsertNextPoint(point);
-      data->InsertNextTuple1(order[1]);
+      data->InsertNextTuple1(pointOrders[1]);
       gIdArray->InsertNextTuple1(pointIds[1]);
       currentId++;
     }
@@ -159,12 +160,12 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
 
   auto manifoldPointData = inputDataSet->GetPointData();
   auto ascendingManifold = manifoldPointData->GetArray("AscendingManifold");
+  auto tempArray = manifoldPointData->GetArray("DescendingManifold");
   auto criticalPointData = inputCriticalPoints->GetPointData();
   auto criticalGlobalIds = criticalPointData->GetArray("GlobalPointIds");
   auto criticalType = criticalPointData->GetArray("CriticalType");
   auto order = ttkAlgorithm::GetOrderArray(inputDataSet, 0);
-  auto criticalOrder = ttkAlgorithm::GetOrderArray(inputCriticalPoints, 0);
-  if(!ascendingManifold | !criticalType | !order | !criticalOrder
+  if(!ascendingManifold | !criticalType | !order | !tempArray
      | !criticalGlobalIds) {
     this->printErr("Unable to retrieve input arrays.");
     return 0;
@@ -184,8 +185,7 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
   this->printMsg("Starting computation...");
 
   ttk::SimplexId nCriticalPoints = criticalType->GetNumberOfTuples();
-  ttk::SimplexId nPoints = order->GetNumberOfTuples();
-  std::vector<std::vector<ttk::SimplexId>> persistencePairs{};
+  std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> persistencePairs{};
 
   // Get ttk::triangulation of the input vtkDataSet (will create one if one does
   // not exist already).
@@ -204,11 +204,11 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
                 (status = this->computePairs<T0>(
                    persistencePairs, ttkUtils::GetPointer<char>(criticalType),
                    ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
+                   ttkUtils::GetPointer<ttk::SimplexId>(tempArray),
                    ttkUtils::GetPointer<ttk::SimplexId>(order),
-                   ttkUtils::GetPointer<ttk::SimplexId>(criticalOrder),
                    (T0 *)triangulation->getData(),
                    ttkUtils::GetPointer<ttk::SimplexId>(criticalGlobalIds),
-                   nCriticalPoints, nPoints)));
+                   nCriticalPoints)));
 
   // On error cancel filter execution
   if(status != 1)
@@ -220,8 +220,9 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
 
   ttkTypeMacroT(
     triangulation->getType(),
-    status = getSkeletonArcs<T0>(
-      outputSkeletonArcs, persistencePairs, (T0 *)triangulation->getData()));
+    status = getSkeletonArcs<T0>(outputSkeletonArcs, persistencePairs,
+                                 ttkUtils::GetPointer<ttk::SimplexId>(order),
+                                 (T0 *)triangulation->getData()));
 
   outputSegmentation->ShallowCopy(inputDataSet);
 
