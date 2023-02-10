@@ -58,7 +58,7 @@ namespace ttk {
       while(changed) {
         ttk::Timer stepTimer;
         changed = false;
-        this->printMsg("============================================");
+        this->printMsg(ttk::debug::Separator::L2);
         this->printMsg("Running step " + std::to_string(step)
                          + ", Pairs: " + std::to_string(nrOfPairs),
                        0, 0);
@@ -76,12 +76,18 @@ namespace ttk {
 #pragma omp parallel for schedule(guided) num_threads(this->threadNumber_)
         for(ttk::SimplexId i = 0; i < (ttk::SimplexId)triplets.size(); i++) {
           auto &maxList = triplets.at(i);
+          ttk::SimplexId temp;
           for(auto &max : maxList) {
-            omp_set_lock(&maximaLocks[max]);
-            // save only maximum saddle
-            if(i < largestSaddlesForMax[max])
-              largestSaddlesForMax[max] = i;
-            omp_unset_lock(&maximaLocks[max]);
+// TODO if OMP 5.1 is widespread: use omp atomic compare
+#pragma omp atomic read
+            temp = largestSaddlesForMax[max];
+            if(i < temp) {
+              omp_set_lock(&maximaLocks[max]);
+              // save only maximum saddle
+              largestSaddlesForMax[max]
+                = std::min(i, largestSaddlesForMax[max]);
+              omp_unset_lock(&maximaLocks[max]);
+            }
           }
         }
 
