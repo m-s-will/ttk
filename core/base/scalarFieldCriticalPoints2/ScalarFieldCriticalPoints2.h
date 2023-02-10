@@ -201,6 +201,8 @@ namespace ttk {
       SimplexId* ids,
       CT* offsets,
       CT* connectivity,
+      // SimplexId* outputOrder,
+      // const SimplexId* inputOrder,
       const std::vector<std::vector<CriticalPoint>>& criticalPoints,
       const TT* triangulation
     ) const {
@@ -218,6 +220,7 @@ namespace ttk {
 
           ids[offset] = cp__.idx;
           offsets[offset] = offset;
+          // outputOrder[offset] = inputOrder[cp__.idx];
           connectivity[offset] = offset;
           offset++;
         }

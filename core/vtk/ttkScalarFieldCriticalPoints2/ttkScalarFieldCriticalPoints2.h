@@ -35,6 +35,4 @@ protected:
   int RequestData(vtkInformation *request,
                   vtkInformationVector **inputVector,
                   vtkInformationVector *outputVector) override;
-
-  int computeOutput(vtkPolyData* output, ttk::Triangulation* triangulation, vtkDataSet* inputDataSet, const std::vector<std::vector<CriticalPoint>>& cp);
 };
