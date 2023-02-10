@@ -19,6 +19,7 @@
 #include <Triangulation.h>
 #include <chrono>
 #include <limits.h>
+#include <set>
 
 #define duration(a) \
   std::chrono::duration_cast<std::chrono::nanoseconds>(a).count()

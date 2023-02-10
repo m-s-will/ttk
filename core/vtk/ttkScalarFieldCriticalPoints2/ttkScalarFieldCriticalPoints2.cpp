@@ -16,7 +16,7 @@ vtkStandardNewMacro(ttkScalarFieldCriticalPoints2);
 
 ttkScalarFieldCriticalPoints2::ttkScalarFieldCriticalPoints2() {
   this->SetNumberOfInputPorts(1);
-  this->SetNumberOfOutputPorts(1);
+  this->SetNumberOfOutputPorts(4);
 }
 
 int ttkScalarFieldCriticalPoints2::FillInputPortInformation(int port, vtkInformation *info) {
@@ -28,11 +28,83 @@ int ttkScalarFieldCriticalPoints2::FillInputPortInformation(int port, vtkInforma
 }
 
 int ttkScalarFieldCriticalPoints2::FillOutputPortInformation(int port, vtkInformation *info) {
-  if(port == 0) {
+  if(port>=0 && port<4) {
     info->Set(vtkDataObject::DATA_TYPE_NAME(), "vtkPolyData" );
     return 1;
   }
   return 0;
+}
+
+int ttkScalarFieldCriticalPoints2::computeOutput(vtkPolyData* output, ttk::Triangulation* triangulation, vtkDataSet* inputDataSet, const std::vector<std::vector<CriticalPoint>>& cp){
+
+  const size_t nVectors = cp.size();
+  size_t nCriticalPoints = 0;
+  for(size_t i=0; i<nVectors; i++)
+    nCriticalPoints += cp[i].size();
+
+  auto ttkVertexScalarFieldArray = vtkSmartPointer<ttkSimplexIdTypeArray>::New();
+  ttkVertexScalarFieldArray->SetName("ttkVertexScalarField");
+  ttkVertexScalarFieldArray->SetNumberOfTuples(nCriticalPoints);
+
+  // points and cells
+  {
+    auto points = vtkSmartPointer<vtkPoints>::New();
+    points->SetDataTypeToFloat();
+    points->SetNumberOfPoints(nCriticalPoints);
+
+    auto connectivityArray = vtkSmartPointer<vtkIdTypeArray>::New();
+    connectivityArray->SetNumberOfTuples(nCriticalPoints);
+
+    auto offsetArray = vtkSmartPointer<vtkIdTypeArray>::New();
+    offsetArray->SetNumberOfTuples(nCriticalPoints + 1);
+
+
+    int status = 0;
+    ttkTypeMacroT(
+      triangulation->getType(),
+      (
+        status = this->computeCellAndPointArray<vtkIdType, T0>(
+          ttkUtils::GetPointer<float>(points->GetData()),
+          ttkUtils::GetPointer<ttk::SimplexId>(ttkVertexScalarFieldArray),
+          ttkUtils::GetPointer<vtkIdType>(offsetArray),
+          ttkUtils::GetPointer<vtkIdType>(connectivityArray),
+          cp,
+          static_cast<const T0 *>(triangulation->getData())
+        )
+      )
+    );
+
+    if(status != 1)
+      return 0;
+
+    output->SetPoints(points);
+    auto cellArray = vtkSmartPointer<vtkCellArray>::New();
+    cellArray->SetData(offsetArray, connectivityArray);
+    output->SetVerts(cellArray);
+  }
+
+  // Point and Field Data
+  {
+    auto pd = output->GetPointData();
+    pd->AddArray(ttkVertexScalarFieldArray);
+
+    const ttk::SimplexId* ids = ttkUtils::GetPointer<ttk::SimplexId>(ttkVertexScalarFieldArray);
+    size_t nPdArrays = inputDataSet->GetPointData()->GetNumberOfArrays();
+    for(size_t a = 0; a < nPdArrays; a++) {
+      auto array = inputDataSet->GetPointData()->GetArray(a);
+      auto oArray = vtkSmartPointer<vtkDataArray>::Take(array->NewInstance());
+      oArray->SetName(array->GetName());
+      oArray->SetNumberOfValues(nCriticalPoints);
+      for(size_t p = 0; p < nCriticalPoints; p++) {
+        oArray->SetTuple(p, ids[p], array);
+      }
+      pd->AddArray(oArray);
+    }
+    // Copy Field Data
+    output->GetFieldData()->ShallowCopy(inputDataSet->GetFieldData());
+  }
+
+  return 1;
 }
 
 int ttkScalarFieldCriticalPoints2::RequestData(vtkInformation *ttkNotUsed(request),
@@ -64,13 +136,15 @@ int ttkScalarFieldCriticalPoints2::RequestData(vtkInformation *ttkNotUsed(reques
 
   this->preconditionTriangulation(triangulation);
 
-  std::vector<ttk::ScalarFieldCriticalPoints2::CriticalPoint> criticalPoints;
+  // type -> thread -> cp
+  std::vector<std::vector<std::vector<CriticalPoint>>> cp(4);
+
   int status = 0;
   ttkTypeMacroT(
     triangulation->getType(),
     (
       status = this->computeCritialPoints<T0>(
-        criticalPoints,
+        cp,
         ttkUtils::GetPointer<ttk::SimplexId>(inputOrder),
         ttkUtils::GetPointer<ttk::SimplexId>(desManifold),
         ttkUtils::GetPointer<ttk::SimplexId>(ascManifold),
@@ -82,65 +156,26 @@ int ttkScalarFieldCriticalPoints2::RequestData(vtkInformation *ttkNotUsed(reques
   if(status != 1)
     return 0;
 
-  // Components Output
   {
-    const size_t nCriticalPoints = criticalPoints.size();
-    auto output = vtkPolyData::GetData(outputVector, 0);
+    ttk::Timer timer;
 
-    auto typeArray = vtkSmartPointer<vtkUnsignedCharArray>::New();
-    typeArray->SetName("Type");
-    typeArray->SetNumberOfTuples(nCriticalPoints);
+    const std::string msg{"Generating VTK Output"};
+    this->printMsg(msg, 0, 0, this->threadNumber_, ttk::debug::LineMode::REPLACE);
 
-    auto points = vtkSmartPointer<vtkPoints>::New();
-    points->SetDataTypeToFloat();
-    points->SetNumberOfPoints(nCriticalPoints);
+    std::vector<vtkPolyData*> outputs{
+      vtkPolyData::GetData(outputVector, 0),
+      vtkPolyData::GetData(outputVector, 1),
+      vtkPolyData::GetData(outputVector, 2),
+      vtkPolyData::GetData(outputVector, 3)
+    };
 
-    auto connectivityArray = vtkSmartPointer<vtkIdTypeArray>::New();
-    connectivityArray->SetNumberOfTuples(nCriticalPoints);
-
-    auto offsetArray = vtkSmartPointer<vtkIdTypeArray>::New();
-    offsetArray->SetNumberOfTuples(nCriticalPoints + 1);
-
-    ttkTypeMacroT(
-      triangulation->getType(),
-      (
-        status = this->computeCellAndPointArray<vtkIdType, T0>(
-          criticalPoints,
-          ttkUtils::GetPointer<float>(points->GetData()),
-          ttkUtils::GetPointer<unsigned char>(typeArray),
-          ttkUtils::GetPointer<vtkIdType>(offsetArray),
-          ttkUtils::GetPointer<vtkIdType>(connectivityArray),
-          static_cast<const T0 *>(triangulation->getData())
-        )
-      )
-    );
-
-    if(status != 1)
-      return 0;
-
-    output->SetPoints(points);
-    auto pd = output->GetPointData();
-    // pd->AddArray(sizeArray);
-    pd->AddArray(typeArray);
-    {
-      size_t nPdArrays = inputDataSet->GetPointData()->GetNumberOfArrays();
-      for(size_t a = 0; a < nPdArrays; a++) {
-        auto array = inputDataSet->GetPointData()->GetArray(a);
-        auto oArray = vtkSmartPointer<vtkDataArray>::Take(array->NewInstance());
-        oArray->SetName(array->GetName());
-        oArray->SetNumberOfValues(nCriticalPoints);
-        // TODO: handle non 1-component arrays
-        for(size_t p = 0; p < nCriticalPoints; p++) {
-          auto cp = criticalPoints[p];
-          oArray->SetTuple(p, cp.idx, array);
-        }
-        output->GetPointData()->AddArray(oArray);
-      }
+    #pragma omp parallel for schedule(static,1) num_threads(this->threadNumber_)
+    for(int i=0; i<4; i++){
+      computeOutput(outputs[i], triangulation, inputDataSet, cp[i]);
     }
-    // Copy Field Data
-    output->GetFieldData()->ShallowCopy(inputDataSet->GetFieldData());
+
+    this->printMsg(msg, 1, timer.getElapsedTime(), this->threadNumber_);
   }
 
-  // return success
   return 1;
 }

@@ -25,6 +25,11 @@
         <Documentation>The scalar array that will be used to compute critical points.</Documentation>
       </StringVectorProperty>
 
+      <OutputPort index="0" id="port0" name="Minima" />
+      <OutputPort index="1" id="port1" name="Join-Saddles" />
+      <OutputPort index="2" id="port2" name="Split-Saddles" />
+      <OutputPort index="3" id="port3" name="Maxima" />
+
       <!-- DEBUG -->
       ${DEBUG_WIDGETS}
 

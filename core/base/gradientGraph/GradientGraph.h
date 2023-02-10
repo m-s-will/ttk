@@ -19,6 +19,7 @@
 #include <Debug.h>
 #include <Triangulation.h>
 #include <limits.h>
+#include <set>
 
 namespace ttk {
   struct PairCmp {
