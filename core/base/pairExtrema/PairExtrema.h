@@ -64,6 +64,7 @@ namespace ttk {
 
         ttk::Timer buildTimer;
 
+        // make localtoglobal smaller by deleting used maxima?
         std::vector<ttk::SimplexId> largestSaddlesForMax(
           maximaLocalToGlobal.size(), triplets.size());
         std::vector<omp_lock_t> maximaLocks(maximaLocalToGlobal.size());
@@ -82,6 +83,9 @@ namespace ttk {
             omp_unset_lock(&maximaLocks[max]);
           }
         }
+
+        // locks werden teuer wenn es nur noch wenige Maxima gibt
+        // eher alle eigenes largestSaddlesForMax und dann reduction?
 
         this->printMsg("Finished building largestSaddlesForMax", 0.2,
                        buildTimer.getElapsedTime());
@@ -155,6 +159,7 @@ namespace ttk {
             }
             if(newSet.size() == 1) {
               triplets[i].clear();
+              // maybe delete completely? and shift localtoglobal
             } else {
               triplets[i] = newSet;
             }
@@ -294,8 +299,8 @@ namespace ttk {
         ttk::SimplexId globalMin = -2;
         const int dimension = triangulation->getDimensionality();
         ttk::Timer preTimer;
-        ttk::SimplexId maxTime = 0;
-        auto t0 = timeNow();
+        // ttk::SimplexId maxTime = 0;
+        // auto t0 = timeNow();
 #pragma omp parallel num_threads(this->threadNumber_)
         {
           std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> saddles_priv;
@@ -332,16 +337,14 @@ namespace ttk {
           }
 #pragma omp critical(maxima)
           {
-            t0 = timeNow();
-            saddles.reserve(saddles.size() + saddles_priv.size());
+            // t0 = timeNow();
             saddles.insert(
               saddles.end(), saddles_priv.begin(), saddles_priv.end());
-            maxima.reserve(maxima.size() + maxima_priv.size());
             maxima.insert(maxima.end(), maxima_priv.begin(), maxima_priv.end());
-            maxTime += duration(timeNow() - t0);
+            // maxTime += duration(timeNow() - t0);
           }
         }
-        this->printMsg(std::to_string(maxTime / 1000));
+        // this->printMsg(std::to_string(maxTime / 1000));
         persistencePairs.resize(maxima.size());
         std::vector<std::set<ttk::SimplexId>> triplets(saddles.size());
         std::vector<ttk::SimplexId> maximaLocalToGlobal(maxima.size());
