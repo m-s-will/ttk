@@ -12,9 +12,9 @@ namespace ttk {
   public:
     struct CriticalPoint {
       SimplexId idx;
-      unsigned char type;
+      unsigned char reachableExtremaCount;
       CriticalPoint(){}
-      CriticalPoint(SimplexId idx_, unsigned char type_): idx(idx_),type(type_){}
+      CriticalPoint(SimplexId idx_, unsigned char reachableExtremaCount_): idx(idx_),reachableExtremaCount(reachableExtremaCount_){}
     };
 
     ScalarFieldCriticalPoints2(){
@@ -106,7 +106,7 @@ namespace ttk {
 
     template <typename TT = ttk::AbstractTriangulation>
     int computeCritialPoints(
-      std::vector<CriticalPoint>& criticalPoints,
+      std::vector<std::vector<std::vector<CriticalPoint>>>& cp,
       const SimplexId* order,
       const SimplexId* ascManifold,
       const SimplexId* desManifold,
@@ -119,11 +119,25 @@ namespace ttk {
 
       const SimplexId nVertices = triangulation->getNumberOfVertices();
 
-      std::vector<std::vector<CriticalPoint>> criticalPointsPerThread(this->threadNumber_);
+      std::vector<std::vector<std::vector<CriticalPoint>>> cp_(4);
+      for(int i=0; i<4; i++)
+        cp_.resize(this->threadNumber_);
+
       #pragma omp parallel num_threads(this->threadNumber_)
       {
-        int threadId = omp_get_thread_num();
-        auto& criticalPointsOfThread = criticalPointsPerThread[threadId];
+        const int threadId = omp_get_thread_num();
+        const int nThreads = omp_get_num_threads();
+
+        #pragma omp single
+        {
+          for(int i=0; i<4; i++)
+            cp[i].resize(nThreads);
+        }
+
+        auto& cp0 = cp[0][threadId];
+        auto& cp1 = cp[1][threadId];
+        auto& cp2 = cp[2][threadId];
+        auto& cp3 = cp[3][threadId];
 
         #pragma omp for
         for(SimplexId v=0; v<nVertices; v++){
@@ -143,14 +157,16 @@ namespace ttk {
             }
           }
 
-          unsigned char type = 1;
+          // unsigned char type = 1;
           // check if min
           if(lowerLinkVertices.size()<1)
-            type *= 2;
+            cp0.emplace_back(v,0);
+            // type *= 2;
 
           // check if max
           if(upperLinkVertices.size()<1)
-            type *= 3;
+            cp3.emplace_back(v,0);
+            // type *= 3;
 
           // check if lower and upper link lead to more than one extremum
           const int numberOfReachableMinima = this->computeNumberOfReachableExtrema(
@@ -158,78 +174,55 @@ namespace ttk {
             ascManifold
           );
           if(numberOfReachableMinima>1 && this->computeNumberOfLinkComponents(lowerLinkVertices,triangulation)>1)
-            type *= 5;
+            cp1.emplace_back(v,numberOfReachableMinima);
+            // type *= 5;
 
           const int numberOfReachableMaxima = this->computeNumberOfReachableExtrema(
             upperLinkVertices,
             desManifold
           );
           if(numberOfReachableMaxima>1 && this->computeNumberOfLinkComponents(upperLinkVertices,triangulation)>1)
-            type *= 7;
+            cp2.emplace_back(v,numberOfReachableMaxima);
+            // type *= 7;
 
-          if(type>1)
-            criticalPointsOfThread.emplace_back(v,type);
-        }
-
-        #pragma omp barrier
-
-        #pragma omp single
-        {
-          SimplexId nCriticalPoints = 0;
-          for(int t=0; t<this->threadNumber_; t++)
-            nCriticalPoints += criticalPointsPerThread[t].size();
-          criticalPoints.resize(nCriticalPoints);
-
-          this->printMsg(msg, 0.8, timer.getElapsedTime(), this->threadNumber_, ttk::debug::LineMode::REPLACE);
-        }
-
-        // compute offset
-        SimplexId offset = 0;
-        for(int t=0; t<threadId; t++){
-          offset += criticalPointsPerThread[t].size();
-        }
-
-        // write to output
-        SimplexId nCriticalPointsOfThread = criticalPointsOfThread.size();
-        for(int c=0; c<nCriticalPointsOfThread; c++){
-          criticalPoints[offset++] = criticalPointsOfThread[c];
+          // if(type>1)
+          //   criticalPointsOfThread.emplace_back(v,type);
         }
       }
 
       this->printMsg(msg, 1, timer.getElapsedTime(), this->threadNumber_);
 
-      return 1; // return success
+      return 1;
     }
 
     template <typename CT, typename TT = ttk::AbstractTriangulation>
     int computeCellAndPointArray(
-      std::vector<CriticalPoint>& criticalPoints,
       float* coords,
-      unsigned char* type,
+      SimplexId* ids,
       CT* offsets,
       CT* connectivity,
+      const std::vector<std::vector<CriticalPoint>>& criticalPoints,
       const TT* triangulation
     ) const {
-      ttk::Timer timer;
+      const size_t nThreads = criticalPoints.size();
 
-      const size_t nCriticalPoints = criticalPoints.size();
+      size_t offset3 = 0;
+      size_t offset = 0;
+      for(size_t i=0; i<nThreads; i++){
+        const auto& cp_ = criticalPoints[i];
+        const size_t n = cp_.size();
+        for(size_t j=0; j<n; j++){
+          const auto& cp__ = cp_[j];
+          triangulation->getVertexPoint(cp__.idx, *(coords+offset3), *(coords+offset3+1), *(coords+offset3+2));
+          offset3 += 3;
 
-      const std::string msg{"Computing Output ("+std::to_string(nCriticalPoints)+")"};
-      this->printMsg(msg, 0, 0, this->threadNumber_, ttk::debug::LineMode::REPLACE);
-
-
-      #pragma omp parallel for num_threads(this->threadNumber_)
-      for(size_t i = 0; i < nCriticalPoints; i++) {
-        const auto &cp = criticalPoints[i];
-        const size_t offset = i*3;
-        triangulation->getVertexPoint(cp.idx, *(coords+offset), *(coords+offset+1), *(coords+offset+2));
-        type[i] = cp.type;
-        offsets[i] = i;
-        connectivity[i] = i;
+          ids[offset] = cp__.idx;
+          offsets[offset] = offset;
+          connectivity[offset] = offset;
+          offset++;
+        }
       }
-      offsets[nCriticalPoints] = nCriticalPoints;
-
-      this->printMsg(msg, 1, timer.getElapsedTime(), this->threadNumber_);
+      offsets[offset] = offset;
 
       return 1;
     }
