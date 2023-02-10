@@ -230,5 +230,23 @@ namespace ttk {
       return 1;
     }
 
+    int computeIdArray(
+      SimplexId* ids,
+      const std::vector<std::vector<CriticalPoint>>& criticalPoints
+    ) const {
+      const size_t nThreads = criticalPoints.size();
+
+      size_t offset = 0;
+      for(size_t t=0; t<nThreads; t++){
+        const auto& cp_ = criticalPoints[t];
+        const size_t n = cp_.size();
+        for(size_t j=0; j<n; j++){
+          ids[offset++] = cp_[j].idx;
+        }
+      }
+
+      return 1;
+    }
+
   }; // ScalarFieldCriticalPoints2 class
 } // namespace ttk
