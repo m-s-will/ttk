@@ -8,21 +8,10 @@
 
 #include <ScalarFieldCriticalPoints2.h>
 
-class vtkPolyData;
-class vtkDataSet;
-
 class TTKSCALARFIELDCRITICALPOINTS2_EXPORT ttkScalarFieldCriticalPoints2
-  : public ttkAlgorithm // we inherit from the generic ttkAlgorithm class
-  ,
-    protected ttk::ScalarFieldCriticalPoints2 // and we inherit from the base class
-{
-private:
-  bool ComputeExtremumGraphs{false};
+  : public ttkAlgorithm, protected ttk::ScalarFieldCriticalPoints2 {
 
 public:
-  vtkSetMacro(ComputeExtremumGraphs, const bool &);
-  vtkGetMacro(ComputeExtremumGraphs, bool);
-
   static ttkScalarFieldCriticalPoints2 *New();
   vtkTypeMacro(ttkScalarFieldCriticalPoints2, ttkAlgorithm);
 
