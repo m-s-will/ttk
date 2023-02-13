@@ -66,7 +66,7 @@ int ttkScalarFieldCriticalPoints2::RequestData(vtkInformation *ttkNotUsed(reques
   this->preconditionTriangulation(triangulation);
 
   // type -> thread -> cp
-  std::vector<std::vector<std::vector<ttk::SimplexId>>> criticalPoints(4);
+  std::array<std::vector<std::vector<ttk::SimplexId>>,4> criticalPoints;
 
   int status = 0;
   ttkTypeMacroT(

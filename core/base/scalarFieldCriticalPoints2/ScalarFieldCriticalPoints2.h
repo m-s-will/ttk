@@ -20,7 +20,7 @@ namespace ttk {
     }
 
     int computeNumberOfReachableExtrema(
-      const std::vector<SimplexId>& linkVertices,
+      const std::array<SimplexId,32>& linkVertices,
       const int nLinkVertices,
       const SimplexId* manifold
     ) const {
@@ -46,7 +46,7 @@ namespace ttk {
 
     template <typename TT = ttk::AbstractTriangulation>
     int computeNumberOfLinkComponents(
-      std::vector<SimplexId>& linkVertices,
+      std::array<SimplexId,32>& linkVertices,
       const int nLinkVertices,
       const TT* triangulation
     ) const {
@@ -102,7 +102,7 @@ namespace ttk {
 
     template <typename TT = ttk::AbstractTriangulation>
     int computeCritialPoints(
-      std::vector<std::vector<std::vector<SimplexId>>>& cp,
+      std::array<std::vector<std::vector<SimplexId>>,4>& cp,
       const SimplexId* order,
       const SimplexId* ascManifold,
       const SimplexId* desManifold,
@@ -131,8 +131,8 @@ namespace ttk {
         auto& cp2 = cp[2][threadId];
         auto& cp3 = cp[3][threadId];
 
-        std::vector<SimplexId> lowerLinkVertices(32); // room for max 32 vertices
-        std::vector<SimplexId> upperLinkVertices(32); // room for max 32 vertices
+        std::array<SimplexId,32> lowerLinkVertices; // room for max 32 vertices
+        std::array<SimplexId,32> upperLinkVertices; // room for max 32 vertices
         int nLowerLinkVertices=0;
         int nUpperLinkVertices=0;
 
