@@ -36,10 +36,10 @@
 <StringVectorProperty name="InputArray" label="Input Array" command="SetInputArrayToProcess" element_types="0 0 0 0 2" number_of_elements="5">
         <ArrayListDomain attribute_type="Scalars" name="array_list">
           <RequiredProperties>
-            <Property function="Input" name="Critical Points" />
+            <Property function="Input" name="Segmentation" />
           </RequiredProperties>
         </ArrayListDomain>
-        <Documentation>The scalar array on the critical points datasetthat will be used.</Documentation>
+        <Documentation>The scalar array on the dataset that will be used.</Documentation>
       </StringVectorProperty>
 
       <!-- This is the VTK way of selecting arrays for processing by calling the SetInputArrayToProcess method -->
@@ -49,7 +49,6 @@
       <!-- OUTPUT PARAMETER WIDGETS -->
 
       <OutputPort name="Skeleton Arcs" index="0" id="port0" />
-      <OutputPort name="Segmentation" index="1" id="port1" />
 
       <!-- DEBUG -->
       ${DEBUG_WIDGETS}

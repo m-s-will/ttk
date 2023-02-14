@@ -54,6 +54,8 @@ namespace ttk {
       // saddleMaxPairs{};
       std::vector<ttk::SimplexId> maximumPointer(maximaLocalToGlobal.size());
       std::iota(std::begin(maximumPointer), std::end(maximumPointer), 0);
+      std::vector<std::tuple<ttk::SimplexId, ttk::SimplexId, ttk::SimplexId>>
+        mergeTree(maximaLocalToGlobal.size());
       ttk::SimplexId nrOfPairs = 0;
       while(changed) {
         ttk::Timer stepTimer;
@@ -114,6 +116,8 @@ namespace ttk {
                 triplets.at(largestSaddle)
                   .rbegin()); // largest maximum reachable from paired saddle
               maximumPointer[maximum] = largestMax;
+              mergeTree[maximum]
+                = (std::make_tuple(largestSaddle, maximum, largestMax));
             }
           }
         }
@@ -267,13 +271,18 @@ namespace ttk {
     template <class triangulationType = ttk::AbstractTriangulation>
     int computePairs(
       std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &persistencePairs,
-      const char *inputCriticalPoints,
+      const ttk::SimplexId *minimaIds,
+      const ttk::SimplexId *saddle1Ids,
+      const ttk::SimplexId *saddle2Ids,
+      const ttk::SimplexId *maximaIds,
       const ttk::SimplexId *ascendingManifold,
       ttk::SimplexId *tempArray,
       const ttk::SimplexId *order,
       const triangulationType *triangulation,
-      const ttk::SimplexId *criticalGlobalIds,
-      ttk::SimplexId &nCriticalPoints) {
+      ttk::SimplexId &nMinima,
+      ttk::SimplexId &nSaddle1,
+      ttk::SimplexId &nSaddle2,
+      ttk::SimplexId &nMaxima) {
 
       // start global timer
       ttk::Timer globalTimer;
@@ -300,57 +309,28 @@ namespace ttk {
                        this->threadNumber_);
 
         std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> saddles;
-        saddles.reserve(nCriticalPoints);
+        saddles.resize(nSaddle2);
         std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> maxima;
-        maxima.reserve(nCriticalPoints);
+        maxima.resize(nMaxima);
         ttk::SimplexId globalMin = -2;
         const int dimension = triangulation->getDimensionality();
         ttk::Timer preTimer;
         // ttk::SimplexId maxTime = 0;
         // auto t0 = timeNow();
-#pragma omp parallel num_threads(this->threadNumber_)
-        {
-          std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> saddles_priv;
-          std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> maxima_priv;
-          ttk::SimplexId gId = -1;
-          ttk::SimplexId thisOrder = -1;
-#pragma omp for schedule(guided) nowait
-          for(ttk::SimplexId i = 0; i < nCriticalPoints; i++) {
-            gId = criticalGlobalIds[i];
-            // extract the global minimum and maximum id
-            thisOrder = order[gId];
-            if(thisOrder
-               == 0) { // global minimum, can only happen once in one thread
-              globalMin = gId;
-            } else if(inputCriticalPoints[i] == 3) { // maxima
-              maxima_priv.push_back(std::make_pair(gId, thisOrder));
-            } else if(inputCriticalPoints[i] == (dimension - 1)
-                      || inputCriticalPoints[i] == 4) { // saddles
-              ttk::SimplexId neighborId;
-              int nNeighbors = triangulation->getVertexNeighborNumber(gId);
-              std::set<ttk::SimplexId> reachableMaxima;
-              for(int j = 0; j < nNeighbors; j++) {
-                triangulation->getVertexNeighbor(gId, j, neighborId);
-                // only check the upper link
-                if(order[neighborId] > thisOrder) {
-                  reachableMaxima.insert(ascendingManifold[neighborId]);
-                }
-              }
-              // we only care about vertices with an upperlink of at least 2
-              if(reachableMaxima.size() > 1) {
-                saddles_priv.push_back(std::make_pair(gId, thisOrder));
-              }
-            }
-          }
-#pragma omp critical(maxima)
-          {
-            // t0 = timeNow();
-            saddles.insert(
-              saddles.end(), saddles_priv.begin(), saddles_priv.end());
-            maxima.insert(maxima.end(), maxima_priv.begin(), maxima_priv.end());
-            // maxTime += duration(timeNow() - t0);
-          }
+#pragma omp parallel for num_threads(this->threadNumber_)
+        for(ttk::SimplexId i = 0; i < nMaxima; i++) {
+          auto gId = maximaIds[i];
+          auto thisOrder = order[gId];
+          maxima[i] = (std::make_pair(gId, thisOrder));
         }
+
+#pragma omp parallel for num_threads(this->threadNumber_)
+        for(ttk::SimplexId i = 0; i < nSaddle2; i++) {
+          auto gId = saddle2Ids[i];
+          auto thisOrder = order[gId];
+          saddles[i] = std::make_pair(gId, thisOrder);
+        }
+
         // this->printMsg(std::to_string(maxTime / 1000));
         persistencePairs.resize(maxima.size());
         std::vector<std::set<ttk::SimplexId>> triplets(saddles.size());
@@ -374,7 +354,7 @@ namespace ttk {
         // maximaLocalToGlobal vector and needs to connect with the global
         // minimum
         persistencePairs[persistencePairs.size() - 1]
-          = std::make_pair(globalMin, maxima[maxima.size() - 1].first);
+          = std::make_pair(minimaIds[0], maxima[maxima.size() - 1].first);
         // print the progress of the current subprocedure with elapsed time
         this->printMsg("Computing extremum pairs",
                        1, // progress

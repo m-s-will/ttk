@@ -29,7 +29,7 @@ vtkStandardNewMacro(ttkPairExtrema);
  */
 ttkPairExtrema::ttkPairExtrema() {
   this->SetNumberOfInputPorts(2);
-  this->SetNumberOfOutputPorts(2);
+  this->SetNumberOfOutputPorts(1);
 }
 
 /**
@@ -69,9 +69,6 @@ int ttkPairExtrema::FillInputPortInformation(int port, vtkInformation *info) {
 int ttkPairExtrema::FillOutputPortInformation(int port, vtkInformation *info) {
   if(port == 0 || port == 1) {
     info->Set(vtkDataObject::DATA_TYPE_NAME(), "vtkUnstructuredGrid");
-    return 1;
-  } else if(port == 2) {
-    info->Set(ttkAlgorithm::SAME_DATA_TYPE_AS_INPUT_PORT(), 0);
     return 1;
   }
   return 0;
@@ -158,15 +155,29 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
   if(!inputDataSet || !inputCriticalPoints)
     return 0;
 
+  // auto manifoldPointData = inputDataSet->GetPointData();
+  // auto ascendingManifold = manifoldPointData->GetArray("AscendingManifold");
+  // auto tempArray = manifoldPointData->GetArray("DescendingManifold");
+  // auto criticalPointData = inputCriticalPoints->GetPointData();
+  // auto criticalGlobalIds = criticalPointData->GetArray("GlobalPointIds");
+  // auto criticalType = criticalPointData->GetArray("CriticalType");
+
+  auto order = ttkAlgorithm::GetOrderArray(inputDataSet, 0);
   auto manifoldPointData = inputDataSet->GetPointData();
   auto ascendingManifold = manifoldPointData->GetArray("AscendingManifold");
   auto tempArray = manifoldPointData->GetArray("DescendingManifold");
-  auto criticalPointData = inputCriticalPoints->GetPointData();
-  auto criticalGlobalIds = criticalPointData->GetArray("GlobalPointIds");
-  auto criticalType = criticalPointData->GetArray("CriticalType");
-  auto order = ttkAlgorithm::GetOrderArray(inputDataSet, 0);
-  if(!ascendingManifold | !criticalType | !order | !tempArray
-     | !criticalGlobalIds) {
+  auto criticalFieldData = inputCriticalPoints->GetFieldData();
+  auto minimaIds = criticalFieldData->GetArray("cp0id");
+  auto saddle1Ids = criticalFieldData->GetArray("cp1id");
+  auto saddle2Ids = criticalFieldData->GetArray("cp2id");
+  auto maximaIds = criticalFieldData->GetArray("cp3id");
+  ttk::SimplexId nMinima = minimaIds->GetNumberOfTuples();
+  ttk::SimplexId nSaddle1 = saddle1Ids->GetNumberOfTuples();
+  ttk::SimplexId nSaddle2 = saddle2Ids->GetNumberOfTuples();
+  ttk::SimplexId nMaxima = maximaIds->GetNumberOfTuples();
+
+  if(!ascendingManifold | !order | !tempArray | !minimaIds | !saddle1Ids
+     | !saddle2Ids | !maximaIds) {
     this->printErr("Unable to retrieve input arrays.");
     return 0;
   }
@@ -174,9 +185,8 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
   // To make sure that the selected array can be processed by this filter,
   // one should also check that the array association and format is correct.
 
-  if((ascendingManifold->GetNumberOfComponents() != 1) |
-     (criticalType->GetNumberOfComponents() != 1) |
-     (order->GetNumberOfComponents() != 1) ) {
+  if((ascendingManifold->GetNumberOfComponents() != 1)
+     | (order->GetNumberOfComponents() != 1)) {
     this->printErr("Input arrays needs to be a scalar arrays.");
     return 0;
   }
@@ -184,7 +194,7 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
   // If all checks pass then log which array is going to be processed.
   this->printMsg("Starting computation...");
 
-  ttk::SimplexId nCriticalPoints = criticalType->GetNumberOfTuples();
+  // ttk::SimplexId nCriticalPoints = criticalType->GetNumberOfTuples();
   std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> persistencePairs{};
 
   // Get ttk::triangulation of the input vtkDataSet (will create one if one does
@@ -200,15 +210,17 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
   // Templatize over the different input array data types and call the base code
   int status = 0; // this integer checks if the base code returns an error
   // construct the tree
-  ttkTypeMacroT(triangulation->getType(),
-                (status = this->computePairs<T0>(
-                   persistencePairs, ttkUtils::GetPointer<char>(criticalType),
-                   ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
-                   ttkUtils::GetPointer<ttk::SimplexId>(tempArray),
-                   ttkUtils::GetPointer<ttk::SimplexId>(order),
-                   (T0 *)triangulation->getData(),
-                   ttkUtils::GetPointer<ttk::SimplexId>(criticalGlobalIds),
-                   nCriticalPoints)));
+  ttkTypeMacroT(
+    triangulation->getType(),
+    (status = this->computePairs<T0>(
+       persistencePairs, ttkUtils::GetPointer<ttk::SimplexId>(minimaIds),
+       ttkUtils::GetPointer<ttk::SimplexId>(saddle1Ids),
+       ttkUtils::GetPointer<ttk::SimplexId>(saddle2Ids),
+       ttkUtils::GetPointer<ttk::SimplexId>(maximaIds),
+       ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
+       ttkUtils::GetPointer<ttk::SimplexId>(tempArray),
+       ttkUtils::GetPointer<ttk::SimplexId>(order),
+       (T0 *)triangulation->getData(), nMinima, nSaddle1, nSaddle2, nMaxima)));
 
   // On error cancel filter execution
   if(status != 1)
@@ -216,16 +228,12 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
 
   //  Construct output, see ttkFTMTree.cpp
   auto outputSkeletonArcs = vtkUnstructuredGrid::GetData(outputVector, 0);
-  auto outputSegmentation = vtkDataSet::GetData(outputVector, 1);
 
   ttkTypeMacroT(
     triangulation->getType(),
     status = getSkeletonArcs<T0>(outputSkeletonArcs, persistencePairs,
                                  ttkUtils::GetPointer<ttk::SimplexId>(order),
                                  (T0 *)triangulation->getData()));
-
-  outputSegmentation->ShallowCopy(inputDataSet);
-
 
   // return success
   return 1;
