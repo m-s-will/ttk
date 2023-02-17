@@ -29,7 +29,7 @@ vtkStandardNewMacro(ttkPairExtrema);
  */
 ttkPairExtrema::ttkPairExtrema() {
   this->SetNumberOfInputPorts(2);
-  this->SetNumberOfOutputPorts(1);
+  this->SetNumberOfOutputPorts(2);
 }
 
 /**
@@ -131,6 +131,63 @@ int ttkPairExtrema::getSkeletonArcs(
   return 1;
 }
 
+template <class triangulationType>
+int ttkPairExtrema::getMergeTree(
+  vtkUnstructuredGrid *outputSkeletonArcs,
+  std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &mergeTree,
+  const ttk::SimplexId *order,
+  const triangulationType *triangulation) {
+  vtkNew<vtkUnstructuredGrid> skeletonArcs{};
+  ttk::SimplexId pointIds[2];
+  ttk::SimplexId pointOrders[2];
+  vtkNew<vtkPoints> points{};
+  vtkNew<vtkLongLongArray> data{};
+  data->SetNumberOfComponents(1);
+  data->SetName("Order");
+  vtkNew<vtkLongLongArray> gIdArray{};
+  gIdArray->SetNumberOfComponents(1);
+  gIdArray->SetName("GlobalPointIds");
+  float point[3];
+  std::map<ttk::SimplexId, ttk::SimplexId> addedPoints;
+  ttk::SimplexId currentId = 0;
+  for(auto const &p : mergeTree) {
+    pointIds[0] = p.first;
+    pointIds[1] = p.second;
+    pointOrders[0] = order[p.first];
+    pointOrders[1] = order[p.second];
+    // add each point only once to the vtkPoints
+    // addedPoints.insert(x).second inserts x and is true if x was not in
+    // addedPoints beforehand
+    if(addedPoints.insert({pointIds[0], currentId}).second) {
+      // this->printMsg("point " + std::to_string(pointIds[0]));
+      triangulation->getVertexPoint(pointIds[0], point[0], point[1], point[2]);
+      points->InsertNextPoint(point);
+      data->InsertNextTuple1(pointOrders[0]);
+      gIdArray->InsertNextTuple1(pointIds[0]);
+      currentId++;
+    }
+    if(addedPoints.insert({pointIds[1], currentId}).second) {
+      // this->printMsg("point " + std::to_string(pointIds[1]));
+      triangulation->getVertexPoint(pointIds[1], point[0], point[1], point[2]);
+      points->InsertNextPoint(point);
+      data->InsertNextTuple1(pointOrders[1]);
+      gIdArray->InsertNextTuple1(pointIds[1]);
+      currentId++;
+    }
+    // this->printMsg("Join Tree Arc: " + std::to_string(pointIds[0]) + " "
+    //                + std::to_string(pointIds[1]));
+    pointIds[0] = addedPoints.at(pointIds[0]);
+    pointIds[1] = addedPoints.at(pointIds[1]);
+    skeletonArcs->InsertNextCell(VTK_LINE, 2, pointIds);
+  }
+  skeletonArcs->SetPoints(points);
+  outputSkeletonArcs->ShallowCopy(skeletonArcs);
+  outputSkeletonArcs->GetPointData()->AddArray(data);
+  outputSkeletonArcs->GetPointData()->AddArray(gIdArray);
+
+  return 1;
+}
+
 /**
  * TODO 10: Pass VTK data to the base code and convert base code output to VTK
  *
@@ -168,16 +225,13 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
   auto tempArray = manifoldPointData->GetArray("DescendingManifold");
   auto criticalFieldData = inputCriticalPoints->GetFieldData();
   auto minimaIds = criticalFieldData->GetArray("cp0id");
-  auto saddle1Ids = criticalFieldData->GetArray("cp1id");
   auto saddle2Ids = criticalFieldData->GetArray("cp2id");
   auto maximaIds = criticalFieldData->GetArray("cp3id");
-  ttk::SimplexId nMinima = minimaIds->GetNumberOfTuples();
-  ttk::SimplexId nSaddle1 = saddle1Ids->GetNumberOfTuples();
   ttk::SimplexId nSaddle2 = saddle2Ids->GetNumberOfTuples();
   ttk::SimplexId nMaxima = maximaIds->GetNumberOfTuples();
 
-  if(!ascendingManifold | !order | !tempArray | !minimaIds | !saddle1Ids
-     | !saddle2Ids | !maximaIds) {
+  if(!ascendingManifold | !order | !tempArray | !minimaIds | !saddle2Ids
+     | !maximaIds) {
     this->printErr("Unable to retrieve input arrays.");
     return 0;
   }
@@ -196,6 +250,7 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
 
   // ttk::SimplexId nCriticalPoints = criticalType->GetNumberOfTuples();
   std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> persistencePairs{};
+  std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> mergeTree{};
 
   // Get ttk::triangulation of the input vtkDataSet (will create one if one does
   // not exist already).
@@ -210,17 +265,16 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
   // Templatize over the different input array data types and call the base code
   int status = 0; // this integer checks if the base code returns an error
   // construct the tree
-  ttkTypeMacroT(
-    triangulation->getType(),
-    (status = this->computePairs<T0>(
-       persistencePairs, ttkUtils::GetPointer<ttk::SimplexId>(minimaIds),
-       ttkUtils::GetPointer<ttk::SimplexId>(saddle1Ids),
-       ttkUtils::GetPointer<ttk::SimplexId>(saddle2Ids),
-       ttkUtils::GetPointer<ttk::SimplexId>(maximaIds),
-       ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
-       ttkUtils::GetPointer<ttk::SimplexId>(tempArray),
-       ttkUtils::GetPointer<ttk::SimplexId>(order),
-       (T0 *)triangulation->getData(), nMinima, nSaddle1, nSaddle2, nMaxima)));
+  ttkTypeMacroT(triangulation->getType(),
+                (status = this->computePairs<T0>(
+                   persistencePairs, mergeTree,
+                   ttkUtils::GetPointer<ttk::SimplexId>(minimaIds),
+                   ttkUtils::GetPointer<ttk::SimplexId>(saddle2Ids),
+                   ttkUtils::GetPointer<ttk::SimplexId>(maximaIds),
+                   ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
+                   ttkUtils::GetPointer<ttk::SimplexId>(tempArray),
+                   ttkUtils::GetPointer<ttk::SimplexId>(order),
+                   (T0 *)triangulation->getData(), nSaddle2, nMaxima)));
 
   // On error cancel filter execution
   if(status != 1)
@@ -228,12 +282,22 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
 
   //  Construct output, see ttkFTMTree.cpp
   auto outputSkeletonArcs = vtkUnstructuredGrid::GetData(outputVector, 0);
+  auto outputMergeTree = vtkUnstructuredGrid::GetData(outputVector, 1);
 
   ttkTypeMacroT(
     triangulation->getType(),
     status = getSkeletonArcs<T0>(outputSkeletonArcs, persistencePairs,
                                  ttkUtils::GetPointer<ttk::SimplexId>(order),
                                  (T0 *)triangulation->getData()));
+
+  /*for(auto &x: mergeTree){
+    this->printMsg("saddle: " + )
+  }*/
+  ttkTypeMacroT(
+    triangulation->getType(),
+    status = getMergeTree<T0>(outputMergeTree, mergeTree,
+                              ttkUtils::GetPointer<ttk::SimplexId>(order),
+                              (T0 *)triangulation->getData()));
 
   // return success
   return 1;

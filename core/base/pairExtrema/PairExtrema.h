@@ -45,6 +45,7 @@ namespace ttk {
 
     int constructPersistencePairs(
       std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &pairs,
+      std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &mergeTree,
       std::vector<std::set<ttk::SimplexId>> &triplets,
       const std::vector<ttk::SimplexId> &maximaLocalToGlobal,
       const std::vector<ttk::SimplexId> &saddlesLocalToGlobal) {
@@ -54,16 +55,15 @@ namespace ttk {
       // saddleMaxPairs{};
       std::vector<ttk::SimplexId> maximumPointer(maximaLocalToGlobal.size());
       std::iota(std::begin(maximumPointer), std::end(maximumPointer), 0);
-      std::vector<std::tuple<ttk::SimplexId, ttk::SimplexId, ttk::SimplexId>>
-        mergeTree(maximaLocalToGlobal.size());
       ttk::SimplexId nrOfPairs = 0;
       while(changed) {
         ttk::Timer stepTimer;
         changed = false;
-        this->printMsg(ttk::debug::Separator::L2);
+        this->printMsg(ttk::debug::Separator::L2, ttk::debug::Priority::DETAIL);
         this->printMsg("Running step " + std::to_string(step)
                          + ", Pairs: " + std::to_string(nrOfPairs),
-                       0, 0);
+                       0, 0, ttk::debug::LineMode::NEW,
+                       ttk::debug::Priority::DETAIL);
 
         ttk::Timer buildTimer;
 
@@ -97,11 +97,12 @@ namespace ttk {
         // eher alle eigenes largestSaddlesForMax und dann reduction?
 
         this->printMsg("Finished building largestSaddlesForMax", 0.2,
-                       buildTimer.getElapsedTime());
+                       buildTimer.getElapsedTime(), ttk::debug::LineMode::NEW,
+                       ttk::debug::Priority::DETAIL);
         ttk::Timer pairTimer;
 
 #pragma omp parallel for schedule(guided) num_threads(this->threadNumber_)
-        for(size_t i = 0; i < largestSaddlesForMax.size() - 1; i++) {
+        for(size_t i = 0; i < largestSaddlesForMax.size(); i++) {
           ttk::SimplexId maximum = i;
           auto largestSaddle = largestSaddlesForMax[maximum];
           if(largestSaddle < (ttk::SimplexId)triplets.size()) {
@@ -116,14 +117,14 @@ namespace ttk {
                 triplets.at(largestSaddle)
                   .rbegin()); // largest maximum reachable from paired saddle
               maximumPointer[maximum] = largestMax;
-              mergeTree[maximum]
-                = (std::make_tuple(largestSaddle, maximum, largestMax));
+              mergeTree[maximum] = (std::make_pair(largestSaddle, largestMax));
             }
           }
         }
 
         this->printMsg("Finished finding pairs and swapping pointers", 0.5,
-                       pairTimer.getElapsedTime());
+                       pairTimer.getElapsedTime(), ttk::debug::LineMode::NEW,
+                       ttk::debug::Priority::DETAIL);
 
         ttk::Timer compressTimer;
         // use pathcompression on the maximumPointer
@@ -156,7 +157,8 @@ namespace ttk {
         }
         this->printMsg("Did pathcompression on maximumpointer in "
                          + std::to_string(compressionStep) + " steps",
-                       0.8, compressTimer.getElapsedTime());
+                       0.8, compressTimer.getElapsedTime(),
+                       ttk::debug::LineMode::NEW, ttk::debug::Priority::DETAIL);
         ttk::Timer replaceTimer;
 // replace the values with their maximumPointers, delete the saddle if max and
 // min are the same
@@ -178,12 +180,89 @@ namespace ttk {
         }
 
         this->printMsg("Replaced values and deleted unnecessary saddles.", 1,
-                       replaceTimer.getElapsedTime());
+                       replaceTimer.getElapsedTime(), ttk::debug::LineMode::NEW,
+                       ttk::debug::Priority::DETAIL);
 
         this->printMsg("Finished step " + std::to_string(step), 1,
-                       stepTimer.getElapsedTime());
+                       stepTimer.getElapsedTime(), ttk::debug::LineMode::NEW,
+                       ttk::debug::Priority::DETAIL);
         step++;
       }
+      return 1;
+    }
+
+    int constructMergeTree(
+      // std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>>
+      // &persistencePairs,
+      std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>>
+        &mergeTree, // mergeTree[max] = (saddle, largestMax)
+      const std::vector<ttk::SimplexId> &maximaLocalToGlobal,
+      const std::vector<ttk::SimplexId> &saddlesLocalToGlobal,
+      const ttk::SimplexId &globalMin) {
+      std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> realMergeTree;
+      std::vector<std::vector<ttk::SimplexId>> maximaVectors(
+        maximaLocalToGlobal.size());
+
+      mergeTree[mergeTree.size() - 1].second = mergeTree.size() - 1;
+      // compress the branches
+      bool same = false;
+      ttk::Timer compressTimer;
+
+      // atomic read vs 2 arrays testen
+
+      while(!same) {
+        same = true;
+        for(size_t i = 0; i < mergeTree.size(); i++) {
+          auto nextBranch = mergeTree[mergeTree[i].second];
+          if(nextBranch.second != mergeTree[i].second
+             && nextBranch.first
+                  < mergeTree[i].first) { // we need to follow along larger
+                                          // saddles to the largestMax
+            mergeTree[i].second = nextBranch.second;
+            same = false;
+          }
+        }
+      }
+      this->printMsg("Compressed branches", 0, compressTimer.getElapsedTime());
+      // build up the maximavectors
+      // std::vector<omp_lock_t> maximaLocks(maximaVectors.size());
+      // for(size_t i = 0; i < maximaLocks.size(); i++) {
+      //  omp_init_lock(&maximaLocks[i]);
+      //}
+      ttk::Timer maximaVectorTimer;
+      for(size_t i = 0; i < mergeTree.size() - 1; i++) {
+        auto branch = mergeTree[i];
+        auto max = i;
+        auto saddle = branch.first;
+        auto largestMax = branch.second;
+        maximaVectors[max].emplace_back(saddle);
+        maximaVectors[largestMax].emplace_back(saddle);
+      }
+      this->printMsg(
+        "Built up maxima vectors", 0, maximaVectorTimer.getElapsedTime());
+
+      ttk::SimplexId minSaddle = -1;
+      ttk::Timer mgTimer;
+      for(size_t i = 0; i < maximaVectors.size(); i++) {
+        auto vect = maximaVectors[i];
+        std::sort(vect.begin(),
+                  vect.end()); // we want descending saddles and the lower the
+                               // saddle id value, the higher the saddle scalar
+        minSaddle = std::max(minSaddle, vect[vect.size() - 1]);
+        realMergeTree.emplace_back(
+          maximaLocalToGlobal[i], saddlesLocalToGlobal[vect[0]]);
+        for(size_t j = 0; j < vect.size() - 1; j++) {
+          if(vect[j] != vect[j + 1])
+            realMergeTree.emplace_back(
+              saddlesLocalToGlobal[vect[j]], saddlesLocalToGlobal[vect[j + 1]]);
+        }
+      }
+      this->printMsg("Built up mergetree", 0, mgTimer.getElapsedTime());
+
+      // connect minimal saddle and global min
+      realMergeTree.emplace_back(globalMin, saddlesLocalToGlobal[minSaddle]);
+
+      mergeTree = realMergeTree;
       return 1;
     }
 
@@ -215,16 +294,11 @@ namespace ttk {
                   return (p1.second > p2.second);
                 });
 
-      // std::unordered_map<ttk::SimplexId, ttk::SimplexId>
-      // maximaGlobalToLocal{}; maximaGlobalToLocal.reserve(maxima.size());
 #pragma omp parallel num_threads(this->threadNumber_)
       {
-        // std::unordered_map<ttk::SimplexId, ttk::SimplexId>
-        //   maximaGlobalToLocal_priv{};
 #pragma omp for nowait
         for(size_t i = 0; i < maxima.size(); i++) {
           maximaLocalToGlobal[i] = maxima[i].first;
-          // maximaGlobalToLocal_priv[maxima[i].first] = i;
           tempArray[maxima[i].first] = i;
         }
 
@@ -233,16 +307,9 @@ namespace ttk {
           saddlesLocalToGlobal[i] = saddles[i].first;
         }
       }
-      /*
-      #pragma omp critical
-              {
-                maximaGlobalToLocal.insert(
-                  maximaGlobalToLocal_priv.begin(),
-      maximaGlobalToLocal_priv.end());
-              }
-            }*/
       this->printMsg("Finished sorting and building the normalization arrays",
-                     0, buildTimer.getElapsedTime());
+                     0, buildTimer.getElapsedTime(), ttk::debug::LineMode::NEW,
+                     ttk::debug::Priority::DETAIL);
 
       ttk::Timer tripletTimer;
 
@@ -263,24 +330,23 @@ namespace ttk {
           }
         }
       }
-      this->printMsg(
-        "Finished building the triplets", 0, tripletTimer.getElapsedTime());
+      this->printMsg("Finished building the triplets", 0,
+                     tripletTimer.getElapsedTime(), ttk::debug::LineMode::NEW,
+                     ttk::debug::Priority::DETAIL);
       return 1;
     }
 
     template <class triangulationType = ttk::AbstractTriangulation>
     int computePairs(
       std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &persistencePairs,
+      std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &mergeTree,
       const ttk::SimplexId *minimaIds,
-      const ttk::SimplexId *saddle1Ids,
       const ttk::SimplexId *saddle2Ids,
       const ttk::SimplexId *maximaIds,
       const ttk::SimplexId *ascendingManifold,
       ttk::SimplexId *tempArray,
       const ttk::SimplexId *order,
       const triangulationType *triangulation,
-      ttk::SimplexId &nMinima,
-      ttk::SimplexId &nSaddle1,
       ttk::SimplexId &nSaddle2,
       ttk::SimplexId &nMaxima) {
 
@@ -289,7 +355,6 @@ namespace ttk {
 
       // print horizontal separator
       this->printMsg(ttk::debug::Separator::L1); // L1 is the '=' separator
-
       // print input parameters in table format
       this->printMsg({
         {"#Threads", std::to_string(this->threadNumber_)},
@@ -312,8 +377,6 @@ namespace ttk {
         saddles.resize(nSaddle2);
         std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> maxima;
         maxima.resize(nMaxima);
-        ttk::SimplexId globalMin = -2;
-        const int dimension = triangulation->getDimensionality();
         ttk::Timer preTimer;
         // ttk::SimplexId maxTime = 0;
         // auto t0 = timeNow();
@@ -333,12 +396,14 @@ namespace ttk {
 
         // this->printMsg(std::to_string(maxTime / 1000));
         persistencePairs.resize(maxima.size());
+        mergeTree.resize(maxima.size());
         std::vector<std::set<ttk::SimplexId>> triplets(saddles.size());
         std::vector<ttk::SimplexId> maximaLocalToGlobal(maxima.size());
         std::vector<ttk::SimplexId> saddlesLocalToGlobal(saddles.size());
         this->printMsg(
           "Finished with Preprocessing, starting with findAscPaths", 0,
-          preTimer.getElapsedTime());
+          preTimer.getElapsedTime(), ttk::debug::LineMode::NEW,
+          ttk::debug::Priority::DETAIL);
 
         ttk::Timer ascTimer;
         findAscPaths<triangulationType>(
@@ -347,9 +412,23 @@ namespace ttk {
 
         this->printMsg(
           "Finished with findAscPaths, starting with PersistencePairs", 0,
-          ascTimer.getElapsedTime());
-        constructPersistencePairs(persistencePairs, triplets,
+          ascTimer.getElapsedTime(), ttk::debug::LineMode::NEW,
+          ttk::debug::Priority::DETAIL);
+        ttk::Timer pairTimer;
+        constructPersistencePairs(persistencePairs, mergeTree, triplets,
                                   maximaLocalToGlobal, saddlesLocalToGlobal);
+        this->printMsg(
+          "Finished constructing persistence pairs, starting with mergetree", 0,
+          pairTimer.getElapsedTime(), ttk::debug::LineMode::NEW,
+          ttk::debug::Priority::DETAIL);
+
+        ttk::Timer mergeTreeTimer;
+        constructMergeTree(
+          mergeTree, maximaLocalToGlobal, saddlesLocalToGlobal, minimaIds[0]);
+        this->printMsg("Finished constructing mergetree", 0,
+                       mergeTreeTimer.getElapsedTime(),
+                       ttk::debug::LineMode::NEW, ttk::debug::Priority::DETAIL);
+
         // the global max is always in the last position of the
         // maximaLocalToGlobal vector and needs to connect with the global
         // minimum
