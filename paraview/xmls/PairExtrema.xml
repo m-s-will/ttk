@@ -50,6 +50,7 @@
 
       <OutputPort name="PersistencePairs" index="0" id="port0" />
       <OutputPort name="MergeTree" index="1" id="port1" />
+      <OutputPort name="Segmentation" index="2" id="port2" />
 
       <!-- DEBUG -->
       ${DEBUG_WIDGETS}

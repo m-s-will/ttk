@@ -29,7 +29,7 @@ vtkStandardNewMacro(ttkPairExtrema);
  */
 ttkPairExtrema::ttkPairExtrema() {
   this->SetNumberOfInputPorts(2);
-  this->SetNumberOfOutputPorts(2);
+  this->SetNumberOfOutputPorts(3);
 }
 
 /**
@@ -69,6 +69,9 @@ int ttkPairExtrema::FillInputPortInformation(int port, vtkInformation *info) {
 int ttkPairExtrema::FillOutputPortInformation(int port, vtkInformation *info) {
   if(port == 0 || port == 1) {
     info->Set(vtkDataObject::DATA_TYPE_NAME(), "vtkUnstructuredGrid");
+    return 1;
+  } else if(port == 2) {
+    info->Set(ttkAlgorithm::SAME_DATA_TYPE_AS_INPUT_PORT(), 0);
     return 1;
   }
   return 0;
@@ -207,17 +210,11 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
 
   // Get input object from input vector
   // Note: has to be a vtkDataSet as required by FillInputPortInformation
+
   vtkDataSet *inputDataSet = vtkDataSet::GetData(inputVector[0]);
   vtkPointSet *inputCriticalPoints = vtkPointSet::GetData(inputVector[1]);
   if(!inputDataSet || !inputCriticalPoints)
     return 0;
-
-  // auto manifoldPointData = inputDataSet->GetPointData();
-  // auto ascendingManifold = manifoldPointData->GetArray("AscendingManifold");
-  // auto tempArray = manifoldPointData->GetArray("DescendingManifold");
-  // auto criticalPointData = inputCriticalPoints->GetPointData();
-  // auto criticalGlobalIds = criticalPointData->GetArray("GlobalPointIds");
-  // auto criticalType = criticalPointData->GetArray("CriticalType");
 
   auto order = ttkAlgorithm::GetOrderArray(inputDataSet, 0);
   auto manifoldPointData = inputDataSet->GetPointData();
@@ -245,6 +242,12 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
     return 0;
   }
 
+  vtkSmartPointer<vtkDataArray> segmentation
+    = vtkSmartPointer<vtkDataArray>::Take(order->NewInstance());
+  segmentation->SetName("SegmentationId"); // set array name
+  segmentation->SetNumberOfComponents(1); // only one component per tuple
+  segmentation->SetNumberOfTuples(order->GetNumberOfTuples());
+
   // If all checks pass then log which array is going to be processed.
   this->printMsg("Starting computation...");
 
@@ -268,6 +271,7 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
   ttkTypeMacroT(triangulation->getType(),
                 (status = this->computePairs<T0>(
                    persistencePairs, mergeTree,
+                   ttkUtils::GetPointer<ttk::SimplexId>(segmentation),
                    ttkUtils::GetPointer<ttk::SimplexId>(minimaIds),
                    ttkUtils::GetPointer<ttk::SimplexId>(saddle2Ids),
                    ttkUtils::GetPointer<ttk::SimplexId>(maximaIds),
@@ -283,6 +287,7 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
   //  Construct output, see ttkFTMTree.cpp
   auto outputSkeletonArcs = vtkUnstructuredGrid::GetData(outputVector, 0);
   auto outputMergeTree = vtkUnstructuredGrid::GetData(outputVector, 1);
+  auto outputSegmentation = vtkDataSet::GetData(outputVector, 2);
 
   ttkTypeMacroT(
     triangulation->getType(),
@@ -290,14 +295,14 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
                                  ttkUtils::GetPointer<ttk::SimplexId>(order),
                                  (T0 *)triangulation->getData()));
 
-  /*for(auto &x: mergeTree){
-    this->printMsg("saddle: " + )
-  }*/
   ttkTypeMacroT(
     triangulation->getType(),
     status = getMergeTree<T0>(outputMergeTree, mergeTree,
                               ttkUtils::GetPointer<ttk::SimplexId>(order),
                               (T0 *)triangulation->getData()));
+
+  outputSegmentation->ShallowCopy(inputDataSet);
+  outputSegmentation->GetPointData()->AddArray(segmentation);
 
   // return success
   return 1;

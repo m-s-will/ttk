@@ -260,9 +260,73 @@ namespace ttk {
       this->printMsg("Built up mergetree", 0, mgTimer.getElapsedTime());
 
       // connect minimal saddle and global min
-      realMergeTree.emplace_back(globalMin, saddlesLocalToGlobal[minSaddle]);
+      realMergeTree.emplace_back(saddlesLocalToGlobal[minSaddle], globalMin);
 
       mergeTree = realMergeTree;
+      return 1;
+    }
+    template <typename triangulationType>
+    int constructSegmentation(
+      ttk::SimplexId *segmentation,
+      std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &mergeTree,
+      const ttk::SimplexId *order,
+      const triangulationType *triangulation,
+      const ttk::SimplexId &globalMin) {
+
+      // everwhere, where is no -1, is definitely correct, some vertices are not
+      // reached correctly
+      std::vector<ttk::SimplexId> markings(
+        triangulation->getNumberOfVertices(), -1);
+      std::vector<int> marked(triangulation->getNumberOfVertices(), 0);
+// ignore the stuff between the smallest saddle and the global min, do that
+// later
+#pragma omp parallel for schedule(dynamic) num_threads(this->threadNumber_)
+      for(size_t i = 0; i < mergeTree.size(); i++) {
+        auto branch = mergeTree[i];
+        auto mark = branch.first;
+        // this->printMsg("Working on branch " + std::to_string(branch.first) +
+        // "-" + std::to_string(branch.second));
+        auto top = order[mark];
+        auto bottom = order[branch.second];
+        // this->printMsg("Top " + std::to_string(top) + ", bottom " +
+        // std::to_string(bottom));
+        std::deque<ttk::SimplexId> queue{mark};
+        while(!queue.empty()) {
+          auto element = queue.front();
+          queue.pop_front();
+          markings[element] = mark;
+          marked[element] = 1;
+          // this->printMsg("Id " + std::to_string(element) + " belongs to
+          // branch " + std::to_string(mark));
+          auto nNeighbors = triangulation->getVertexNeighborNumber(element);
+          ttk::SimplexId neighborId;
+          for(int j = 0; j < nNeighbors; j++) {
+            triangulation->getVertexNeighbor(element, j, neighborId);
+            if(order[neighborId] > bottom && order[neighborId] < top
+               && marked[neighborId] == 0) {
+              queue.push_back(neighborId);
+            } /*else {
+              this->printMsg("Ignoring id " + std::to_string(neighborId) + "
+            with order " + std::to_string(order[neighborId]) + ", marked? " +
+            std::to_string(marked[neighborId]));
+            }*/
+          }
+        }
+      }
+
+      // all unmarked vertices after 1 iteration belong to the global min ??
+      auto minSeg = mergeTree[mergeTree.size() - 1].first;
+      markings[globalMin] = minSeg;
+#pragma omp parallel for num_threads(this->threadNumber_)
+      for(ttk::SimplexId i = 0; i < triangulation->getNumberOfVertices(); i++) {
+        segmentation[i] = markings[i];
+      }
+      /*#pragma omp parallel for num_threads(this->threadNumber_)
+      for(ttk::SimplexId i = 0; i < marked.size(); i++){
+        if(marked[i] == 0){
+          segmentation[i] = minSeg;
+        }
+      }*/
       return 1;
     }
 
@@ -340,6 +404,7 @@ namespace ttk {
     int computePairs(
       std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &persistencePairs,
       std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &mergeTree,
+      ttk::SimplexId *segmentation,
       const ttk::SimplexId *minimaIds,
       const ttk::SimplexId *saddle2Ids,
       const ttk::SimplexId *maximaIds,
@@ -427,6 +492,12 @@ namespace ttk {
           mergeTree, maximaLocalToGlobal, saddlesLocalToGlobal, minimaIds[0]);
         this->printMsg("Finished constructing mergetree", 0,
                        mergeTreeTimer.getElapsedTime(),
+                       ttk::debug::LineMode::NEW, ttk::debug::Priority::DETAIL);
+        ttk::Timer segmentationTimer;
+        constructSegmentation<triangulationType>(
+          segmentation, mergeTree, order, triangulation, minimaIds[0]);
+        this->printMsg("Finished mergetree segmentation", 0,
+                       segmentationTimer.getElapsedTime(),
                        ttk::debug::LineMode::NEW, ttk::debug::Priority::DETAIL);
 
         // the global max is always in the last position of the
