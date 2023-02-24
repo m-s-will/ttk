@@ -84,14 +84,13 @@ namespace ttk {
 // TODO if OMP 5.1 is widespread: use omp atomic compare
 if(max != globalMax) {
 #pragma omp atomic read
-            temp = largestSaddlesForMax[max];
-            if(i < temp) {
-              omp_set_lock(&maximaLocks[max]);
-              // save only maximum saddle
-              largestSaddlesForMax[max]
-                = std::min(i, largestSaddlesForMax[max]);
-              omp_unset_lock(&maximaLocks[max]);
-            }
+  temp = largestSaddlesForMax[max];
+  if(i < temp) {
+    omp_set_lock(&maximaLocks[max]);
+    // save only maximum saddle
+    largestSaddlesForMax[max] = std::min(i, largestSaddlesForMax[max]);
+    omp_unset_lock(&maximaLocks[max]);
+  }
 }
           }
         }
@@ -243,13 +242,15 @@ if(max != globalMax) {
       // omp_lock_t minSaddleLock;
       // omp_init_lock(&minSaddleLock);
       ttk::Timer mgTimer;
-      //#pragma omp parallel for schedule(guided)
-      //num_threads(this->threadNumber_)
+#pragma omp parallel for schedule(dynamic, 4) num_threads(this->threadNumber_)
+      for(size_t i = 0; i < maximaVectors.size(); i++) {
+        // we want descending saddles and the lower the saddle id value, the
+        // higher the saddle scalar
+        std::sort(maximaVectors[i].begin(), maximaVectors[i].end());
+      }
+
       for(size_t i = 0; i < maximaVectors.size(); i++) {
         auto vect = maximaVectors[i];
-        std::sort(vect.begin(),
-                  vect.end()); // we want descending saddles and the lower the
-                               // saddle id value, the higher the saddle scalar
         minSaddle = std::max(minSaddle, vect[vect.size() - 1]);
         mergeTree.emplace_back(std::make_pair(
           maximaLocalToGlobal[i], saddlesLocalToGlobal[vect[0]]));
@@ -269,8 +270,13 @@ if(max != globalMax) {
       for(size_t i = 0; i < maximaVectors.size(); i++) {
         auto vect = maximaVectors[i];
         maximaOrders[i].resize(vect.size());
-        ;
+        // this->printMsg("Max: " + std::to_string(i) + ", global: " +
+        // std::to_string(maximaLocalToGlobal[i])+ ", order: " +
+        // std::to_string(order[maximaLocalToGlobal[i]]));
         for(size_t j = 0; j < vect.size(); j++) {
+          // this->printMsg("Saddle: " + std::to_string(vect[j]) + ", global: "
+          // + std::to_string(saddlesLocalToGlobal[vect[j]])+ ", order: " +
+          // std::to_string(order[saddlesLocalToGlobal[vect[j]]]));
           maximaOrders[i][j] = order[saddlesLocalToGlobal[vect[j]]];
         }
       }
@@ -292,12 +298,13 @@ if(max != globalMax) {
       const std::vector<ttk::SimplexId> &saddlesLocalToGlobal,
       const ttk::SimplexId *order,
       const ttk::SimplexId *ascendingManifold,
-      const ttk::SimplexId *tempArray,
+      ttk::SimplexId *tempArray,
       const triangulationType *triangulation) {
 
       // everwhere, where is no -1, is definitely correct, some vertices are not
       // reached correctly
       auto minSaddle = mergeTree[mergeTree.size() - 1].first;
+      ttk::SimplexId globalMax = maximaLocalToGlobal.size() - 1;
 
       std::vector<int> marked(triangulation->getNumberOfVertices(), 0);
       // this->printMsg("#Branches in the MergeTree: " +
@@ -366,38 +373,32 @@ if(max != globalMax) {
             = ascendingManifold[i]; // global, we need local from tempArray
           auto thisOrder = order[i];
           auto prev = tempArray[maximum];
-          auto vect = maximaVectors[prev];
-          auto orders = maximaOrders[prev];
-          bool useSearchTree = false;
-          int maxVectorsteps = 0;
-          while(*(orders.rbegin()) > thisOrder
-                && branches[prev].second != prev) {
+          auto vect = &maximaVectors[prev];
+          auto orders = &maximaOrders[prev];
+          int traversalsteps = 0;
+          while(*(orders->rbegin()) > thisOrder && prev != globalMax) {
             prev = branches[prev].second;
-            vect = maximaVectors[prev];
-            orders = maximaOrders[prev];
+            vect = &maximaVectors[prev];
+            orders = &maximaOrders[prev];
+            traversalsteps++;
           }
-          /*if(branches[prev].second == prev)
+          /*if(prev == globalMax) // on main branch, calculation
           {
-            this->printMsg("No further branching for order " +
-          std::to_string(thisOrder) + ", max: " +
-          std::to_string(maximaLocalToGlobal[prev]) + ", highest order: " +
-          std::to_string(orders[0]) + ", lowest order: " +
-          std::to_string(*(orders.rbegin())));
           }*/
+          // if(i%10000 == 0)
+          //   this->printMsg("Id " + std::to_string(i) + ", traversalsteps:" +
+          //   std::to_string(traversalsteps) + ", orders.size: " +
+          //   std::to_string(orders.size()));
           auto lower
-            = std::lower_bound(orders.begin(), orders.end(), thisOrder);
-          // this->printMsg("orders.size: " + std::to_string(orders.size()) + ",
-          // thisOrder: " + std::to_string(thisOrder) + ", lowerOrder: " +
-          // std::to_string(*lower) + ", lowerOrder-1: " +
-          // std::to_string(*(lower-1)));
-          prev = vect[std::distance(orders.begin(), lower) - 1];
+            = std::lower_bound(orders->rbegin(), orders->rend(), thisOrder);
+          prev = (*vect)[std::distance(orders->begin(), lower.base()) - 1];
 
           segmentation[i] = saddlesLocalToGlobal[prev];
           marked[i] = 1;
         }
       }
       this->printMsg(
-        "Finished phase 3  of segmentation", 1, phase3Timer.getElapsedTime());
+        "Finished phase 3  of segmentation: ", 1, phase3Timer.getElapsedTime());
 
       return 1;
     }
@@ -566,10 +567,10 @@ if(max != globalMax) {
         this->printMsg("Finished constructing mergetree", 0,
                        mergeTreeTimer.getElapsedTime());
         ttk::Timer segmentationTimer;
-        // constructSegmentation<triangulationType>(
-        //   segmentation, searchTree, mergeTree, branches, maximaVectors,
-        //   maximaOrders, maximaLocalToGlobal, saddlesLocalToGlobal, order,
-        //   ascendingManifold, tempArray, triangulation);
+        constructSegmentation<triangulationType>(
+          segmentation, searchTree, mergeTree, branches, maximaVectors,
+          maximaOrders, maximaLocalToGlobal, saddlesLocalToGlobal, order,
+          ascendingManifold, tempArray, triangulation);
         this->printMsg("Finished mergetree segmentation", 0,
                        segmentationTimer.getElapsedTime());
 
