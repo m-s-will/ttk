@@ -1,30 +1,31 @@
-#include <ttkPathCompression.h>
-
-#include <vtkInformation.h>
-
 #include <ttkMacros.h>
+#include <ttkPathCompression.h>
 #include <ttkUtils.h>
-#include <vtkDataArray.h>
-#include <vtkDataSet.h>
-#include <vtkIntArray.h>
-#include <vtkObjectFactory.h>
-#include <vtkPointData.h>
-#include <vtkSmartPointer.h>
 
-// A VTK macro that enables the instantiation of this class via ::New()
-// You do not have to modify this
+#include <vtkCellData.h>
+#include <vtkDataArray.h>
+#include <vtkDataObject.h>
+#include <vtkDataSet.h>
+#include <vtkDoubleArray.h>
+#include <vtkFloatArray.h>
+#include <vtkIdTypeArray.h>
+#include <vtkInformation.h>
+#include <vtkNew.h>
+#include <vtkPointData.h>
+#include <vtkPolyData.h>
+#include <vtkSignedCharArray.h>
+#include <vtkUnsignedCharArray.h>
+
 vtkStandardNewMacro(ttkPathCompression);
 
 ttkPathCompression::ttkPathCompression() {
-  this->SetNumberOfInputPorts(1);
-  this->SetNumberOfOutputPorts(1);
-}
-
-ttkPathCompression::~ttkPathCompression() {
+  this->setDebugMsgPrefix("PathCompression");
+  SetNumberOfInputPorts(1);
+  SetNumberOfOutputPorts(1);
 }
 
 int ttkPathCompression::FillInputPortInformation(int port,
-                                                 vtkInformation *info) {
+                                                   vtkInformation *info) {
   if(port == 0) {
     info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkDataSet");
     return 1;
@@ -33,123 +34,160 @@ int ttkPathCompression::FillInputPortInformation(int port,
 }
 
 int ttkPathCompression::FillOutputPortInformation(int port,
-                                                  vtkInformation *info) {
+                                                    vtkInformation *info) {
   if(port == 0) {
     info->Set(ttkAlgorithm::SAME_DATA_TYPE_AS_INPUT_PORT(), 0);
     return 1;
   }
-
   return 0;
 }
 
-int ttkPathCompression::RequestData(vtkInformation *ttkNotUsed(request),
-                                    vtkInformationVector **inputVector,
-                                    vtkInformationVector *outputVector) {
-  // Get input object from input vector
-  // Note: has to be a vtkDataSet as required by FillInputPortInformation
-  vtkDataSet *inputDataSet = vtkDataSet::GetData(inputVector[0]);
-  if(!inputDataSet)
-    return 0;
-
-  auto order = ttkAlgorithm::GetOrderArray(inputDataSet, 0);
-  if(!order) {
-    this->printErr("Unable to retrieve input array.");
-    return 0;
-  }
-
-  // To make sure that the selected array can be processed by this filter,
-  // one should also check that the array association and format is correct.
-  if(this->GetInputArrayAssociation(0, inputVector) != 0) {
-    this->printErr("Input array needs to be a point data array.");
-    return 0;
-  }
-
-  if(order->GetNumberOfComponents() != 1) {
-    this->printErr("Input array needs to be a scalar array.");
-    return 0;
-  }
-
-  // If all checks pass then log which array is going to be processed.
-  this->printMsg("Starting computation!");
-  this->printMsg("  Scalar Array: " + std::string(order->GetName()));
-
-  // Get ttk::triangulation of the input vtkDataSet (will create one if one does
-  // not exist already).
-  ttk::Triangulation *triangulation
-    = ttkAlgorithm::GetTriangulation(inputDataSet);
-  if(!triangulation) {
-    return 0;
-  }
-
-  // Precondition the triangulation (e.g., enable fetching of vertex neighbors)
-  this->preconditionTriangulation(triangulation); // implemented in base class
-
-  vtkSmartPointer<vtkDataArray> descendingManifold
-    = vtkSmartPointer<vtkDataArray>::Take(order->NewInstance());
-  descendingManifold->SetName("DescendingManifold"); // set array name
-  descendingManifold->SetNumberOfComponents(1); // only one component per tuple
-  descendingManifold->SetNumberOfTuples(order->GetNumberOfTuples());
-
-  vtkSmartPointer<vtkDataArray> ascendingManifold
-    = vtkSmartPointer<vtkDataArray>::Take(order->NewInstance());
-  ascendingManifold->SetName("AscendingManifold"); // set array name
-  ascendingManifold->SetNumberOfComponents(1); // only one component per tuple
-  ascendingManifold->SetNumberOfTuples(order->GetNumberOfTuples());
-
-  this->printMsg("  Output Array 1: "
-                 + std::string(descendingManifold->GetName()));
-  this->printMsg("  Output Array 2: "
-                 + std::string(ascendingManifold->GetName()));
-  int status = 0; // this integer checks if the base code returns an error
-
-#ifdef TTK_ENABLE_MPI
-  if(ttk::isRunningWithMPI()) {
-    auto pointData = inputDataSet->GetPointData();
-    auto rankArray = pointData->GetArray("RankArray");
-    auto globalIds = pointData->GetGlobalIds();
-
-    // Templatize over the different input array data types and call the base
-    // code
-    ttkTypeMacroIT(
-      order->GetDataType(), triangulation->getType(),
-      (status = this->computeCompression<T0, T1>(
-         ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
-         ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
-         ttkUtils::GetPointer<T0>(order), (T1 *)triangulation->getData(),
-         ttkUtils::GetPointer<int>(rankArray),
-         ttkUtils::GetPointer<ttk::SimplexId>(globalIds))));
-  } else {
-    ttkTypeMacroIT(
-      order->GetDataType(), triangulation->getType(),
-      (status = this->computeCompression<T0, T1>(
-         ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
-         ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
-         ttkUtils::GetPointer<T0>(order), (T1 *)triangulation->getData())));
-  }
-#else
-  ttkTypeMacroIT(
-    order->GetDataType(), triangulation->getType(),
-    (status = this->computeCompression<T0, T1>(
-       ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
-       ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
-       ttkUtils::GetPointer<T0>(order), (T1 *)triangulation->getData())));
-#endif // TTK_ENABLE_MPI
-
-  // On error cancel filter execution
-  if(status != 1)
-    return 0;
-
-  // Get output vtkDataSet (which was already instantiated based on the
-  // information provided by FillOutputPortInformation)
-  vtkDataSet *outputDataSet = vtkDataSet::GetData(outputVector, 0);
-
-  // make a SHALLOW copy of the input
-  outputDataSet->ShallowCopy(inputDataSet);
-
-  // add to the output point data the computed output array
-  outputDataSet->GetPointData()->AddArray(descendingManifold);
-  outputDataSet->GetPointData()->AddArray(ascendingManifold);
-
-  // return success
-  return 1;
+template <typename vtkArrayType, typename vectorType>
+void setArray(vtkArrayType &vtkArray, vectorType &vector) {
+  ttkUtils::SetVoidArray(vtkArray, vector.data(), vector.size(), 1);
 }
+
+template <typename scalarType, typename triangulationType>
+int ttkPathCompression::dispatch(vtkDataArray *const inputScalars,
+                                  const SimplexId *const inputOffsets,
+                                  const triangulationType &triangulation) {
+
+  const auto scalars = ttkUtils::GetPointer<scalarType>(inputScalars);
+
+  const int ret = this->execute(
+    segmentations_, scalars, inputOffsets, triangulation);
+
+#ifndef TTK_ENABLE_KAMIKAZE
+  if(ret != 0) {
+    this->printErr("PathCompression.execute() error");
+    return -1;
+  }
+#endif
+
+  return ret;
+}
+
+int ttkPathCompression::RequestData(vtkInformation *ttkNotUsed(request),
+                                      vtkInformationVector **inputVector,
+                                      vtkInformationVector *outputVector) {
+
+  const auto input = vtkDataSet::GetData(inputVector[0]);
+  auto outputMorseComplexes = vtkDataSet::GetData(outputVector, 0);
+
+#ifndef TTK_ENABLE_KAMIKAZE
+  if(!input) {
+    this->printErr("Input pointer is NULL.");
+    return -1;
+  }
+  if(input->GetNumberOfPoints() == 0) {
+    this->printErr("Input has no point.");
+    return -1;
+  }
+  if(!outputMorseComplexes) {
+    this->printErr("Output pointers are NULL.");
+    return -1;
+  }
+#endif
+
+  const auto triangulation = ttkAlgorithm::GetTriangulation(input);
+  if(triangulation == nullptr) {
+    this->printErr("Triangulation is null");
+    return 0;
+  }
+  this->preconditionTriangulation(triangulation);
+
+  const auto inputScalars = this->GetInputArrayToProcess(0, inputVector);
+
+#ifndef TTK_ENABLE_KAMIKAZE
+  if(inputScalars == nullptr) {
+    this->printErr("wrong scalars.");
+    return -1;
+  }
+#endif
+
+  auto inputOffsets = ttkAlgorithm::GetOrderArray(
+    input, 0, 1, this->ForceInputOffsetScalarField);
+
+#ifndef TTK_ENABLE_KAMIKAZE
+  if(inputOffsets == nullptr) {
+    this->printErr("wrong offsets.");
+    return -1;
+  }
+  if(inputOffsets->GetDataType() != VTK_INT
+     and inputOffsets->GetDataType() != VTK_ID_TYPE) {
+    this->printErr("input offset field type not supported.");
+    return -1;
+  }
+#endif
+
+  this->printMsg("Launching computation on field `"
+                 + std::string(inputScalars->GetName()) + "'...");
+
+  // morse complexes
+  const SimplexId numberOfVertices = triangulation->getNumberOfVertices();
+#ifndef TTK_ENABLE_KAMIKAZE
+  if(!numberOfVertices) {
+    this->printErr("Input has no vertices.");
+    return -1;
+  }
+#endif
+
+  vtkNew<ttkSimplexIdTypeArray> ascendingManifold{};
+  vtkNew<ttkSimplexIdTypeArray> descendingManifold{};
+  vtkNew<ttkSimplexIdTypeArray> morseSmaleManifold{};
+#ifndef TTK_ENABLE_KAMIKAZE
+  if(!ascendingManifold || !descendingManifold || !morseSmaleManifold) {
+    this->printErr("Manifold vtkDataArray allocation problem.");
+    return -1;
+  }
+#endif
+  ascendingManifold->SetNumberOfComponents(1);
+  ascendingManifold->SetNumberOfTuples(numberOfVertices);
+  ascendingManifold->SetName(ttk::MorseSmaleAscendingName);
+
+  descendingManifold->SetNumberOfComponents(1);
+  descendingManifold->SetNumberOfTuples(numberOfVertices);
+  descendingManifold->SetName(ttk::MorseSmaleDescendingName);
+
+  morseSmaleManifold->SetNumberOfComponents(1);
+  morseSmaleManifold->SetNumberOfTuples(numberOfVertices);
+  morseSmaleManifold->SetName(ttk::MorseSmaleManifoldName);
+
+  this->segmentations_ = {ttkUtils::GetPointer<SimplexId>(ascendingManifold),
+                          ttkUtils::GetPointer<SimplexId>(descendingManifold),
+                          ttkUtils::GetPointer<SimplexId>(morseSmaleManifold)};
+
+  int ret{};
+
+  ttkVtkTemplateMacro(
+    inputScalars->GetDataType(), triangulation->getType(),
+    (ret = dispatch<VTK_TT, TTK_TT>(
+       inputScalars, ttkUtils::GetPointer<SimplexId>(inputOffsets),
+       *static_cast<TTK_TT *>(triangulation->getData()))));
+
+  if(ret != 0) {
+    return -1;
+  }
+
+  outputMorseComplexes->ShallowCopy(input);
+  // morse complexes
+  if(ComputeAscendingSegmentation || ComputeDescendingSegmentation) {
+    vtkPointData *pointData = outputMorseComplexes->GetPointData();
+#ifndef TTK_ENABLE_KAMIKAZE
+    if(!pointData) {
+      this->printErr("outputMorseComplexes has no point data.");
+      return -1;
+    }
+#endif
+
+    if(ComputeDescendingSegmentation || ComputeFinalSegmentation)
+      pointData->AddArray(descendingManifold);
+    if(ComputeAscendingSegmentation || ComputeFinalSegmentation)
+      pointData->AddArray(ascendingManifold);
+    if(ComputeFinalSegmentation)
+      pointData->AddArray(morseSmaleManifold);
+  }
+
+  return !ret;
+}
+

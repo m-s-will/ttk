@@ -273,8 +273,8 @@ namespace ttk {
     template <typename triangulationType>
     int constructSegmentation(
       ttk::SimplexId *segmentation,
-      std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &mergeTree,
       const std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &branches,
+      const std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &mergeTree,
       const std::vector<std::vector<ttk::SimplexId>> &maximaVectors,
       const std::vector<std::vector<ttk::SimplexId>> &maximaOrders,
       const std::vector<ttk::SimplexId> &maximaLocalToGlobal,
@@ -286,36 +286,34 @@ namespace ttk {
 
       // everwhere, where is no -1, is definitely correct, some vertices are not
       // reached correctly
-      auto minSaddle = mergeTree[mergeTree.size() - 1].first;
       ttk::SimplexId globalMax = maximaLocalToGlobal.size() - 1;
-
-      // std::vector<int> marked(triangulation->getNumberOfVertices(), 0);
+      //std::vector<int> marked(triangulation->getNumberOfVertices(), 0);
       //  this->printMsg("#Branches in the MergeTree: " +
       //  std::to_string(mergeTree.size()));
-      // ttk::SimplexId minOrder = order[minSaddle];
-      // ttk::Timer phase1Timer;
+            /*
+      auto minSaddle = mergeTree[mergeTree.size() - 1].first;
+      ttk::SimplexId minOrder = order[minSaddle];
+      ttk::Timer phase1Timer;
       // phase 1: everything below the minimum saddle belongs to it
-      /*#pragma omp parallel num_threads(this->threadNumber_)
-            {
-            #pragma omp for
-            for(size_t i = 0; i < triangulation->getNumberOfVertices(); i++) {
-              if(order[i] <= minOrder) {
-                segmentation[i] = minSaddle;
-                marked[i] = 1;
-              }
-            }
-            #pragma omp single
-            {
-            auto nrPhase1 = std::count(marked.begin(), marked.end(), 1);
-            this->printMsg("Finished phase 1 of segmentation with "
-                             + std::to_string(nrPhase1) + " marked vertices.",
-                           0.33, phase1Timer.getElapsedTime());
-            }
-            ttk::Timer phase2Timer;*/
+      #pragma omp parallel for num_threads(this->threadNumber_)
+      for(size_t i = 0; i < triangulation->getNumberOfVertices(); i++) {
+        if(order[i] <= minOrder) {
+          segmentation[i] = minSaddle;
+          marked[i] = 1;
+        }
+      }
+
+      auto nrPhase1 = std::count(marked.begin(), marked.end(), 1);
+      this->printMsg("Finished phase 1 of segmentation with "
+                      + std::to_string(nrPhase1) + " marked vertices.",
+                    0.33, phase1Timer.getElapsedTime());
+      */
+      /*ttk::Timer phase2Timer;
       // phase 2: flood fill
-      /*#pragma omp parallel for schedule(dynamic, 4)
-      num_threads(this->threadNumber_) for(size_t i = 0; i < mergeTree.size();
-      i++) { auto branch = mergeTree[i]; auto mark = branch.first;
+      #pragma omp parallel for schedule(dynamic, 4) num_threads(this->threadNumber_)
+      for(size_t i = 0; i < mergeTree.size(); i++) {
+        auto branch = mergeTree[i];
+        auto mark = branch.first;
         // this->printMsg("Working on branch " + std::to_string(branch.first) +
         // "-" + std::to_string(branch.second));
         auto top = order[mark];
@@ -341,37 +339,37 @@ namespace ttk {
             }
           }
         }
-      }*/
-      /* #pragma omp single
-       {
-       //auto nrPhase2 = std::count(marked.begin(), marked.end(), 1) - nrPhase1;
-       //this->printMsg("Finished phase 2 (flood fill) of segmentation with "
-       //                 + std::to_string(nrPhase2) + " marked vertices.",
-       //               0.66, phase2Timer.getElapsedTime());
+      }
 
-       this->printMsg("dealing with "
-       //               + std::to_string(triangulation->getNumberOfVertices()
-       //                                - nrPhase1 - nrPhase2)
-                      + " remaining vertices");
-       }*/
+
+      auto nrPhase2 = std::count(marked.begin(), marked.end(), 1);
+      this->printMsg("Finished phase 2 (flood fill) of segmentation with "
+                       + std::to_string(nrPhase2) + " marked vertices.",
+                     0.66, phase2Timer.getElapsedTime());
+
+      this->printMsg("dealing with "
+                     + std::to_string(triangulation->getNumberOfVertices()
+                                      - nrPhase2)
+                    + " remaining vertices");
+      */
       ttk::Timer phase3Timer;
-// phase 3: all unmarked vertices after flood fill need tree traversal
-#pragma omp parallel for schedule(dynamic, 4) num_threads(this->threadNumber_)
-      for(size_t i = 0; i < triangulation->getNumberOfVertices(); i++) {
-        // if(marked[i] == 0){
+      std::vector<ttk::SimplexId> orderInverse(triangulation->getNumberOfVertices(), -1);
+      // phase 3: all unmarked vertices after flood fill need tree traversal
+      #pragma omp parallel for schedule(dynamic, 4) num_threads(this->threadNumber_)
+      for(ttk::SimplexId i = 0; i < triangulation->getNumberOfVertices(); i++) {
+        //if(marked[i] == 0){
         auto maximum
           = ascendingManifold[i]; // global, we need local from tempArray
         auto thisOrder = order[i];
         auto prev = tempArray[maximum];
         auto orders = &maximaOrders[prev];
-        // int traversalsteps = 0;
         while(*(orders->rbegin()) > thisOrder && prev != globalMax) {
           prev = branches[prev].second;
           orders = &maximaOrders[prev];
-          // traversalsteps++;
-          }
-          // if prev == globalMax, we are on the main branch and to the trunk
-          // trick
+        }
+        if (prev == globalMax){ // we are on the main branch and to the trunk trick
+          orderInverse[thisOrder] = i;
+        } else {
           auto lower
             = std::lower_bound(orders->rbegin(), orders->rend(), thisOrder);
           // lower_bound on the reverse iterators gives us a reverse iterator
@@ -387,11 +385,40 @@ namespace ttk {
             prev = (*vect)[std::distance(orders->begin(), lower.base()) - 1];
             segmentation[i] = saddlesLocalToGlobal[prev];
           }
-          // marked[i] = 1;
-          //}
+        }
+      //}
+      }
+      auto nonTrunk = std::count(orderInverse.begin(), orderInverse.end(), -1);
+      this->printMsg("Starting with mainBranch vertices, " + std::to_string(nonTrunk) + " done, " + std::to_string(orderInverse.size() - nonTrunk) + " remaining", 0.5, phase3Timer.getElapsedTime());
+
+      ttk::Timer trunkTimer;
+      auto mainBranch = &maximaVectors[globalMax];
+      auto mainOrderings = &maximaOrders[globalMax];
+      #pragma omp parallel num_threads(this->threadNumber_)
+      {
+        auto currentSegmentation = maximaLocalToGlobal[globalMax];
+        auto nextOrder = mainOrderings->at(0);
+        int currentSegmentationId = 0;
+        #pragma omp for schedule(guided)
+        for (ttk::SimplexId i = orderInverse.size() - 1 ; i >= 0; i--){ // traverse from large order to small order
+          if(orderInverse[i] != -1){        // if we are on the mainbranch
+            if(nextOrder != -1 && i <= nextOrder){  // if we arrive at the start of a new interval, we need to update our values
+              auto lower = std::lower_bound(mainOrderings->rbegin(), mainOrderings->rend(), i);
+              currentSegmentationId = std::distance(mainOrderings->begin(), lower.base());
+              if (currentSegmentationId < (ttk::SimplexId)mainOrderings->size()){
+                nextOrder = mainOrderings->at(currentSegmentationId);
+                currentSegmentation = saddlesLocalToGlobal[mainBranch->at(currentSegmentationId)];
+              } else { // everything else is between the smallest saddle and the global min
+                currentSegmentation = saddlesLocalToGlobal[mainBranch->at(mainBranch->size() - 1)];
+                nextOrder = -1;
+              }
+            }
+            segmentation[orderInverse[i]] = currentSegmentation;    // either way write the current segmentation
+          }
+        }
       }
       this->printMsg(
-        "Finished phase 3  of segmentation: ", 1, phase3Timer.getElapsedTime());
+        "Finished phase 3 of segmentation: ", 1, trunkTimer.getElapsedTime());
 
       return 1;
     }
@@ -533,7 +560,7 @@ namespace ttk {
         std::vector<ttk::SimplexId> maximaLocalToGlobal(maxima.size());
         std::vector<ttk::SimplexId> saddlesLocalToGlobal(saddles.size());
         this->printMsg(
-          "Finished with Preprocessing, starting with findAscPaths", 0,
+          "Starting with findAscPaths", 0,
           preTimer.getElapsedTime());
 
         ttk::Timer ascTimer;
@@ -542,24 +569,24 @@ namespace ttk {
           order, ascendingManifold, tempArray, triangulation);
 
         this->printMsg(
-          "Finished with findAscPaths, starting with PersistencePairs", 0,
+          "Starting with PersistencePairs", 0,
           ascTimer.getElapsedTime());
         ttk::Timer pairTimer;
         constructPersistencePairs(persistencePairs, branches, triplets,
                                   maximaLocalToGlobal, saddlesLocalToGlobal);
         this->printMsg(
-          "Finished constructing persistence pairs, starting with mergetree", 0,
+          "Starting with mergetree", 0,
           pairTimer.getElapsedTime());
 
         ttk::Timer mergeTreeTimer;
         constructMergeTree(maximaVectors, maximaOrders, mergeTree, branches,
                            maximaLocalToGlobal, saddlesLocalToGlobal, order,
                            minimaIds[0]);
-        this->printMsg("Finished constructing mergetree", 0,
+        this->printMsg("Starting with mergetree segmentation", 0,
                        mergeTreeTimer.getElapsedTime());
         ttk::Timer segmentationTimer;
         constructSegmentation<triangulationType>(
-          segmentation, mergeTree, branches, maximaVectors, maximaOrders,
+          segmentation, branches, mergeTree, maximaVectors, maximaOrders,
           maximaLocalToGlobal, saddlesLocalToGlobal, order, ascendingManifold,
           tempArray, triangulation);
         this->printMsg("Finished mergetree segmentation", 0,
