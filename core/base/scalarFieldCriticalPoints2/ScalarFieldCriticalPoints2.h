@@ -210,7 +210,7 @@ namespace ttk {
             SimplexId maxId = -1;
             int nMax = 0;
 
-            for(SimplexId n=0; n<nNeighbors; n++){
+            for(SimplexId n=0; n<14; n++){
               SimplexId u = -1;
               triangulation->getVertexNeighbor(v, n, u);
               const SimplexId orderN = order[u];
