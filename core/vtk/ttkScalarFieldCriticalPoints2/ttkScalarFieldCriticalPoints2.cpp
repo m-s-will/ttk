@@ -44,16 +44,16 @@ int ttkScalarFieldCriticalPoints2::RequestData(vtkInformation *ttkNotUsed(reques
   if(!inputDataSet)
     return 0;
 
+  auto inputOrder = this->GetOrderArray(inputDataSet, 0);
+  auto ascManifold = inputDataSet->GetPointData()->GetArray("AscendingManifold");
+  auto desManifold = inputDataSet->GetPointData()->GetArray("DescendingManifold");
+
   if(this->GetInputArrayAssociation(0, inputVector) != 0) {
     this->printErr("Input array needs to be a point data array.");
     return 0;
   }
-  auto inputOrder = this->GetOrderArray(inputDataSet, 0);
   if(!inputOrder)
     return 0;
-
-  auto ascManifold = inputDataSet->GetPointData()->GetArray("AscendingManifold");
-  auto desManifold = inputDataSet->GetPointData()->GetArray("DescendingManifold");
   if(!ascManifold || !desManifold) {
     this->printErr("Unable to retrieve ascending or descending manifold.");
     return 0;
@@ -65,7 +65,17 @@ int ttkScalarFieldCriticalPoints2::RequestData(vtkInformation *ttkNotUsed(reques
 
   this->preconditionTriangulation(triangulation);
 
-  // type -> thread -> cp
+  // ttkTypeMacroT(
+  //   triangulation->getType(),
+  //   (
+  //     this->computeLookUpTable(
+  //       static_cast<const T0 *>(triangulation->getData())
+  //     )
+  //   )
+  // );
+  // return 1;
+
+   // type -> thread -> cp
   std::array<std::vector<std::vector<ttk::SimplexId>>,4> criticalPoints;
 
   int status = 0;
@@ -75,8 +85,8 @@ int ttkScalarFieldCriticalPoints2::RequestData(vtkInformation *ttkNotUsed(reques
       status = this->computeCritialPoints<T0>(
         criticalPoints,
         ttkUtils::GetPointer<ttk::SimplexId>(inputOrder),
-        ttkUtils::GetPointer<ttk::SimplexId>(desManifold),
         ttkUtils::GetPointer<ttk::SimplexId>(ascManifold),
+        ttkUtils::GetPointer<ttk::SimplexId>(desManifold),
         static_cast<const T0 *>(triangulation->getData())
       )
     )

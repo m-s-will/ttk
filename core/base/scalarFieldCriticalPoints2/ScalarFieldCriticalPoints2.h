@@ -4,6 +4,12 @@
 #include <Debug.h>
 #include <Triangulation.h>
 
+#include <math.h>
+
+#include "lut.cpp"
+
+#include <bitset>
+// #include <fstream>
 
 namespace ttk {
 
@@ -12,6 +18,59 @@ namespace ttk {
   public:
     ScalarFieldCriticalPoints2(){
       this->setDebugMsgPrefix("ScalarFieldCriticalPoints2");
+    }
+
+    template <typename TT = ttk::AbstractTriangulation>
+    int computeLookUpTable(
+      const TT* triangulation
+    ) const{
+
+      const SimplexId nVertices = triangulation->getNumberOfVertices();
+
+      constexpr int lutSize = pow(2,14);
+      std::array<unsigned char,lutSize> lut;
+
+      for(int v=0; v<nVertices; v++){
+        if(triangulation->getVertexNeighborNumber(v)==14){
+
+          #pragma omp parallel for
+          for(long unsigned int i=0; i<lutSize; i++){
+            std::bitset<14> binary(i);
+            // std::cout<<binary[0]<<" "<<binary<<std::endl;
+
+            std::array<SimplexId,32> linkVertices;
+            int nLinkVertices = 0;
+
+            SimplexId u = -1;
+            for(SimplexId n=0; n<14; n++){
+              triangulation->getVertexNeighbor(v, n, u);
+
+              if(binary[n]==1)
+                linkVertices[nLinkVertices++]=u;
+            }
+
+            const int nComponents = this->computeNumberOfLinkComponents(
+              linkVertices,
+              nLinkVertices,
+              triangulation
+            );
+
+            lut[i] = nComponents < 2;
+          }
+
+          // std::cout<<"writing"<<std::endl;
+
+          // std::ofstream lutFile;
+          // lutFile.open("/home/jones/external/projects/ttk/core/base/scalarFieldCriticalPoints2/lut.cpp");
+          // for(auto x: lut){
+          //   lutFile << std::to_string(x)<<',';
+          // }
+          // lutFile.close();
+
+          break;
+        }
+      }
+      return 1;
     }
 
     int preconditionTriangulation(
@@ -139,60 +198,94 @@ namespace ttk {
         #pragma omp for
         for(SimplexId v=0; v<nVertices; v++){
 
-          // std::unordered_map<SimplexId,SimplexId> upperLinkVertices;
-          // std::unordered_map<SimplexId,SimplexId> lowerLinkVertices;
-
-          // compute lower and upper link vertices
-          nLowerLinkVertices=0;
-          nUpperLinkVertices=0;
-
           const SimplexId orderV = order[v];
           const SimplexId nNeighbors = triangulation->getVertexNeighborNumber(v);
-          for(SimplexId n=0; n<nNeighbors; n++){
-            SimplexId u = -1;
-            triangulation->getVertexNeighbor(v, n, u);
-            const SimplexId orderN = order[u];
-            if(orderV<orderN){
-              upperLinkVertices[nUpperLinkVertices++]=u;
-            } else {
-              lowerLinkVertices[nLowerLinkVertices++]=u;
+
+          if(nNeighbors==14){
+            std::bitset<14> upperLinkKey;
+            std::bitset<14> lowerLinkKey;
+
+            SimplexId minId = -1;
+            int nMin = 0;
+            SimplexId maxId = -1;
+            int nMax = 0;
+
+            for(SimplexId n=0; n<nNeighbors; n++){
+              SimplexId u = -1;
+              triangulation->getVertexNeighbor(v, n, u);
+              const SimplexId orderN = order[u];
+              if(orderV<orderN){
+                upperLinkKey[n]=1;
+                if(maxId != desManifold[u]){
+                  maxId = desManifold[u];
+                  nMax++;
+                }
+              } else {
+                lowerLinkKey[n]=1;
+                if(minId != ascManifold[u]){
+                  minId = ascManifold[u];
+                  nMin++;
+                }
+              }
             }
+
+            if(nMin==0)
+              cp0.emplace_back(v);
+
+            if(nMax==0)
+              cp3.emplace_back(v);
+
+            if(nMin>1 && lut[lowerLinkKey.to_ulong()]==0){
+              cp1.emplace_back(v);
+            }
+            if(nMax>1 && lut[upperLinkKey.to_ulong()]==0){
+              cp2.emplace_back(v);
+            }
+          } else {
+            // compute lower and upper link vertices
+            nLowerLinkVertices=0;
+            nUpperLinkVertices=0;
+
+            for(SimplexId n=0; n<nNeighbors; n++){
+              SimplexId u = -1;
+              triangulation->getVertexNeighbor(v, n, u);
+              const SimplexId orderN = order[u];
+              if(orderV<orderN){
+                upperLinkVertices[nUpperLinkVertices++]=u;
+              } else {
+                lowerLinkVertices[nLowerLinkVertices++]=u;
+              }
+            }
+
+            // check if min
+            if(nLowerLinkVertices<1)
+              cp0.emplace_back(v);
+
+            // check if max
+            if(nUpperLinkVertices<1)
+              cp3.emplace_back(v);
+
+            // check if lower and upper link lead to more than one extremum
+            const int numberOfReachableMinima = this->computeNumberOfReachableExtrema(
+              lowerLinkVertices,
+              nLowerLinkVertices,
+              ascManifold
+            );
+            if(numberOfReachableMinima>1 && this->computeNumberOfLinkComponents(lowerLinkVertices,nLowerLinkVertices,triangulation)>1)
+              cp1.emplace_back(v);
+
+            const int numberOfReachableMaxima = this->computeNumberOfReachableExtrema(
+              upperLinkVertices,
+              nUpperLinkVertices,
+              desManifold
+            );
+            if(numberOfReachableMaxima>1 && this->computeNumberOfLinkComponents(upperLinkVertices,nUpperLinkVertices,triangulation)>1)
+              cp2.emplace_back(v);
           }
-
-          // unsigned char type = 1;
-          // check if min
-          if(nLowerLinkVertices<1)
-            cp0.emplace_back(v);
-            // type *= 2;
-
-          // check if max
-          if(nUpperLinkVertices<1)
-            cp3.emplace_back(v);
-            // type *= 3;
-
-          // check if lower and upper link lead to more than one extremum
-          const int numberOfReachableMinima = this->computeNumberOfReachableExtrema(
-            lowerLinkVertices,
-            nLowerLinkVertices,
-            ascManifold
-          );
-          if(numberOfReachableMinima>1 && this->computeNumberOfLinkComponents(lowerLinkVertices,nLowerLinkVertices,triangulation)>1)
-            cp1.emplace_back(v);
-            // type *= 5;
-
-          const int numberOfReachableMaxima = this->computeNumberOfReachableExtrema(
-            upperLinkVertices,
-            nUpperLinkVertices,
-            desManifold
-          );
-          if(numberOfReachableMaxima>1 && this->computeNumberOfLinkComponents(upperLinkVertices,nUpperLinkVertices,triangulation)>1)
-            cp2.emplace_back(v);
-            // type *= 7;
-
-          // if(type>1)
-          //   criticalPointsOfThread.emplace_back(v,type);
         }
       }
+
+      // std::cout<<n0<<" "<<n1<<" "<<n2<<" "<<n3<<std::endl;
 
       this->printMsg(msg, 1, timer.getElapsedTime(), this->threadNumber_);
 
