@@ -94,12 +94,12 @@ namespace ttk {
 
           // add neighbor values to average
           size_t nNeighbors = triangulation->getVertexNeighborNumber(i);
-          ttk::SimplexId neighborId{-1};
           for(size_t j = 0; j < nNeighbors; j++) {
-            triangulation->getVertexNeighbor(i, j, neighborId);
+            // ttk::SimplexId neighborId{-1};
+            // triangulation->getVertexNeighbor(i, j, neighborId);
+            ttk::SimplexId neighborId = std::min(j * nNeighbors + i, nVertices);
             outputData[i] += inputData[neighborId];
           }
-
           // divide by neighbor number
           outputData[i] /= (nNeighbors + 1);
         }

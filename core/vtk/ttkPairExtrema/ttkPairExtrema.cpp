@@ -218,8 +218,9 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
 
   auto order = ttkAlgorithm::GetOrderArray(inputDataSet, 0);
   auto manifoldPointData = inputDataSet->GetPointData();
-  auto ascendingManifold = manifoldPointData->GetArray("AscendingManifold");
-  auto tempArray = manifoldPointData->GetArray("DescendingManifold");
+  auto descendingManifold
+    = manifoldPointData->GetArray(ttk::MorseSmaleDescendingName);
+  auto tempArray = manifoldPointData->GetArray(ttk::MorseSmaleAscendingName);
   auto criticalFieldData = inputCriticalPoints->GetFieldData();
   auto minimaIds = criticalFieldData->GetArray("cp0id");
   auto saddle2Ids = criticalFieldData->GetArray("cp2id");
@@ -227,7 +228,7 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
   ttk::SimplexId nSaddle2 = saddle2Ids->GetNumberOfTuples();
   ttk::SimplexId nMaxima = maximaIds->GetNumberOfTuples();
 
-  if(!ascendingManifold | !order | !tempArray | !minimaIds | !saddle2Ids
+  if(!descendingManifold | !order | !tempArray | !minimaIds | !saddle2Ids
      | !maximaIds) {
     this->printErr("Unable to retrieve input arrays.");
     return 0;
@@ -236,7 +237,7 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
   // To make sure that the selected array can be processed by this filter,
   // one should also check that the array association and format is correct.
 
-  if((ascendingManifold->GetNumberOfComponents() != 1)
+  if((descendingManifold->GetNumberOfComponents() != 1)
      | (order->GetNumberOfComponents() != 1)) {
     this->printErr("Input arrays needs to be a scalar arrays.");
     return 0;
@@ -275,7 +276,7 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
                    ttkUtils::GetPointer<ttk::SimplexId>(minimaIds),
                    ttkUtils::GetPointer<ttk::SimplexId>(saddle2Ids),
                    ttkUtils::GetPointer<ttk::SimplexId>(maximaIds),
-                   ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
+                   ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
                    ttkUtils::GetPointer<ttk::SimplexId>(tempArray),
                    ttkUtils::GetPointer<ttk::SimplexId>(order),
                    (T0 *)triangulation->getData(), nSaddle2, nMaxima)));

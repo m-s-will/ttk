@@ -45,8 +45,10 @@ int ttkScalarFieldCriticalPoints2::RequestData(vtkInformation *ttkNotUsed(reques
     return 0;
 
   auto inputOrder = this->GetOrderArray(inputDataSet, 0);
-  auto ascManifold = inputDataSet->GetPointData()->GetArray("AscendingManifold");
-  auto desManifold = inputDataSet->GetPointData()->GetArray("DescendingManifold");
+  auto ascManifold
+    = inputDataSet->GetPointData()->GetArray(ttk::MorseSmaleAscendingName);
+  auto desManifold
+    = inputDataSet->GetPointData()->GetArray(ttk::MorseSmaleDescendingName);
 
   if(this->GetInputArrayAssociation(0, inputVector) != 0) {
     this->printErr("Input array needs to be a point data array.");

@@ -138,8 +138,6 @@ namespace ttk {
           size_t currentIndex = 0;
 
           while(lnActiveMaxima > 0) {
-            // this->printMsg("Thread: " + std::to_string(omp_get_thread_num())
-            // + ", lnActiveMaxima: " + std::to_string(lnActiveMaxima));
             for(size_t i = 0; i < lnActiveMaxima; i++) {
               ttk::SimplexId &v = lActiveMaxima[i];
               ttk::SimplexId &nextPointer = maximumPointer[v];
@@ -171,7 +169,6 @@ namespace ttk {
             }
             if(newSet.size() == 1) {
               triplets[i].clear();
-              // maybe delete completely? and shift localtoglobal
             } else {
               triplets[i] = newSet;
             }
@@ -237,8 +234,6 @@ namespace ttk {
                        ttk::debug::Priority::DETAIL);
 
       ttk::SimplexId minSaddle = -1;
-      // omp_lock_t minSaddleLock;
-      // omp_init_lock(&minSaddleLock);
       ttk::Timer mgTimer;
 #pragma omp parallel for schedule(dynamic, 4) num_threads(this->threadNumber_)
       for(size_t i = 0; i < maximaVectors.size(); i++) {
@@ -283,144 +278,40 @@ namespace ttk {
       const std::vector<ttk::SimplexId> &maximaLocalToGlobal,
       const std::vector<ttk::SimplexId> &saddlesLocalToGlobal,
       const ttk::SimplexId *order,
-      const ttk::SimplexId *ascendingManifold,
+      const ttk::SimplexId *descendingManifold,
       ttk::SimplexId *tempArray,
       const triangulationType *triangulation) {
 
-      // everwhere, where is no -1, is definitely correct, some vertices are not
-      // reached correctly
       ttk::SimplexId globalMax = maximaLocalToGlobal.size() - 1;
-      //std::vector<int> marked(triangulation->getNumberOfVertices(), 0);
-      //  this->printMsg("#Branches in the MergeTree: " +
-      //  std::to_string(mergeTree.size()));
 
       auto minSaddle = mergeTree[mergeTree.size() - 1].first;
       ttk::SimplexId minOrder = order[minSaddle];
-      /*
-      ttk::Timer phase1Timer;
-      // phase 1: everything below the minimum saddle belongs to it
-      #pragma omp parallel for num_threads(this->threadNumber_)
-      for(size_t i = 0; i < triangulation->getNumberOfVertices(); i++) {
-        if(order[i] <= minOrder) {
-          segmentation[i] = minSaddle;
-          marked[i] = 1;
-        }
-      }
 
-      auto nrPhase1 = std::count(marked.begin(), marked.end(), 1);
-      this->printMsg("Finished phase 1 of segmentation with "
-                      + std::to_string(nrPhase1) + " marked vertices.",
-                    0.33, phase1Timer.getElapsedTime());
-      */
-      /*ttk::Timer phase2Timer;
-      // phase 2: flood fill
-      #pragma omp parallel for schedule(dynamic, 4) num_threads(this->threadNumber_)
-      for(size_t i = 0; i < mergeTree.size(); i++) {
-        auto branch = mergeTree[i];
-        auto mark = branch.first;
-        // this->printMsg("Working on branch " + std::to_string(branch.first) +
-        // "-" + std::to_string(branch.second));
-        auto top = order[mark];
-        auto bottom = order[branch.second];
-        // this->printMsg("Top " + std::to_string(top) + ", bottom " +
-        // std::to_string(bottom));
-        std::deque<ttk::SimplexId> queue{mark};
-        marked[mark] = 1;
-        while(!queue.empty()) {
-          auto element = queue.front();
-          queue.pop_front();
-          segmentation[element] = mark;
-          // this->printMsg("Id " + std::to_string(element) + " belongs to
-          // branch " + std::to_string(mark));
-          auto nNeighbors = triangulation->getVertexNeighborNumber(element);
-          ttk::SimplexId neighborId;
-          for(int j = 0; j < nNeighbors; j++) {
-            triangulation->getVertexNeighbor(element, j, neighborId);
-            if(bottom < order[neighborId] && order[neighborId] < top
-               && marked[neighborId] == 0) {
-              queue.push_back(neighborId);
-              marked[neighborId] = 1;
-            }
-          }
-        }
-      }
-
-
-      auto nrPhase2 = std::count(marked.begin(), marked.end(), 1);
-      this->printMsg("Finished phase 2 (flood fill) of segmentation with "
-                       + std::to_string(nrPhase2) + " marked vertices.",
-                     0.66, phase2Timer.getElapsedTime());
-
-      this->printMsg("dealing with "
-                     + std::to_string(triangulation->getNumberOfVertices()
-                                      - nrPhase2)
-                    + " remaining vertices");
-      */
       ttk::Timer phase3Timer;
       std::vector<ttk::SimplexId> orderInverse(triangulation->getNumberOfVertices(), -1);
       // phase 3: all unmarked vertices after flood fill need tree traversal
 
-      /*
-      #pragma omp parallel for schedule(dynamic, 4) num_threads(this->threadNumber_)
-      for(ttk::SimplexId i = 0; i < triangulation->getNumberOfVertices(); i++) {
-        //if(marked[i] == 0){
-        auto maximum
-          = ascendingManifold[i]; // global, we need local from tempArray
-        auto thisOrder = order[i];
-        auto prev = tempArray[maximum];
-        auto orders = &maximaOrders[prev];
-        while(*(orders->rbegin()) > thisOrder && prev != globalMax) {
-          prev = branches[prev].second;
-          orders = &maximaOrders[prev];
-        }
-        if (prev == globalMax){ // we are on the main branch and to the trunk trick
-          orderInverse[thisOrder] = i;
-        } else {
-          auto lower
-            = std::lower_bound(orders->rbegin(), orders->rend(), thisOrder);
-          // lower_bound on the reverse iterators gives us a reverse iterator
-          // pointing to the upper end of the interval lower.base() gives us a
-          // forward iterator pointing to the next element, so the lower end of
-          // the interval therefore we need to decrement the distance to get the
-          // correct index of the upper end if lower returns orders->rend(), we
-          // belong to the segment of the maximum
-          if(lower == orders->rend()) {
-            segmentation[i] = maximaLocalToGlobal[prev];
-          } else {
-            auto vect = &maximaVectors[prev];
-            prev = (*vect)[std::distance(orders->begin(), lower.base()) - 1];
-            segmentation[i] = saddlesLocalToGlobal[prev];
-          }
-        }
-      //}
-      }
-      auto nonTrunk = std::count(orderInverse.begin(), orderInverse.end(), -1);
-      this->printMsg("Starting with mainBranch vertices, " + std::to_string(nonTrunk) + " done, " + std::to_string(orderInverse.size() - nonTrunk) + " remaining", 0.5, phase3Timer.getElapsedTime());
-      */
       ttk::Timer trunkTimer;
-      //auto mainBranch = &maximaVectors[globalMax];
-      //auto mainOrderings = &maximaOrders[globalMax];
-      #pragma omp parallel num_threads(this->threadNumber_)
+#pragma omp parallel num_threads(this->threadNumber_)
       {
         #pragma omp for
         for(ttk::SimplexId i = 0; i < triangulation->getNumberOfVertices(); i++) {
           orderInverse[order[i]] = i;
         }
-        //auto currentSegmentation = maximaLocalToGlobal[globalMax];
         std::vector<ttk::SimplexId> currentSegmentationVect(maximaLocalToGlobal.size());
         std::vector<ttk::SimplexId> id (maximaLocalToGlobal.size(), 0); // init on a large value, such that we need to do it once at the beginning either way
 
-        for(size_t i = 0; i < maximaLocalToGlobal.size(); i++){
-          //nextOrderVect[i] = maximaOrders[i][0];
+        for(size_t i = 0; i < maximaLocalToGlobal.size(); i++) {
           currentSegmentationVect[i] = maximaLocalToGlobal[i];
         }
-        #pragma omp for schedule(dynamic, 8)
+#pragma omp for schedule(dynamic, 8)
         for (ttk::SimplexId i = orderInverse.size() - 1 ; i >= 0; i--){ // traverse from large order to small order
           if (i <= minOrder){
             segmentation[orderInverse[i]] = minSaddle;
           } else {
             auto maximum
-            = ascendingManifold[orderInverse[i]]; // global, we need local from tempArray
+              = descendingManifold[orderInverse[i]]; // global, we need local
+                                                     // from tempArray
             auto prev = tempArray[maximum];
             auto orders = &maximaOrders[prev];
             while(*(orders->rbegin()) > i && prev != globalMax) {
@@ -428,25 +319,15 @@ namespace ttk {
               orders = &maximaOrders[prev];
             }
 
-            while(id[prev] != -2 && i <= orders->at(id[prev])){  // if we arrive at the start of a new interval, we need to update our values
-              //auto lower = std::lower_bound(orders->rbegin(), orders->rend(), i);
-              //id = std::distance(orders->begin(), lower.base());
+            while(id[prev] != -2
+                  && i <= orders->at(
+                       id[prev])) { // if we arrive at the start of a new
+                                    // interval, we need to update our values
               id[prev]++; // one linear step
               auto vect = &maximaVectors[prev];
               if (id[prev] < (ttk::SimplexId)orders->size()){
-                currentSegmentationVect[prev] = saddlesLocalToGlobal[vect->at(id[prev]-1)];
-                /*if(id[prev] != -2 && i <= orders->at(id[prev])){  // if we are still not in the right interval, use lower
-                  auto lower = std::lower_bound(orders->rbegin(), orders->rend(), i);
-                  id[prev] = std::distance(orders->begin(), lower.base());
-                  if (id[prev] < (ttk::SimplexId)orders->size()){
-                    currentSegmentationVect[prev] = saddlesLocalToGlobal[vect->at(id[prev]-1)];
-                  } else {
-                    if(vect->size() != 1){ // or between the maximum and this saddle, if there is only one saddle on the branch
-                      currentSegmentationVect[prev] = saddlesLocalToGlobal[vect->at(vect->size() - 2)];
-                    }
-                    id[prev] = -2;
-                  }
-                }*/
+                currentSegmentationVect[prev]
+                  = saddlesLocalToGlobal[vect->at(id[prev] - 1)];
               } else { // everything else is between the second smallest saddle and the smallest saddle of the branch (or the between the global smallest saddle and the global min on the main branch, that is handled already)
                 if(vect->size() != 1){ // or between the maximum and this saddle, if there is only one saddle on the branch
                   currentSegmentationVect[prev] = saddlesLocalToGlobal[vect->at(vect->size() - 2)];
@@ -456,63 +337,7 @@ namespace ttk {
             }
             segmentation[orderInverse[i]] = currentSegmentationVect[prev];    // either way write the current segmentation
           }
-          //unordered Map version
-        /*std::unordered_map<ttk::SimplexId, std::pair<ttk::SimplexId, ttk::SimplexId>> branchesUsed;
-        for(size_t i = 0; i < maximaLocalToGlobal.size(); i++){
-          nextOrderVect[i] = maximaOrders[i][0];
-          currentSegmentationVect[i] = maximaLocalToGlobal[i];
         }
-        ttk::SimplexId currentSegmentation;
-        ttk::SimplexId nextOrder;
-        #pragma omp for schedule(guided)
-        for (ttk::SimplexId i = orderInverse.size() - 1 ; i >= 0; i--){ // traverse from large order to small order
-          //this->printMsg("Working on id " + std::to_string(orderInverse[i]) + ", order: " + std::to_string(i));
-          if (i <= minOrder){
-            segmentation[orderInverse[i]] = minSaddle;
-          } else {
-            auto maximum
-            = ascendingManifold[orderInverse[i]]; // global, we need local from tempArray
-            auto prev = tempArray[maximum];
-            auto orders = &maximaOrders[prev];
-            while(*(orders->rbegin()) > i && prev != globalMax) {
-              prev = branches[prev].second;
-              orders = &maximaOrders[prev];
-            }
-            //this->printMsg(std::to_string(orderInverse[i]) + " is on branch of maximum " + std::to_string(maximaLocalToGlobal[prev]) + ", next order is " + std::to_string(nextOrderVect[prev]));;
-            //auto vect = &maximaVectors[prev];
-            if(branchesUsed.find(prev) != branchesUsed.end()){
-              currentSegmentation = maximaLocalToGlobal[prev];
-              nextOrder = orders->at(0);
-              branchesUsed[prev] = std::make_pair(currentSegmentation, nextOrder);
-            } else {
-              auto currentPair = &branchesUsed[prev];
-              currentSegmentation = currentPair->first;
-              nextOrder = currentPair->second;
-            }
-            if(nextOrder != -1 && i <= nextOrder){  // if we arrive at the start of a new interval, we need to update our values
-              auto lower = std::lower_bound(orders->rbegin(), orders->rend(), i);
-              auto id =  std::distance(orders->begin(), lower.base());
-              auto vect = &maximaVectors[prev];
-              if (id < (ttk::SimplexId)orders->size()){
-                //this->printMsg("Changing at " + std::to_string(orderInverse[i]) + " from order " + std::to_string(nextOrderVect[prev]) + " to order " + std::to_string(orders->at(currentSegmentationIdVect[prev])));
-                nextOrder = orders->at(id);
-                currentSegmentation = saddlesLocalToGlobal[vect->at(id-1)];
-              } else { // everything else is between the second smallest saddle and the smallest saddle of the branch (or the between the global smallest saddle and the global min on the main branch, that is handled already)
-                if(vect->size() != 1){ // or between the maximum and this saddle, if there is only one saddle on the branch
-                  currentSegmentation = saddlesLocalToGlobal[vect->at(vect->size() - 2)];
-                }
-                //this->printMsg("Changing at " + std::to_string(orderInverse[i]) + " from order " + std::to_string(nextOrderVect[prev]) + " to the end of the branch");
-                nextOrder = -1;
-              }
-              branchesUsed[prev] = std::make_pair(currentSegmentation, nextOrder);
-            }
-            //this->printMsg("Id " + std::to_string(orderInverse[i]) + " is segmented to extremum " + std::to_string(currentSegmentationVect[prev]));
-            segmentation[orderInverse[i]] = currentSegmentation;    // either way write the current segmentation
-          }*/
-
-        }
-
-        //this->printMsg("Thread " + std::to_string(omp_get_thread_num()) + " visited " + std::to_string(branchesUsed.size()) + " branches");
       }
       this->printMsg(
         "Finished phase 3 of segmentation: ", 1, trunkTimer.getElapsedTime(), ttk::debug::LineMode::NEW,
@@ -529,7 +354,7 @@ namespace ttk {
       std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &maxima,
       std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &saddles,
       const ttk::SimplexId *order,
-      const ttk::SimplexId *ascendingManifold,
+      const ttk::SimplexId *descendingManifold,
       ttk::SimplexId *tempArray,
       const triangulationType *triangulation) {
       // construct the maximumLists for each saddle, the maxima which can be reached from this saddle
@@ -565,22 +390,24 @@ namespace ttk {
       this->printMsg("Finished sorting and building the normalization arrays",
                      0, buildTimer.getElapsedTime(), ttk::debug::LineMode::NEW,
                      ttk::debug::Priority::DETAIL);
-
+      // std::vector<std::vector<ttk::SimplexId>> testTriplets(saddles.size());
+      //  change set to vector, maybe change to set afterwards, probably faster!
       ttk::Timer tripletTimer;
 
-#pragma omp parallel for schedule(guided) num_threads(this->threadNumber_)
+#pragma omp parallel for num_threads(this->threadNumber_)
       for(size_t i = 0; i < saddles.size(); i++) {
-        auto gId = saddles[i].first;
-        auto nNeighbors = triangulation->getVertexNeighborNumber(gId);
+        const auto &gId = saddles[i].first;
+        const auto &nNeighbors = triangulation->getVertexNeighborNumber(gId);
         ttk::SimplexId neighborId;
         for(int j = 0; j < nNeighbors; j++) {
           triangulation->getVertexNeighbor(gId, j, neighborId);
-          // get the manifold result for this neighbor
-          // problematic if manifold is dense and not sparse, because we need
-          // the id of the point to which it is ascending, not the id of the
-          // segmentation
+          // ttk::SimplexId neighborId = std::min(j*nNeighbors+gId,nVertices);
+          //  get the manifold result for this neighbor
+          //  problematic if manifold is dense and not sparse, because we need
+          //  the id of the point to which it is ascending, not the id of the
+          //  segmentation
           if(order[neighborId] > saddles[i].second) {
-            triplets[i].emplace(tempArray[ascendingManifold[neighborId]]);
+            triplets[i].emplace(tempArray[descendingManifold[neighborId]]);
           }
         }
       }
@@ -598,7 +425,7 @@ namespace ttk {
       const ttk::SimplexId *minimaIds,
       const ttk::SimplexId *saddle2Ids,
       const ttk::SimplexId *maximaIds,
-      const ttk::SimplexId *ascendingManifold,
+      const ttk::SimplexId *descendingManifold,
       ttk::SimplexId *tempArray,
       const ttk::SimplexId *order,
       const triangulationType *triangulation,
@@ -663,9 +490,8 @@ namespace ttk {
           "Starting with findAscPaths", 0, ttk::debug::LineMode::REPLACE);
         findAscPaths<triangulationType>(
           triplets, maximaLocalToGlobal, saddlesLocalToGlobal, maxima, saddles,
-          order, ascendingManifold, tempArray, triangulation);
+          order, descendingManifold, tempArray, triangulation);
         this->printMsg("Finished with findAscPaths", 1, ascTimer.getElapsedTime(), this->threadNumber_);
-
 
         ttk::Timer pairTimer;
         this->printMsg(
@@ -673,7 +499,11 @@ namespace ttk {
         constructPersistencePairs(persistencePairs, branches, triplets,
                                   maximaLocalToGlobal, saddlesLocalToGlobal);
         this->printMsg("Finished with PersistencePairs", 1, pairTimer.getElapsedTime(), this->threadNumber_);
-
+        // the global max is always in the last position of the
+        // maximaLocalToGlobal vector and needs to connect with the global
+        // minimum
+        persistencePairs[persistencePairs.size() - 1]
+          = std::make_pair(minimaIds[0], maxima[maxima.size() - 1].first);
 
         ttk::Timer mergeTreeTimer;
         this->printMsg("Starting with mergetree computation", 0, ttk::debug::LineMode::REPLACE);
@@ -686,16 +516,12 @@ namespace ttk {
         this->printMsg("Starting with mergetree segmentation", 0, ttk::debug::LineMode::REPLACE);
         constructSegmentation<triangulationType>(
           segmentation, branches, mergeTree, maximaVectors, maximaOrders,
-          maximaLocalToGlobal, saddlesLocalToGlobal, order, ascendingManifold,
+          maximaLocalToGlobal, saddlesLocalToGlobal, order, descendingManifold,
           tempArray, triangulation);
         this->printMsg("Finished mergetree segmentation", 1, segmentationTimer.getElapsedTime(), this->threadNumber_);
 
-        // the global max is always in the last position of the
-        // maximaLocalToGlobal vector and needs to connect with the global
-        // minimum
-        persistencePairs[persistencePairs.size() - 1]
-          = std::make_pair(minimaIds[0], maxima[maxima.size() - 1].first);
         // print the progress of the current subprocedure with elapsed time
+
         this->printMsg("Computing extremum pairs",
                        1, // progress
                        localTimer.getElapsedTime(), this->threadNumber_);

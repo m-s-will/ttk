@@ -59,8 +59,8 @@ namespace ttk {
     = "SeparatrixFunctionDifference";
   const char MorseSmaleCriticalPointsOnBoundaryName[]
     = "NumberOfCriticalPointsOnBoundary";
-  const char MorseSmaleAscendingName[] = "DescendingManifold";
-  const char MorseSmaleDescendingName[] = "AscendingManifold";
+  const char MorseSmaleAscendingName[] = "AscendingManifold";
+  const char MorseSmaleDescendingName[] = "DescendingManifold";
   const char MorseSmaleManifoldName[] = "MorseSmaleManifold";
 
   // default names for persistence diagram meta data
