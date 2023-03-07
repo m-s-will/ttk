@@ -227,6 +227,7 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
   auto maximaIds = criticalFieldData->GetArray("cp3id");
   ttk::SimplexId nSaddle2 = saddle2Ids->GetNumberOfTuples();
   ttk::SimplexId nMaxima = maximaIds->GetNumberOfTuples();
+  ttk::SimplexId nMinima = minimaIds->GetNumberOfTuples();
 
   if(!descendingManifold | !order | !tempArray | !minimaIds | !saddle2Ids
      | !maximaIds) {
@@ -279,7 +280,7 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
                    ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
                    ttkUtils::GetPointer<ttk::SimplexId>(tempArray),
                    ttkUtils::GetPointer<ttk::SimplexId>(order),
-                   (T0 *)triangulation->getData(), nSaddle2, nMaxima)));
+                   (T0 *)triangulation->getData(), nMinima, nSaddle2, nMaxima)));
 
   // On error cancel filter execution
   if(status != 1)

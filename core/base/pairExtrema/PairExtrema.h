@@ -390,28 +390,58 @@ namespace ttk {
       this->printMsg("Finished sorting and building the normalization arrays",
                      0, buildTimer.getElapsedTime(), ttk::debug::LineMode::NEW,
                      ttk::debug::Priority::DETAIL);
-      // std::vector<std::vector<ttk::SimplexId>> testTriplets(saddles.size());
+      //std::vector<std::vector<ttk::SimplexId>> testTriplets(saddles.size());
       //  change set to vector, maybe change to set afterwards, probably faster!
       ttk::Timer tripletTimer;
-
-#pragma omp parallel for num_threads(this->threadNumber_)
+      //this->printMsg("");
+      //auto nVertices = triangulation->getNumberOfVertices();
+#pragma omp parallel num_threads(this->threadNumber_)
+{
+      /*auto t1 = timeNow();
+      long long int t2 = 0;
+      long long int t3 = 0;
+      long long int t4 = 0;
+      long long int t5 = 0;*/
+      #pragma omp for
       for(size_t i = 0; i < saddles.size(); i++) {
         const auto &gId = saddles[i].first;
         const auto &nNeighbors = triangulation->getVertexNeighborNumber(gId);
+        auto triplet = &triplets[i];
         ttk::SimplexId neighborId;
         for(int j = 0; j < nNeighbors; j++) {
+          //t1 = timeNow();
           triangulation->getVertexNeighbor(gId, j, neighborId);
+          //t2 += duration(timeNow() - t1);
+          //t1 = timeNow();
+          //neighborIdTest = std::min(j*nNeighbors+gId,nVertices);
+          //t3 += duration(timeNow() - t1);
           // ttk::SimplexId neighborId = std::min(j*nNeighbors+gId,nVertices);
           //  get the manifold result for this neighbor
           //  problematic if manifold is dense and not sparse, because we need
           //  the id of the point to which it is ascending, not the id of the
           //  segmentation
           if(order[neighborId] > saddles[i].second) {
-            triplets[i].emplace(tempArray[descendingManifold[neighborId]]);
+            //t1 = timeNow();
+            //auto val = tempArray[descendingManifold[neighborId]];
+            //t4 += duration(timeNow() - t1);
+            //t1 = timeNow();
+            triplet->emplace(tempArray[descendingManifold[neighborId]]);
+            //t5 += duration(timeNow() - t1);
           }
         }
+
+        // turn tripletvector to set
+        //triplet->erase(std::remove(triplet->begin(), triplet->end(), -1), triplet->end());
+        //std::set<ttk::SimplexId> tripletSet(std::make_move_iterator(triplet->begin()), std::make_move_iterator(triplet->end()));
+        //triplets[i] = tripletSet;
       }
-      this->printMsg("Finished building the triplets", 0,
+      //this->printMsg(std::to_string(omp_get_thread_num()) + ", 10^-6 seconds for getneighbors: " + std::to_string(t2/1000));
+      //this->printMsg(std::to_string(omp_get_thread_num()) + ", 10^-6 seconds for getting val: " + std::to_string(t4/1000));
+      //this->printMsg(std::to_string(omp_get_thread_num()) + ", 10^-6 seconds for emplace: " + std::to_string(t5/1000));
+
+}
+
+        this->printMsg("Finished building the triplets", 0,
                      tripletTimer.getElapsedTime(), ttk::debug::LineMode::NEW,
                      ttk::debug::Priority::DETAIL);
       return 1;
@@ -429,6 +459,7 @@ namespace ttk {
       ttk::SimplexId *tempArray,
       const ttk::SimplexId *order,
       const triangulationType *triangulation,
+      ttk::SimplexId &nMinima,
       ttk::SimplexId &nSaddle2,
       ttk::SimplexId &nMaxima) {
 
@@ -441,6 +472,7 @@ namespace ttk {
       this->printMsg({
         {"#Threads", std::to_string(this->threadNumber_)},
         {"#Vertices", std::to_string(triangulation->getNumberOfVertices())},
+        {"#Minima", std::to_string(nMinima)}
       });
       this->printMsg(ttk::debug::Separator::L1);
 
