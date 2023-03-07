@@ -16,6 +16,14 @@ namespace ttk {
   class ScalarFieldCriticalPoints2 : virtual public Debug {
 
   public:
+
+    struct CP {
+      SimplexId id;
+      std::vector<SimplexId> neighbors;
+      CP(const SimplexId& _) : id(_){
+      }
+    };
+
     ScalarFieldCriticalPoints2(){
       this->setDebugMsgPrefix("ScalarFieldCriticalPoints2");
     }
@@ -83,7 +91,7 @@ namespace ttk {
       const int nLinkVertices,
       const SimplexId* manifold
     ) const {
-      if(nLinkVertices<1)
+      if(nLinkVertices<2)
         return 0;
 
       int numberOfReachableExtrema = 0;
@@ -105,7 +113,7 @@ namespace ttk {
 
     template <typename TT = ttk::AbstractTriangulation>
     int computeNumberOfLinkComponents(
-      std::array<SimplexId,32>& linkVertices,
+      const std::array<SimplexId,32>& linkVertices,
       const int nLinkVertices,
       const TT* triangulation
     ) const {
@@ -281,6 +289,161 @@ namespace ttk {
             );
             if(numberOfReachableMaxima>1 && this->computeNumberOfLinkComponents(upperLinkVertices,nUpperLinkVertices,triangulation)>1)
               cp2.emplace_back(v);
+          }
+        }
+      }
+
+      // std::cout<<n0<<" "<<n1<<" "<<n2<<" "<<n3<<std::endl;
+
+      this->printMsg(msg, 1, timer.getElapsedTime(), this->threadNumber_);
+
+      return 1;
+    }
+
+    int processSaddle(
+      std::vector<CP>& cps,
+      std::array<SimplexId,32>& neighbors,
+      const SimplexId v,
+      const int nNeighbors
+    ) const {
+      cps.emplace_back(v);
+      auto& cp = cps.back();
+      std::sort(
+        neighbors.begin()+1, // skip -1 at first position
+        neighbors.begin()+nNeighbors+1
+      );
+      cp.neighbors.reserve(nNeighbors+1);
+      cp.neighbors.emplace_back(neighbors[1]);
+      for(int i=2; i<=nNeighbors; i++){
+        if(cp.neighbors.back()!=neighbors[i]){
+          cp.neighbors.emplace_back( neighbors[i] );
+        }
+      }
+      return 1;
+    };
+
+
+    template <typename TT = ttk::AbstractTriangulation>
+    int computeCritialPoints(
+      std::array<std::vector<std::vector<CP>>,4>& cp,
+      const SimplexId* order,
+      const SimplexId* ascManifold,
+      const SimplexId* desManifold,
+      const TT* triangulation
+    ) const {
+      ttk::Timer timer;
+
+      const std::string msg{"Computing Critical Points"};
+      this->printMsg(msg, 0, 0, this->threadNumber_, ttk::debug::LineMode::REPLACE);
+
+      const SimplexId nVertices = triangulation->getNumberOfVertices();
+
+      #pragma omp parallel num_threads(this->threadNumber_)
+      {
+        const int threadId = omp_get_thread_num();
+        const int nThreads = omp_get_num_threads();
+
+        #pragma omp single
+        {
+          for(int i=0; i<4; i++)
+            cp[i].resize(nThreads);
+        }
+
+        auto& cp0 = cp[0][threadId];
+        auto& cp1 = cp[1][threadId];
+        auto& cp2 = cp[2][threadId];
+        auto& cp3 = cp[3][threadId];
+
+        // general case
+        std::array<SimplexId,32> lowerMem; // room for max 32 vertices
+        std::array<SimplexId,32> upperMem; // room for max 32 vertices
+        std::array<SimplexId,32> lowerMem2; // used by general case
+        std::array<SimplexId,32> upperMem2; // used by general case
+
+        #pragma omp for
+        for(SimplexId v=0; v<nVertices; v++){
+          const SimplexId orderV = order[v];
+          const SimplexId nNeighbors = triangulation->getVertexNeighborNumber(v);
+
+          if(nNeighbors==14){
+            std::bitset<14> upperLinkKey;
+            std::bitset<14> lowerLinkKey;
+
+            lowerMem[0] = -1;
+            upperMem[0] = -1;
+            int lowerCursor=0;
+            int upperCursor=0;
+
+            for(SimplexId n=0; n<14; n++){
+              SimplexId u{0};
+              triangulation->getVertexNeighbor(v, n, u);
+
+              const SimplexId orderN = order[u];
+              if(orderV<orderN){
+                upperLinkKey[n]=1;
+                if(upperMem[upperCursor] != desManifold[u]){
+                  upperMem[++upperCursor] = desManifold[u];
+                }
+              } else {
+                lowerLinkKey[n]=1;
+                if(lowerMem[lowerCursor] != ascManifold[u]){
+                  lowerMem[++lowerCursor] = ascManifold[u];
+                }
+              }
+            }
+
+            if(lowerCursor==0)
+              cp0.emplace_back(v);
+
+            if(upperCursor==0)
+              cp3.emplace_back(v);
+
+            if(lowerCursor>1 && lut[lowerLinkKey.to_ulong()]==0){
+              this->processSaddle(cp1,lowerMem,v,lowerCursor);
+            }
+
+            if(upperCursor>1 && lut[upperLinkKey.to_ulong()]==0){
+              this->processSaddle(cp2,upperMem,v,upperCursor);
+            }
+          } else {
+            lowerMem[0] = -1;
+            upperMem[0] = -1;
+            int lowerCursor=0;
+            int upperCursor=0;
+            int lowerCursor2=0;
+            int upperCursor2=0;
+
+            for(SimplexId n=0; n<nNeighbors; n++){
+              SimplexId u{0};
+              triangulation->getVertexNeighbor(v, n, u);
+
+              const SimplexId orderN = order[u];
+              if(orderV<orderN){
+                upperMem2[upperCursor2++] = u;
+                if(upperMem[upperCursor] != desManifold[u]){
+                  upperMem[++upperCursor] = desManifold[u];
+                }
+              } else {
+                lowerMem2[lowerCursor2++] = u;
+                if(lowerMem[lowerCursor] != ascManifold[u]){
+                  lowerMem[++lowerCursor] = ascManifold[u];
+                }
+              }
+            }
+
+            if(lowerCursor==0)
+              cp0.emplace_back(v);
+
+            if(upperCursor==0)
+              cp3.emplace_back(v);
+
+            if(lowerCursor>1 && this->computeNumberOfLinkComponents(lowerMem2,lowerCursor2,triangulation)>1){
+              this->processSaddle(cp1,lowerMem,v,lowerCursor);
+            }
+
+            if(upperCursor>1 && this->computeNumberOfLinkComponents(upperMem2,upperCursor2,triangulation)>1){
+              this->processSaddle(cp2,upperMem,v,upperCursor);
+            }
           }
         }
       }

@@ -55,7 +55,7 @@ int ttkPathCompression::dispatch(vtkDataArray *const inputScalars,
   const auto scalars = ttkUtils::GetPointer<scalarType>(inputScalars);
 
   const int ret = this->execute(
-    segmentations_, scalars, inputOffsets, triangulation);
+    segmentations_, inputOffsets, triangulation);
 
 #ifndef TTK_ENABLE_KAMIKAZE
   if(ret != 0) {

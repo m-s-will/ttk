@@ -49,9 +49,8 @@ namespace ttk {
      * @pre PathCompression::preconditionTriangulation must be
      * called prior to this.
      */
-    template <typename dataType, typename triangulationType>
+    template <typename triangulationType>
     inline int execute(OutputManifold &outManifold,
-                       const dataType *const scalars,
                        const SimplexId *const offsets,
                        const triangulationType &triangulation);
 
@@ -108,24 +107,16 @@ namespace ttk {
 //  Execute method  //
 // ---------------- //
 
-template <typename dataType, typename triangulationType>
+template <typename triangulationType>
 int ttk::PathCompression::execute(OutputManifold &outManifold,
-                                  const dataType *const scalars,
                                   const SimplexId *const orderArray,
                                   const triangulationType &triangulation) {
 #ifndef TTK_ENABLE_KAMIKAZE
-  if(scalars == nullptr) {
-    this->printErr("Input scalar field pointer is null.");
-    return -1;
-  }
-
   if(orderArray == nullptr) {
     this->printErr("Input offset field pointer is null.");
     return -1;
   }
 #endif
-
-  Timer t;
 
   if((ComputeAscendingSegmentation && ComputeDescendingSegmentation) ||
     ComputeFinalSegmentation) {
@@ -144,11 +135,6 @@ int ttk::PathCompression::execute(OutputManifold &outManifold,
       outManifold.descending_, triangulation);
   }
 
-  this->printMsg("Data-set ("
-                   + std::to_string(triangulation.getNumberOfVertices())
-                   + " points) processed",
-                 1.0, t.getElapsedTime(), this->threadNumber_);
-
   return 0;
 }
 
@@ -163,7 +149,8 @@ int ttk::PathCompression::computePathCompression(
 
   //this->printWrn(ttk::debug::Separator::L1);
   // print the progress of the current subprocedure (currently 0%)
-  this->printWrn("Computing Manifolds");
+  const std::string msg = "Computing Asc + Desc Segmentation";
+  this->printMsg(msg,0,0,this->threadNumber_,ttk::debug::LineMode::REPLACE);
 
   /* compute the Descending Maifold iterating over each vertex, searching
    * the biggest neighbor and compressing its path to its maximum */
@@ -303,7 +290,7 @@ if(threadNumber_ == 1) {
 }
 #endif // TTK_ENABLE_OPENMP
 
-  this->printWrn("Computed Manifolds");
+  this->printMsg(msg,1,localTimer.getElapsedTime(),this->threadNumber_);
 
   return 1; // return success
 }
@@ -319,7 +306,8 @@ int ttk::PathCompression::computePathCompressionSingle(
 
   //this->printWrn(ttk::debug::Separator::L1);
   // print the progress of the current subprocedure (currently 0%)
-  this->printWrn("Computing Manifolds");
+  const std::string msg = "Computing "+std::string(computeAscending? "Ascending" : "Descending")+" Segmentation";
+  this->printMsg(msg,0,0,this->threadNumber_,ttk::debug::LineMode::REPLACE);
 
   /* compute the Descending Maifold iterating over each vertex, searching
    * the biggest neighbor and compressing its path to its maximum */
@@ -453,7 +441,7 @@ if(threadNumber_ == 1) {
 }
 #endif // TTK_ENABLE_OPENMP
 
-  this->printWrn("Computed Manifolds");
+  this->printMsg(msg,1,localTimer.getElapsedTime(),this->threadNumber_);
 
   return 1; // return success
 }

@@ -1,0 +1,11 @@
+NAME
+  ttkExTreeM
+SOURCES
+  ttkExTreeM.cpp
+HEADERS
+  ttkExTreeM.h
+DEPENDS
+  exTreeM
+  pathCompression
+  scalarFieldCriticalPoints2
+  ttkAlgorithm
