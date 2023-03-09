@@ -20,6 +20,7 @@
 #include <chrono>
 #include <limits.h>
 #include <set>
+#include <valgrind/callgrind.h>
 
 #define duration(a) \
   std::chrono::duration_cast<std::chrono::nanoseconds>(a).count()
@@ -295,7 +296,7 @@ namespace ttk {
       ttk::SimplexId minOrder = order[minSaddle];
 
       ttk::Timer phase3Timer;
-      std::vector<ttk::SimplexId> orderInverse(triangulation->getNumberOfVertices(), -1);
+      std::vector<ttk::SimplexId> orderInverse(triangulation->getNumberOfVertices());
       // phase 3: all unmarked vertices after flood fill need tree traversal
 
       ttk::Timer trunkTimer;
@@ -306,43 +307,35 @@ namespace ttk {
           orderInverse[order[i]] = i;
         }
         std::vector<ttk::SimplexId> currentSegmentationVect(maximaLocalToGlobal.size());
-        std::vector<ttk::SimplexId> id (maximaLocalToGlobal.size(), 0); // init on a large value, such that we need to do it once at the beginning either way
-
+        std::vector<ttk::SimplexId> id (maximaLocalToGlobal.size(), 0);
+        //std::vector<std::tuple<ttk::Simplex, ttk::SimplexId>> currentAndNextSaddle(maximaLocalToGlobal.size());
         for(size_t i = 0; i < maximaLocalToGlobal.size(); i++) {
           currentSegmentationVect[i] = maximaLocalToGlobal[i];
+          //currentAndNextSaddle[i] = std::make_tuple(maximaLocalToGlobal[i], maximaOrders[i][0]);
         }
-#pragma omp for schedule(dynamic, 8)
+#pragma omp for
         for (ttk::SimplexId i = orderInverse.size() - 1 ; i >= 0; i--){ // traverse from large order to small order
           if (i <= minOrder){
             segmentation[orderInverse[i]] = minSaddle;
-          } else {
-            auto maximum
-              = descendingManifold[orderInverse[i]]; // global, we need local
-                                                     // from tempArray
+          } else { //currently broken
+            auto maximum = descendingManifold[orderInverse[i]]; // global, we need local from tempArray
             auto prev = tempArray[maximum];
-            auto orders = &maximaOrders[prev];
-            while(*(orders->rbegin()) > i && prev != globalMax) {
+            auto lowestOrder = *(maximaOrders[prev].rbegin());
+            while(lowestOrder >= i && prev != globalMax) { // finding the branch on which we are
               prev = branches[prev].second;
-              orders = &maximaOrders[prev];
+              lowestOrder = *(maximaOrders[prev].rbegin());
             }
-
-            while(id[prev] != -2
-                  && i <= orders->at(
-                       id[prev])) { // if we arrive at the start of a new
-                                    // interval, we need to update our values
+            auto orders = &maximaOrders[prev];
+            bool changed = false;
+            while(i <= orders->at(id[prev])) { // linearly walk through the branch, save the current id per branch per thread
               id[prev]++; // one linear step
-              auto vect = &maximaVectors[prev];
-              if (id[prev] < (ttk::SimplexId)orders->size()){
-                currentSegmentationVect[prev]
-                  = saddlesLocalToGlobal[vect->at(id[prev] - 1)];
-              } else { // everything else is between the second smallest saddle and the smallest saddle of the branch (or the between the global smallest saddle and the global min on the main branch, that is handled already)
-                if(vect->size() != 1){ // or between the maximum and this saddle, if there is only one saddle on the branch
-                  currentSegmentationVect[prev] = saddlesLocalToGlobal[vect->at(vect->size() - 2)];
-                }
-                id[prev] = -2;
-              }
+              changed = true;
             }
-            segmentation[orderInverse[i]] = currentSegmentationVect[prev];    // either way write the current segmentation
+            if(changed){
+              //auto vect = &maximaVectors[prev];
+              currentSegmentationVect[prev] = saddlesLocalToGlobal[maximaVectors[prev][id[prev] - 1]];
+            }
+            segmentation[orderInverse[i]] = currentSegmentationVect[prev];   // we are between the maximum and the first saddle
           }
         }
       }
@@ -493,7 +486,7 @@ namespace ttk {
         std::vector<ttk::SimplexId> maximaLocalToGlobal(nMaxima);
         std::vector<ttk::SimplexId> saddlesLocalToGlobal(nSaddle2);
         this->printMsg("Finished with PreProcessing", 1, preTimer.getElapsedTime(), this->threadNumber_);
-
+        CALLGRIND_START_INSTRUMENTATION;
         ttk::Timer ascTimer;
         this->printMsg(
           "Starting with findAscPaths", 0, ttk::debug::LineMode::REPLACE);
@@ -525,7 +518,8 @@ namespace ttk {
           maximaLocalToGlobal, saddlesLocalToGlobal, order, descendingManifold,
           tempArray, triangulation);
         this->printMsg("Finished mergetree segmentation", 1, segmentationTimer.getElapsedTime(), this->threadNumber_);
-
+        CALLGRIND_STOP_INSTRUMENTATION;
+        CALLGRIND_DUMP_STATS;
         // print the progress of the current subprocedure with elapsed time
 
         this->printMsg("Computing extremum pairs",
