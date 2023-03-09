@@ -135,11 +135,10 @@ int ttkPairExtrema::getSkeletonArcs(
 }
 
 template <class triangulationType>
-int ttkPairExtrema::getMergeTree(
-  vtkUnstructuredGrid *outputSkeletonArcs,
-  std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &mergeTree,
-  const ttk::SimplexId *order,
-  const triangulationType *triangulation) {
+int ttkPairExtrema::getMergeTree(vtkUnstructuredGrid *outputSkeletonArcs,
+                                 std::vector<PairExtrema::Branch> &mergeTree,
+                                 const ttk::SimplexId *order,
+                                 const triangulationType *triangulation) {
   vtkNew<vtkUnstructuredGrid> skeletonArcs{};
   ttk::SimplexId pointIds[2];
   ttk::SimplexId pointOrders[2];
@@ -153,35 +152,40 @@ int ttkPairExtrema::getMergeTree(
   float point[3];
   std::map<ttk::SimplexId, ttk::SimplexId> addedPoints;
   ttk::SimplexId currentId = 0;
-  for(auto const &p : mergeTree) {
-    pointIds[0] = p.first;
-    pointIds[1] = p.second;
-    pointOrders[0] = order[p.first];
-    pointOrders[1] = order[p.second];
-    // add each point only once to the vtkPoints
-    // addedPoints.insert(x).second inserts x and is true if x was not in
-    // addedPoints beforehand
-    if(addedPoints.insert({pointIds[0], currentId}).second) {
-      // this->printMsg("point " + std::to_string(pointIds[0]));
-      triangulation->getVertexPoint(pointIds[0], point[0], point[1], point[2]);
-      points->InsertNextPoint(point);
-      data->InsertNextTuple1(pointOrders[0]);
-      gIdArray->InsertNextTuple1(pointIds[0]);
-      currentId++;
+  for(auto const &b : mergeTree) {
+    auto &vertices = b.vertices;
+    for(size_t p = 0; p < vertices.size() - 1; p++) {
+      pointIds[0] = vertices[p].second;
+      pointIds[1] = vertices[p + 1].second;
+      pointOrders[0] = vertices[p].first;
+      pointOrders[1] = vertices[p + 1].first;
+      // add each point only once to the vtkPoints
+      // addedPoints.insert(x).second inserts x and is true if x was not in
+      // addedPoints beforehand
+      if(addedPoints.insert({pointIds[0], currentId}).second) {
+        // this->printMsg("point " + std::to_string(pointIds[0]));
+        triangulation->getVertexPoint(
+          pointIds[0], point[0], point[1], point[2]);
+        points->InsertNextPoint(point);
+        data->InsertNextTuple1(pointOrders[0]);
+        gIdArray->InsertNextTuple1(pointIds[0]);
+        currentId++;
+      }
+      if(addedPoints.insert({pointIds[1], currentId}).second) {
+        // this->printMsg("point " + std::to_string(pointIds[1]));
+        triangulation->getVertexPoint(
+          pointIds[1], point[0], point[1], point[2]);
+        points->InsertNextPoint(point);
+        data->InsertNextTuple1(pointOrders[1]);
+        gIdArray->InsertNextTuple1(pointIds[1]);
+        currentId++;
+      }
+      // this->printMsg("Join Tree Arc: " + std::to_string(pointIds[0]) + " "
+      //                + std::to_string(pointIds[1]));
+      pointIds[0] = addedPoints.at(pointIds[0]);
+      pointIds[1] = addedPoints.at(pointIds[1]);
+      skeletonArcs->InsertNextCell(VTK_LINE, 2, pointIds);
     }
-    if(addedPoints.insert({pointIds[1], currentId}).second) {
-      // this->printMsg("point " + std::to_string(pointIds[1]));
-      triangulation->getVertexPoint(pointIds[1], point[0], point[1], point[2]);
-      points->InsertNextPoint(point);
-      data->InsertNextTuple1(pointOrders[1]);
-      gIdArray->InsertNextTuple1(pointIds[1]);
-      currentId++;
-    }
-    // this->printMsg("Join Tree Arc: " + std::to_string(pointIds[0]) + " "
-    //                + std::to_string(pointIds[1]));
-    pointIds[0] = addedPoints.at(pointIds[0]);
-    pointIds[1] = addedPoints.at(pointIds[1]);
-    skeletonArcs->InsertNextCell(VTK_LINE, 2, pointIds);
   }
   skeletonArcs->SetPoints(points);
   outputSkeletonArcs->ShallowCopy(skeletonArcs);
@@ -255,7 +259,7 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
 
   // ttk::SimplexId nCriticalPoints = criticalType->GetNumberOfTuples();
   std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> persistencePairs{};
-  std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> mergeTree{};
+  std::vector<PairExtrema::Branch> mergeTree{};
 
   // Get ttk::triangulation of the input vtkDataSet (will create one if one does
   // not exist already).
