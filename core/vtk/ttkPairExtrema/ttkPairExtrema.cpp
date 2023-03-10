@@ -137,7 +137,6 @@ int ttkPairExtrema::getSkeletonArcs(
 template <class triangulationType>
 int ttkPairExtrema::getMergeTree(vtkUnstructuredGrid *outputSkeletonArcs,
                                  std::vector<PairExtrema::Branch> &mergeTree,
-                                 const ttk::SimplexId *order,
                                  const triangulationType *triangulation) {
   vtkNew<vtkUnstructuredGrid> skeletonArcs{};
   ttk::SimplexId pointIds[2];
@@ -304,7 +303,6 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
   ttkTypeMacroT(
     triangulation->getType(),
     status = getMergeTree<T0>(outputMergeTree, mergeTree,
-                              ttkUtils::GetPointer<ttk::SimplexId>(order),
                               (T0 *)triangulation->getData()));
 
   outputSegmentation->ShallowCopy(inputDataSet);

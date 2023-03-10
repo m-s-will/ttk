@@ -105,7 +105,6 @@ protected:
   template <class triangulationType = ttk::AbstractTriangulation>
   int getMergeTree(vtkUnstructuredGrid *outputSkeletonArcs,
                    std::vector<PairExtrema::Branch> &mergeTree,
-                   const ttk::SimplexId *order,
                    const triangulationType *triangulation);
 
   int RequestData(vtkInformation *request,
