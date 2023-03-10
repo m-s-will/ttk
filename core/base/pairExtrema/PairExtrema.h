@@ -54,7 +54,7 @@ namespace ttk {
     int constructPersistencePairs(
       std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &pairs,
       std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &maximaTriplets,
-      std::vector<std::set<ttk::SimplexId>> &saddleTriplets,
+      std::vector<std::unordered_set<ttk::SimplexId>> &saddleTriplets,
       const std::vector<ttk::SimplexId> &maximaLocalToGlobal,
       const std::vector<ttk::SimplexId> &saddlesLocalToGlobal,
       ttk::SimplexId globalMin) {
@@ -120,7 +120,7 @@ namespace ttk {
             ttk::SimplexId maximum = i;
             auto largestSaddle = largestSaddlesForMax[maximum];
             if(largestSaddle < (ttk::SimplexId)saddleTriplets.size()) {
-              if(*(saddleTriplets.at(largestSaddle).begin()) == maximum) {
+              if(*(std::min_element(saddleTriplets.at(largestSaddle).begin(), saddleTriplets.at(largestSaddle).end())) == maximum) {
                 changed = true;
                 //#pragma omp atomic
                 // nrOfPairs++;
@@ -128,8 +128,7 @@ namespace ttk {
                   = std::make_pair(saddlesLocalToGlobal[largestSaddle],
                                    maximaLocalToGlobal[maximum]);
                 auto largestMax = *(
-                  saddleTriplets.at(largestSaddle)
-                    .rbegin()); // largest maximum reachable from paired saddle
+                  std::max_element(saddleTriplets.at(largestSaddle).begin(), saddleTriplets.at(largestSaddle).end())); // largest maximum reachable from paired saddle
                 maximumPointer[maximum] = largestMax;
                 maximaTriplets[maximum] = (std::make_pair(largestSaddle, largestMax));
                 lActiveMaxima.push_back(maximum);
@@ -172,7 +171,7 @@ namespace ttk {
           // max and min are the same
 #pragma omp for schedule(guided)
           for(size_t i = 0; i < saddleTriplets.size(); i++) {
-            std::set<ttk::SimplexId> newSet{};
+            std::unordered_set<ttk::SimplexId> newSet{};
             for(auto &toReplace : saddleTriplets[i]) {
               newSet.emplace(maximumPointer[toReplace]); // expensive
             }
@@ -284,24 +283,27 @@ namespace ttk {
 
       ttk::Timer segmentationTimer;
       auto nVertices = triangulation->getNumberOfVertices();
-
+      const auto &trunkSaddle = branches[branches.size() - 1].vertices[branches[branches.size() - 1].vertices.size() - 2];
+      this->printMsg("order trunksaddle: " + std::to_string(trunkSaddle.first));
 #pragma omp parallel for num_threads(this->threadNumber_)
       for(ttk::SimplexId i = 0; i < nVertices; i++) {
+        auto orderForVertex = order[i];
+        if(orderForVertex <= trunkSaddle.first){
+          segmentation[i] = trunkSaddle.second;
+          continue;
+        }
         auto maximum = descendingManifold[i]; // global maximum id, anywhere in
                                               // 0 - nVertices
-        auto orderForVertex = order[i];
-        auto localMax = tempArray[maximum]; // local maximum id from 0 - nMaxima
-        Branch const *cBranch = &branches[localMax];
+        //auto localMax = tempArray[maximum]; // local maximum id from 0 - nMaxima
+        Branch const *cBranch = &branches[maximum];
         auto lowestOrder = (*(cBranch->vertices.rbegin())).first;
-        while(lowestOrder
-              >= orderForVertex) { // finding the branch on which we are
+        while(lowestOrder >= orderForVertex) { // finding the branch on which we are
           cBranch = cBranch->parentBranch;
           lowestOrder = (*(cBranch->vertices.rbegin())).first;
         }
         auto vect = &cBranch->vertices;
         auto lower = std::lower_bound(
           vect->rbegin(), vect->rend(), std::make_pair(orderForVertex, i));
-        // auto saddleId = vect->at((lower) - orders->rbegin());
         segmentation[i] = (*lower).second;
       }
       this->printMsg(
@@ -312,7 +314,7 @@ namespace ttk {
     }
 
     template <typename triangulationType>
-    int findAscPaths(std::vector<std::set<ttk::SimplexId>> &saddleTriplets,
+    int findAscPaths(std::vector<std::unordered_set<ttk::SimplexId>> &saddleTriplets,
                      std::vector<ttk::SimplexId> &maximaLocalToGlobal,
                      std::vector<ttk::SimplexId> &saddlesLocalToGlobal,
                      ttk::SimplexId *maxima,
@@ -328,7 +330,7 @@ namespace ttk {
       ttk::Timer buildTimer;
       // sort the maxima and saddles by their order, the maxima ascending, the
       // saddles descending
-      //ttk::SimplexId nVertices = triangulation->getNumberOfVertices();
+      ttk::SimplexId nVertices = triangulation->getNumberOfVertices();
       TTK_PSORT(this->threadNumber_, maxima, maxima + nMaxima,
                 [&](ttk::SimplexId p1, ttk::SimplexId p2) {
                   return (order[p1] < order[p2]);
@@ -341,19 +343,27 @@ namespace ttk {
 
 #pragma omp parallel num_threads(this->threadNumber_)
       {
-#pragma omp for nowait
+#pragma omp for
         for(ttk::SimplexId i = 0; i < nMaxima; i++) {
           maximaLocalToGlobal[i] = maxima[i];
-          tempArray[maxima[i]] = i;
-          //descendingManifold[maxima[i]] = i;
+          //tempArray[maxima[i]] = i;
+          descendingManifold[maxima[i]] = -i - 1;
         }
 
-      /*
-#pragma omp for nowait
+#pragma omp for
       for(ttk::SimplexId i = 0; i < nVertices; i++) {
           // go once over descendingManifold and transfrom from global to local
-          descendingManifold[i] = descendingManifold[descendingManifold[i]];
-        }*/
+          // don't do this for the maxima
+          auto pointsTo = descendingManifold[i];
+          if(pointsTo >= 0){
+            descendingManifold[i] = -descendingManifold[pointsTo] - 1;
+          }
+        }
+
+#pragma omp for nowait
+        for(ttk::SimplexId i = 0; i < nMaxima; i++) {
+          descendingManifold[maxima[i]] = i;
+        }
 
 #pragma omp for nowait
         for(ttk::SimplexId i = 0; i < nSaddles; i++) {
@@ -361,8 +371,7 @@ namespace ttk {
         }
       }
       this->printMsg("Finished sorting and building the normalization arrays",
-                     0, buildTimer.getElapsedTime(), ttk::debug::LineMode::NEW,
-                     ttk::debug::Priority::DETAIL);
+                     0, buildTimer.getElapsedTime(), ttk::debug::LineMode::NEW);
       ttk::Timer tripletTimer;
 
 #pragma omp parallel for num_threads(this->threadNumber_)
@@ -370,26 +379,29 @@ namespace ttk {
         const auto &gId = saddles[i];
         const auto &nNeighbors = triangulation->getVertexNeighborNumber(gId);
         auto triplet = &saddleTriplets[i];
+        auto &thisOrder = order[gId];
         ttk::SimplexId neighborId = 0;
+        //int val = 0;
         for(int j = 0; j < nNeighbors; j++) {
           triangulation->getVertexNeighbor(gId, j, neighborId);
           //  get the manifold result for this neighbor
           //  problematic if manifold is dense and not sparse, because we need
           //  the id of the point to which it is ascending, not the id of the
           //  segmentation
-          if(order[neighborId] > order[gId]) {
+          if(order[neighborId] > thisOrder) {
+            //val = descendingManifold[neighborId];
             triplet->emplace(tempArray[descendingManifold[neighborId]]);
+            //triplet->emplace(val);
           }
         }
       }
 
       this->printMsg("Finished building the saddleTriplets", 0,
-                     tripletTimer.getElapsedTime(), ttk::debug::LineMode::NEW,
-                     ttk::debug::Priority::DETAIL);
+                     tripletTimer.getElapsedTime(), ttk::debug::LineMode::NEW);
       return 1;
     }
 
-    template <class triangulationType = ttk::AbstractTriangulation>
+    template <class triangulationType>
     int computePairs(
       std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &persistencePairs,
       std::vector<Branch> &branches,
@@ -439,7 +451,7 @@ namespace ttk {
         std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> maximaTriplets(
           nMaxima);
         std::vector<std::vector<ttk::SimplexId>> maximaOrders(nMaxima);
-        std::vector<std::set<ttk::SimplexId>> saddleTriplets(nSaddle2);
+        std::vector<std::unordered_set<ttk::SimplexId>> saddleTriplets(nSaddle2);
         std::vector<ttk::SimplexId> maximaLocalToGlobal(nMaxima);
         std::vector<ttk::SimplexId> saddlesLocalToGlobal(nSaddle2);
         this->printMsg("Allocating memory", 1, preTimer.getElapsedTime(),

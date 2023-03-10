@@ -10,6 +10,7 @@
 #include <vtkPointData.h>
 #include <vtkPointSet.h>
 #include <vtkSmartPointer.h>
+#include <vtkImageData.h>
 
 // A VTK macro that enables the instantiation of this class via ::New()
 // You do not have to modify this
@@ -76,6 +77,114 @@ int ttkPairExtrema::FillOutputPortInformation(int port, vtkInformation *info) {
   }
   return 0;
 }
+
+struct MyImplicitTriangulation {
+
+  const std::array<ttk::SimplexId, 64*14*3> offsetsLUT{
+  0,-1,-1,1,-1,-1,0,0,-1,1,0,-1,0,-1,0,1,-1,0,1,0,0,-1,0,1,0,0,1,-1,0,0,-1,1,0,0,1,0,-1,1,1,0,1,1,0,-1,-1,1,-1,-1,0,0,-1,1,0,-1,0,-1,0,1,-1,0,1,0,0,0,1,0,0,1,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,-1,1,0,0,1,0,-1,0,1,0,0,1,-1,1,1,0,1,1,0,0,-1,0,-1,-1,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,-1,1,0,0,1,0,-1,0,1,0,0,1,-1,1,1,0,1,1,1,0,0,1,0,-1,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,1,1,0,0,-1,1,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,-1,1,0,0,1,0,-1,0,1,0,0,1,-1,1,1,0,1,1,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,1,-1,-1,0,0,-1,1,0,-1,0,-1,0,1,-1,0,1,0,0,-1,0,0,-1,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,1,-1,-1,0,0,-1,1,0,-1,0,-1,0,1,-1,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,-1,0,0,-1,0,1,0,0,1,0,-1,-1,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,-1,1,0,0,1,0,-1,0,1,0,0,1,-1,1,1,0,1,1,0,-1,0,1,-1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,1,-1,0,1,0,0,0,0,1,0,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,-1,1,0,0,1,0,-1,0,1,0,0,1,-1,1,1,0,1,1,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,-1,1,0,0,1,0,-1,0,1,0,0,1,-1,1,1,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,-1,1,0,0,1,0,-1,0,1,0,0,1,-1,1,1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,-1,0,0,-1,0,1,0,0,1,1,-1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,1,-1,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,-1,0,0,-1,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,1,-1,-1,0,0,-1,1,0,-1,0,-1,0,1,-1,0,1,0,0,-1,0,0,-1,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,1,-1,-1,0,0,-1,1,0,-1,0,-1,0,1,-1,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,-1,1,0,0,1,0,0,-1,-1,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,-1,1,0,0,1,0,1,0,-1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,1,0,-1,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,-1,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,1,-1,-1,0,0,-1,1,0,-1,0,-1,0,1,-1,0,1,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,1,-1,-1,0,0,-1,1,0,-1,0,-1,0,1,-1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,-1,0,-1,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  };
+
+
+  const std::array<ttk::SimplexId,64> nNeighborsLUT{
+  14,10,10,0,10,6,8,0,10,8,6,0,0,0,0,0,10,6,8,0,8,4,7,0,6,4,4,0,0,0,0,0,10,8,6,0,6,4,4,0,8,7,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+  };
+
+  std::array<ttk::SimplexId, 64*14> offsetsLUT2;
+
+  ttk::SimplexId dim[3];
+  ttk::SimplexId dimM1[3];
+  ttk::SimplexId dimXY;
+
+  void setDimension(int* dim_){
+    this->dim[0] = dim_[0];
+    this->dim[1] = dim_[1];
+    this->dim[2] = dim_[2];
+    this->dimM1[0] = dim_[0]-1;
+    this->dimM1[1] = dim_[1]-1;
+    this->dimM1[2] = dim_[2]-1;
+    this->dimXY = this->dim[0]*this->dim[1];
+  }
+
+  ttk::SimplexId getNumberOfVertices() const {
+    return this->dim[0]*this->dim[1]*this->dim[2];
+  }
+
+  // bool onBoundary(ttk::SimplexId* xyz){
+  //   return x==0 || x+1==this->dim[0] || y==0 || y+1==this->dim[1] || z==0 || z+1==this->dim[2];
+  // }
+  inline ttk::SimplexId toIndex(const ttk::SimplexId& x, const ttk::SimplexId& y, const ttk::SimplexId& z) const {
+    return (z * this->dimXY) + (y * this->dim[0]) + x;
+  }
+  // ttk::SimplexId toIndexSave(const ttk::SimplexId& x, const ttk::SimplexId& y, const ttk::SimplexId& z){
+  //   if(x<0 || x>=this->dim[0] || y<0 || y>=this->dim[1] || z<0 || z>=this->dim[2])
+  //     return -1;
+  //   return (z * this->dim[0] * this->dim[1]) + (y * this->dim[0]) + x;
+  // }
+
+  inline void toXYZ(ttk::SimplexId* xyz, const ttk::SimplexId idx) const {
+    xyz[2] = idx / this->dimXY;
+    const auto idx2 = idx - (xyz[2] * this->dimXY);
+    xyz[1] = idx2 / this->dim[0];
+    xyz[0] = idx2 % this->dim[0];
+  }
+
+  inline ttk::SimplexId getVertexNeighborNumber(const ttk::SimplexId idx) const {
+    ttk::SimplexId xyz[3];
+    ttk::SimplexId& x = xyz[0];
+    ttk::SimplexId& y = xyz[1];
+    ttk::SimplexId& z = xyz[2];
+    xyz[2] = idx / this->dimXY;
+    const auto idx2 = idx - (xyz[2] * this->dimXY);
+    xyz[1] = idx2 / this->dim[0];
+    xyz[0] = idx2 % this->dim[0];
+
+    // build case key
+    int key =
+      (x==0?1:x==this->dimM1[0]?2:0)+
+      (y==0?4:y==this->dimM1[1]?8:0)+
+      (z==0?16:z==this->dimM1[2]?32:0)
+    ;
+
+    return nNeighborsLUT[key];
+  }
+
+  inline void getVertexNeighbor(const ttk::SimplexId idx, const ttk::SimplexId n, ttk::SimplexId& nIdx) const {
+    ttk::SimplexId xyz[3];
+    ttk::SimplexId& x = xyz[0];
+    ttk::SimplexId& y = xyz[1];
+    ttk::SimplexId& z = xyz[2];
+    xyz[2] = idx / this->dimXY;
+    const auto idx2 = idx - (xyz[2] * this->dimXY);
+    xyz[1] = idx2 / this->dim[0];
+    xyz[0] = idx2 % this->dim[0];
+
+    int key =
+      (x==0?1:x==this->dimM1[0]?2:0)+
+      (y==0?4:y==this->dimM1[1]?8:0)+
+      (z==0?16:z==this->dimM1[2]?32:0)
+    ;
+
+    if(key==0){
+      // const ttk::SimplexId n3 = n*3;
+      nIdx = idx + offsetsLUT2[n];
+      // nIdx = this->toIndex(x+offsetsLUT[n3],y+offsetsLUT[n3+1],z+offsetsLUT[n3+2]);
+    } else {
+      nIdx = idx + offsetsLUT2[key*14+n];
+      // const ttk::SimplexId n3 = key*14*3+n*3;
+      // nIdx = this->toIndex(x+offsetsLUT[n3],y+offsetsLUT[n3+1],z+offsetsLUT[n3+2]);
+    }
+  }
+
+  void preconditionVertexNeighbors(){
+    for(int i=0,j=0; i<64*14; i++,j+=3){
+      const auto& dx =  offsetsLUT[j+0];
+      const auto& dy =  offsetsLUT[j+1];
+      const auto& dz =  offsetsLUT[j+2];
+
+      offsetsLUT2[i] = dx + dy*this->dim[0] + dz*this->dimXY;
+    }
+  }
+};
 
 template <class triangulationType>
 int ttkPairExtrema::getSkeletonArcs(
@@ -273,7 +382,7 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
   // Templatize over the different input array data types and call the base code
   int status = 0; // this integer checks if the base code returns an error
   // construct the tree
-  ttkTypeMacroT(triangulation->getType(),
+  /*ttkTypeMacroT(triangulation->getType(),
                 (status = this->computePairs<T0>(
                    persistencePairs, mergeTree,
                    ttkUtils::GetPointer<ttk::SimplexId>(segmentation),
@@ -283,7 +392,23 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
                    ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
                    ttkUtils::GetPointer<ttk::SimplexId>(tempArray),
                    ttkUtils::GetPointer<ttk::SimplexId>(order),
-                   (T0 *)triangulation->getData(), nMinima, nSaddle2, nMaxima)));
+                   (T0 *)triangulation->getData(), nMinima, nSaddle2, nMaxima)));*/
+  MyImplicitTriangulation trian;
+  int dim[3];
+  ((vtkImageData*)inputDataSet)->GetDimensions(dim);
+  trian.setDimension(dim);
+  trian.preconditionVertexNeighbors();
+
+  status = this->computePairs<MyImplicitTriangulation>(
+      persistencePairs, mergeTree,
+      ttkUtils::GetPointer<ttk::SimplexId>(segmentation),
+      ttkUtils::GetPointer<ttk::SimplexId>(minimaIds),
+      ttkUtils::GetPointer<ttk::SimplexId>(saddle2Ids),
+      ttkUtils::GetPointer<ttk::SimplexId>(maximaIds),
+      ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
+      ttkUtils::GetPointer<ttk::SimplexId>(tempArray),
+      ttkUtils::GetPointer<ttk::SimplexId>(order),
+      &trian, nMinima, nSaddle2, nMaxima);
 
   // On error cancel filter execution
   if(status != 1)
