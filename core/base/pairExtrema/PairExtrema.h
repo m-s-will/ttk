@@ -403,7 +403,8 @@ namespace ttk {
         }
       }
       this->printMsg("Finished sorting and building the normalization arrays",
-                     0, buildTimer.getElapsedTime(), ttk::debug::LineMode::NEW);
+                     0, buildTimer.getElapsedTime(), ttk::debug::LineMode::NEW,
+                     ttk::debug::Priority::DETAIL);
       ttk::Timer tripletTimer;
 
 #pragma omp parallel for num_threads(this->threadNumber_)
@@ -421,17 +422,16 @@ namespace ttk {
           //  the id of the point to which it is ascending, not the id of the
           //  segmentation
           if(order[neighborId] > thisOrder) {
-            //val = descendingManifold[neighborId];
             triplet[triplet[14]] = tempArray[descendingManifold[neighborId]];
             triplet[14]++;
-            //triplet->emplace(val);
           }
-          sortAndRemoveUniques(triplet);
         }
+        sortAndRemoveUniques(triplet);
       }
 
       this->printMsg("Finished building the saddleTriplets", 0,
-                     tripletTimer.getElapsedTime(), ttk::debug::LineMode::NEW);
+                     tripletTimer.getElapsedTime(), ttk::debug::LineMode::NEW,
+                     ttk::debug::Priority::DETAIL);
       return 1;
     }
 

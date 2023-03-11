@@ -419,16 +419,15 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
   auto outputMergeTree = vtkUnstructuredGrid::GetData(outputVector, 1);
   auto outputSegmentation = vtkDataSet::GetData(outputVector, 2);
 
-  /*ttkTypeMacroT(
+  ttkTypeMacroT(
     triangulation->getType(),
     status = getSkeletonArcs<T0>(outputSkeletonArcs, persistencePairs,
                                  ttkUtils::GetPointer<ttk::SimplexId>(order),
                                  (T0 *)triangulation->getData()));
 
-  ttkTypeMacroT(
-    triangulation->getType(),
-    status = getMergeTree<T0>(outputMergeTree, mergeTree,
-                              (T0 *)triangulation->getData()));*/
+  ttkTypeMacroT(triangulation->getType(),
+                status = getMergeTree<T0>(
+                  outputMergeTree, mergeTree, (T0 *)triangulation->getData()));
 
   outputSegmentation->ShallowCopy(inputDataSet);
   outputSegmentation->GetPointData()->AddArray(segmentation);
