@@ -572,6 +572,12 @@ namespace ttk {
         );
       }
       this->printMsg(msg, 1, timer.getElapsedTime(), this->threadNumber_);
+      this->printMsg({
+        {"#Minima",std::to_string(criticalPoints[0].size())},
+        {"#1-Saddle",std::to_string(criticalPoints[1].size())},
+        {"#2-Saddle",std::to_string(criticalPoints[2].size())},
+        {"#Maxima",std::to_string(criticalPoints[3].size())}
+      });
       return 1;
     }
 
