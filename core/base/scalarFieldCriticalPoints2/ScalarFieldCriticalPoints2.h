@@ -28,6 +28,14 @@ namespace ttk {
       this->setDebugMsgPrefix("ScalarFieldCriticalPoints2");
     }
 
+    void toXYZ(ttk::SimplexId* xyz, const ttk::SimplexId idx) const {
+      const auto d = 3 * 3;
+      xyz[2] = idx / d;
+      const auto idx2 = idx - (xyz[2] * d);
+      xyz[1] = idx2 / 3;
+      xyz[0] = idx2 % 3;
+    };
+
     template <typename TT = ttk::AbstractTriangulation>
     int computeLookUpTable(
       const TT* triangulation
@@ -38,46 +46,103 @@ namespace ttk {
       constexpr int lutSize = pow(2,14);
       std::array<unsigned char,lutSize> lut;
 
-      for(int v=0; v<nVertices; v++){
-        if(triangulation->getVertexNeighborNumber(v)==14){
-
-          #pragma omp parallel for
-          for(long unsigned int i=0; i<lutSize; i++){
-            std::bitset<14> binary(i);
-            // std::cout<<binary[0]<<" "<<binary<<std::endl;
-
-            std::array<SimplexId,32> linkVertices;
-            int nLinkVertices = 0;
-
-            SimplexId u = -1;
-            for(SimplexId n=0; n<14; n++){
-              triangulation->getVertexNeighbor(v, n, u);
-
-              if(binary[n]==1)
-                linkVertices[nLinkVertices++]=u;
-            }
-
-            const int nComponents = this->computeNumberOfLinkComponents(
-              linkVertices,
-              nLinkVertices,
-              triangulation
-            );
-
-            lut[i] = nComponents < 2;
-          }
-
-          // std::cout<<"writing"<<std::endl;
-
-          // std::ofstream lutFile;
-          // lutFile.open("/home/jones/external/projects/ttk/core/base/scalarFieldCriticalPoints2/lut.cpp");
-          // for(auto x: lut){
-          //   lutFile << std::to_string(x)<<',';
-          // }
-          // lutFile.close();
-
-          break;
-        }
+      std::array<int,64> lut2;
+      for(int i=0; i<64; i++){
+        lut2[i] = 0;
       }
+
+      const std::array<ttk::SimplexId,64> nNeighborsLUT{
+      14,10,10,0,10,6,8,0,10,8,6,0,0,0,0,0,10,6,8,0,8,4,7,0,6,4,4,0,0,0,0,0,10,8,6,0,6,4,4,0,8,7,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+      };
+      constexpr int offsetsLutSize = 64*14*3;
+      std::array<ttk::SimplexId,offsetsLutSize> offsetsLUT;
+      for(int i=0; i<offsetsLutSize; i++)
+        offsetsLUT[i] = 0;
+
+      for(int v=0; v<nVertices; v++){
+        std::cout<<v<<std::endl;
+        std::cout<<" n: "<<triangulation->getVertexNeighborNumber(v)<<std::endl;
+
+        ttk::SimplexId xyz[3];
+        this->toXYZ(xyz,v);
+        // build case key
+        int key =
+          (xyz[0]==0?1:xyz[0]==2?2:0)+
+          (xyz[1]==0?4:xyz[1]==2?8:0)+
+          (xyz[2]==0?16:xyz[2]==2?32:0)
+        ;
+        lut2[key] = triangulation->getVertexNeighborNumber(v);
+
+        std::cout<<" [";
+        int offsetCursor = key*3*14;
+        for(SimplexId n=0; n<triangulation->getVertexNeighborNumber(v); n++){
+          SimplexId u = -1;
+          ttk::SimplexId nxyz[3];
+          triangulation->getVertexNeighbor(v, n, u);
+          this->toXYZ(nxyz,u);
+
+          offsetsLUT[offsetCursor]=nxyz[0]-xyz[0];
+          offsetsLUT[offsetCursor+1]=nxyz[1]-xyz[1];
+          offsetsLUT[offsetCursor+2]=nxyz[2]-xyz[2];
+
+          offsetCursor+=3;
+
+          std::cout<<" "<<u<<"("<<nxyz[0]<<","<<nxyz[1]<<","<<nxyz[2]<<")";
+        }
+        std::cout<<" ]"<<std::endl;
+      }
+
+      std::cout<<"{"<<std::endl;
+     for(int i=0; i<64; i++){
+        std::cout<<lut2[i]<<",";
+      }
+      std::cout<<std::endl<<"}"<<std::endl;
+      std::cout<<"{"<<std::endl;
+     for(int i=0; i<offsetsLutSize; i+=3){
+        std::cout<<offsetsLUT[i]<<","<<offsetsLUT[i+1]<<","<<offsetsLUT[i+2]<<",";
+      }
+      std::cout<<std::endl<<"}"<<std::endl;
+
+      // for(int v=0; v<nVertices; v++){
+      //   if(triangulation->getVertexNeighborNumber(v)==14){
+
+      //     #pragma omp parallel for
+      //     for(long unsigned int i=0; i<lutSize; i++){
+      //       std::bitset<14> binary(i);
+      //       // std::cout<<binary[0]<<" "<<binary<<std::endl;
+
+      //       std::array<SimplexId,32> linkVertices;
+      //       int nLinkVertices = 0;
+
+      //       SimplexId u = -1;
+      //       for(SimplexId n=0; n<14; n++){
+      //         triangulation->getVertexNeighbor(v, n, u);
+
+      //         if(binary[n]==1)
+      //           linkVertices[nLinkVertices++]=u;
+      //       }
+
+      //       const int nComponents = this->computeNumberOfLinkComponents(
+      //         linkVertices,
+      //         nLinkVertices,
+      //         triangulation
+      //       );
+
+      //       lut[i] = nComponents < 2;
+      //     }
+
+      //     // std::cout<<"writing"<<std::endl;
+
+      //     // std::ofstream lutFile;
+      //     // lutFile.open("/home/jones/external/projects/ttk/core/base/scalarFieldCriticalPoints2/lut.cpp");
+      //     // for(auto x: lut){
+      //     //   lutFile << std::to_string(x)<<',';
+      //     // }
+      //     // lutFile.close();
+
+      //     break;
+      //   }
+      // }
       return 1;
     }
 

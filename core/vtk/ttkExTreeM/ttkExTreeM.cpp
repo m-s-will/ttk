@@ -1,6 +1,7 @@
 #include <ttkExTreeM.h>
 
 #include <vtkDataSet.h>
+#include <vtkImageData.h>
 #include <vtkInformation.h>
 #include <vtkPolyData.h>
 
@@ -19,6 +20,79 @@
 
 #include <PathCompression.h>
 #include <ScalarFieldCriticalPoints2.h>
+
+const std::array<ttk::SimplexId, 64*14*3> offsetsLUT{
+0,-1,-1,1,-1,-1,0,0,-1,1,0,-1,0,-1,0,1,-1,0,1,0,0,-1,0,1,0,0,1,-1,0,0,-1,1,0,0,1,0,-1,1,1,0,1,1,0,-1,-1,1,-1,-1,0,0,-1,1,0,-1,0,-1,0,1,-1,0,1,0,0,0,1,0,0,1,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,-1,1,0,0,1,0,-1,0,1,0,0,1,-1,1,1,0,1,1,0,0,-1,0,-1,-1,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,-1,1,0,0,1,0,-1,0,1,0,0,1,-1,1,1,0,1,1,1,0,0,1,0,-1,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,1,1,0,0,-1,1,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,-1,1,0,0,1,0,-1,0,1,0,0,1,-1,1,1,0,1,1,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,1,-1,-1,0,0,-1,1,0,-1,0,-1,0,1,-1,0,1,0,0,-1,0,0,-1,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,1,-1,-1,0,0,-1,1,0,-1,0,-1,0,1,-1,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,-1,0,0,-1,0,1,0,0,1,0,-1,-1,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,-1,1,0,0,1,0,-1,0,1,0,0,1,-1,1,1,0,1,1,0,-1,0,1,-1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,1,-1,0,1,0,0,0,0,1,0,1,0,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,-1,1,0,0,1,0,-1,0,1,0,0,1,-1,1,1,0,1,1,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,-1,1,0,0,1,0,-1,0,1,0,0,1,-1,1,1,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,1,0,0,0,1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,0,-1,1,0,0,1,0,-1,0,1,0,0,1,-1,1,1,0,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,-1,0,0,-1,0,1,0,0,1,1,-1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,1,-1,0,1,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,0,-1,0,0,-1,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,1,-1,-1,0,0,-1,1,0,-1,0,-1,0,1,-1,0,1,0,0,-1,0,0,-1,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,1,-1,-1,0,0,-1,1,0,-1,0,-1,0,1,-1,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,-1,1,0,0,1,0,0,-1,-1,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,-1,1,0,0,1,0,1,0,-1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,1,0,-1,1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,-1,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,1,-1,-1,0,0,-1,1,0,-1,0,-1,0,1,-1,0,1,0,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,1,-1,-1,0,0,-1,1,0,-1,0,-1,0,1,-1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1,-1,0,0,-1,0,-1,0,-1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+};
+std::array<ttk::SimplexId, 64*14> offsetsLUT2;
+
+const std::array<ttk::SimplexId,64> nNeighborsLUT{
+14,10,10,0,10,6,8,0,10,8,6,0,0,0,0,0,10,6,8,0,8,4,7,0,6,4,4,0,0,0,0,0,10,8,6,0,6,4,4,0,8,7,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+};
+
+struct MyImplicitTriangulation {
+
+  ttk::SimplexId dim[3];
+  ttk::SimplexId dimM1[3];
+  float dimM1F[3];
+  ttk::SimplexId dimXY;
+
+  void setDimension(int* dim_){
+    this->dim[0] = dim_[0];
+    this->dim[1] = dim_[1];
+    this->dim[2] = dim_[2];
+    this->dimM1[0] = dim_[0]-1;
+    this->dimM1[1] = dim_[1]-1;
+    this->dimM1[2] = dim_[2]-1;
+
+    this->dimXY = this->dim[0]*this->dim[1];
+  }
+
+  void preconditionVertexNeighbors() {
+    for(int i=0,j=0; i<64*14; i++,j+=3){
+      const auto& dx =  offsetsLUT[j+0];
+      const auto& dy =  offsetsLUT[j+1];
+      const auto& dz =  offsetsLUT[j+2];
+
+      offsetsLUT2[i] = dx + dy*this->dim[0] + dz*this->dimXY;
+    }
+  }
+
+  ttk::SimplexId getNumberOfVertices() const {
+    return this->dim[0]*this->dim[1]*this->dim[2];
+  }
+
+  ttk::SimplexId getVertexNeighborNumber(const ttk::SimplexId idx) const {
+    const ttk::SimplexId z = idx / this->dimXY;
+    const ttk::SimplexId idx2 = idx - (z * this->dimXY);
+    const ttk::SimplexId y = idx2 / this->dim[0];
+    const ttk::SimplexId x = idx2 % this->dim[0];
+
+    int key =
+      (x==0?1:x==this->dimM1[0]?2:0)+
+      (y==0?4:y==this->dimM1[1]?8:0)+
+      (z==0?16:z==this->dimM1[2]?32:0)
+    ;
+
+    return nNeighborsLUT[key];
+  }
+
+  void getVertexNeighbor(const ttk::SimplexId idx, const ttk::SimplexId n, ttk::SimplexId& nIdx) const {
+    const ttk::SimplexId z = idx / this->dimXY;
+    const ttk::SimplexId idx2 = idx - (z * this->dimXY);
+    const ttk::SimplexId y = idx2 / this->dim[0];
+    const ttk::SimplexId x = idx2 % this->dim[0];
+
+    int key =
+      (x==0?1:x==this->dimM1[0]?2:0)+
+      (y==0?4:y==this->dimM1[1]?8:0)+
+      (z==0?16:z==this->dimM1[2]?32:0)
+    ;
+
+    nIdx = idx + offsetsLUT2[key*14+n];
+  }
+};
+
 
 vtkStandardNewMacro(ttkExTreeM);
 
@@ -55,7 +129,7 @@ int ttkExTreeM::RequestData(vtkInformation *,
                               vtkInformationVector **inputVector,
                               vtkInformationVector *outputVector) {
   // Get the input
-  auto input = vtkDataSet::GetData(inputVector[0]);
+  auto input = vtkImageData::GetData(inputVector[0]);
   if(!input) {
     this->printErr("Unable to retrieve input data object.");
     return 0;
@@ -63,12 +137,16 @@ int ttkExTreeM::RequestData(vtkInformation *,
   const size_t nVertices = input->GetNumberOfPoints();
 
   // Get triangulation of the input object
-  auto triangulation = ttkAlgorithm::GetTriangulation(input);
-  if(!triangulation)
-    return 0;
-
-  // Precondition triangulation
-  this->preconditionTriangulation(triangulation);
+  // auto triangulation = ttkAlgorithm::GetTriangulation(input);
+  // if(!triangulation)
+  //   return 0;
+  // // Precondition triangulation
+  // this->preconditionTriangulation(triangulation);
+  MyImplicitTriangulation triangulation;
+  int dim[3];
+  input->GetDimensions(dim);
+  triangulation.setDimension(dim);
+  triangulation.preconditionVertexNeighbors();
 
   // Get input array
   auto scalarArray = this->GetInputArrayToProcess(0, inputVector);
@@ -111,191 +189,193 @@ int ttkExTreeM::RequestData(vtkInformation *,
     };
 
     int status = 0;
-    ttkTypeMacroT(
-      triangulation->getType(),
-      (status = subModule.execute<T0>(
-        om,
-        ttkUtils::GetPointer<const ttk::SimplexId>(orderArray),
-        *static_cast<T0*>(triangulation->getData())
-      ))
+    // ttkTypeMacroT(
+    //   triangulation->getType(),
+    //   (status = subModule.execute<T0>(
+    //     om,
+    //     ttkUtils::GetPointer<const ttk::SimplexId>(orderArray),
+    //     *static_cast<T0*>(triangulation->getData())
+    //   ))
+    // );
+    status = subModule.execute<MyImplicitTriangulation>(
+      om,
+      ttkUtils::GetPointer<const ttk::SimplexId>(orderArray),
+      triangulation
     );
     if(status!=0)
       return 0;
   }
 
   // compute critical points
-  // type -> thread -> cp
+  // type -> cp
   std::array<std::vector<std::vector<ttk::ScalarFieldCriticalPoints2::CP>>,4> criticalPoints;
   {
+    // type -> thread -> cp
+    std::array<std::vector<std::vector<ttk::ScalarFieldCriticalPoints2::CP>>,4> criticalPoints_;
     ttk::ScalarFieldCriticalPoints2 subModule;
     subModule.setThreadNumber(this->threadNumber_);
     subModule.setDebugLevel(this->debugLevel_);
 
     int status = 0;
-    ttkTypeMacroT(
-      triangulation->getType(),
-      (
-        status = subModule.computeCritialPoints<T0>(
-          criticalPoints,
-          ttkUtils::GetPointer<ttk::SimplexId>(orderArray),
-          ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
-          ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
-          static_cast<const T0 *>(triangulation->getData())
-        )
-      )
+    status = subModule.computeCritialPoints<MyImplicitTriangulation>(
+      criticalPoints,
+      ttkUtils::GetPointer<ttk::SimplexId>(orderArray),
+      ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
+      ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
+      &triangulation
     );
     if(status != 1)
       return 0;
   }
 
-  // debug: build extremum graph
-  {
-    auto tree = vtkPolyData::GetData(outputVector, 0);
+  return 1;
 
-    // points
-    ttk::SimplexId maxO = nVertices-1;
-    ttk::SimplexId maxId = 0;
-    ttk::SimplexId minId = 0;
-    {
-      int nPoints = 0;
-      for(int i=2; i<4; i++){
-        const auto& cp = criticalPoints[i];
-        const int nThreads = cp.size();
-        for(int j=0; j<nThreads; j++){
-          nPoints += cp[j].size();
-        }
-      }
-      nPoints++; // make room for global minimum
+  // // debug: build extremum graph
+  // {
+  //   auto tree = vtkPolyData::GetData(outputVector, 0);
 
-      // init point data
-      vtkNew<ttkSimplexIdTypeArray> treeOrder;
-      treeOrder->SetNumberOfTuples(nPoints);
-      treeOrder->SetName(orderArray->GetName());
-      auto treeOrderData = ttkUtils::GetPointer<ttk::SimplexId>(treeOrder);
-      tree->GetPointData()->AddArray(treeOrder);
+  //   // points
+  //   ttk::SimplexId maxO = nVertices-1;
+  //   ttk::SimplexId maxId = 0;
+  //   ttk::SimplexId minId = 0;
+  //   {
+  //     int nPoints = 0;
+  //     for(int i=2; i<4; i++){
+  //       const auto& cp = criticalPoints[i];
+  //       const int nThreads = cp.size();
+  //       for(int j=0; j<nThreads; j++){
+  //         nPoints += cp[j].size();
+  //       }
+  //     }
+  //     nPoints++; // make room for global minimum
 
-      auto points = vtkSmartPointer<vtkPoints>::New();
-      points->SetDataTypeToFloat();
-      points->SetNumberOfPoints(nPoints);
-      tree->SetPoints(points);
-      auto pointCoords = static_cast<float*>(points->GetData()->GetVoidPointer(0));
-      int pointCursor = 0;
+  //     // init point data
+  //     vtkNew<ttkSimplexIdTypeArray> treeOrder;
+  //     treeOrder->SetNumberOfTuples(nPoints);
+  //     treeOrder->SetName(orderArray->GetName());
+  //     auto treeOrderData = ttkUtils::GetPointer<ttk::SimplexId>(treeOrder);
+  //     tree->GetPointData()->AddArray(treeOrder);
 
-      auto addPoint = [=](int& pc, const ttk::SimplexId& v){
-        treeOrderData[pc] = orderArrayData[v];
-        auto pc3 = pc*3;
-        segmentationIdData[v] = pc;
-        triangulation->getVertexPoint(
-          v,
-          pointCoords[pc3],
-          pointCoords[pc3+1],
-          pointCoords[pc3+2]
-        );
-        pc++;
-      };
+  //     auto points = vtkSmartPointer<vtkPoints>::New();
+  //     points->SetDataTypeToFloat();
+  //     points->SetNumberOfPoints(nPoints);
+  //     tree->SetPoints(points);
+  //     auto pointCoords = static_cast<float*>(points->GetData()->GetVoidPointer(0));
+  //     int pointCursor = 0;
 
-      // maxima
-      {
-        const auto& cp = criticalPoints[3];
-        const int nThreads = cp.size();
-        for(int j=0; j<nThreads; j++){
-          const auto& cp_ = cp[j];
-          const int n = cp_.size();
-          for(int k=0; k<n; k++){
-            const auto& v = cp_[k].id;
-            if(orderArrayData[v]==maxO)
-              maxId = v;
-            addPoint(pointCursor, v);
-          }
-        }
-      }
+  //     auto addPoint = [=](int& pc, const ttk::SimplexId& v){
+  //       treeOrderData[pc] = orderArrayData[v];
+  //       auto pc3 = pc*3;
+  //       segmentationIdData[v] = pc;
+  //       triangulation->getVertexPoint(
+  //         v,
+  //         pointCoords[pc3],
+  //         pointCoords[pc3+1],
+  //         pointCoords[pc3+2]
+  //       );
+  //       pc++;
+  //     };
 
-      // saddles
-      {
-        const auto& cp = criticalPoints[2];
-        const int nThreads = cp.size();
-        for(int j=0; j<nThreads; j++){
-          const auto& cp_ = cp[j];
-          const int n = cp_.size();
-          for(int k=0; k<n; k++){
-            addPoint(pointCursor, cp_[k].id);
-          }
-        }
-      }
+  //     // maxima
+  //     {
+  //       const auto& cp = criticalPoints[3];
+  //       const int nThreads = cp.size();
+  //       for(int j=0; j<nThreads; j++){
+  //         const auto& cp_ = cp[j];
+  //         const int n = cp_.size();
+  //         for(int k=0; k<n; k++){
+  //           const auto& v = cp_[k].id;
+  //           if(orderArrayData[v]==maxO)
+  //             maxId = v;
+  //           addPoint(pointCursor, v);
+  //         }
+  //       }
+  //     }
 
-      // find and add global minimum
-      {
-        const auto& cp = criticalPoints[0];
-        const int nThreads = cp.size();
-        [=](int& pc, ttk::SimplexId& id){
-          for(int j=0; j<nThreads; j++){
-            const auto& cp_ = cp[j];
-            const int n = cp_.size();
-            for(int k=0; k<n; k++){
-              const auto& v = cp_[k].id;
-              if(orderArrayData[v]!=0)
-                continue;
-              id = v;
-              addPoint(pc, v);
-              return;
-            }
-          }
-        }(pointCursor,minId);
-      }
-    }
+  //     // saddles
+  //     {
+  //       const auto& cp = criticalPoints[2];
+  //       const int nThreads = cp.size();
+  //       for(int j=0; j<nThreads; j++){
+  //         const auto& cp_ = cp[j];
+  //         const int n = cp_.size();
+  //         for(int k=0; k<n; k++){
+  //           addPoint(pointCursor, cp_[k].id);
+  //         }
+  //       }
+  //     }
 
-    // edges
-    {
-      int nEdges = 0;
-      {
-        const auto& cp = criticalPoints[2];
-        const int nThreads = cp.size();
-        for(int j=0; j<nThreads; j++){
-          const auto& cp_ = cp[j];
-          const int n = cp_.size();
-          for(int k=0; k<n; k++){
-            nEdges+=cp_[k].neighbors.size();
-          }
-        }
-      }
-      nEdges++; // make room for main branch
-      tree->AllocateExact(0, 0, nEdges, 2, 0, 0, 0, 0);
+  //     // find and add global minimum
+  //     {
+  //       const auto& cp = criticalPoints[0];
+  //       const int nThreads = cp.size();
+  //       [=](int& pc, ttk::SimplexId& id){
+  //         for(int j=0; j<nThreads; j++){
+  //           const auto& cp_ = cp[j];
+  //           const int n = cp_.size();
+  //           for(int k=0; k<n; k++){
+  //             const auto& v = cp_[k].id;
+  //             if(orderArrayData[v]!=0)
+  //               continue;
+  //             id = v;
+  //             addPoint(pc, v);
+  //             return;
+  //           }
+  //         }
+  //       }(pointCursor,minId);
+  //     }
+  //   }
 
-      // add edges
-      {
-        // int edgeCursor = 0;
-        const auto& cp = criticalPoints[2];
-        const int nThreads = cp.size();
-        for(int j=0; j<nThreads; j++){
-          const auto& cp_ = cp[j];
-          const int n = cp_.size();
-          for(int k=0; k<n; k++){
-            const auto& v = segmentationIdData[cp_[k].id];
-            const auto& neighbors = cp_[k].neighbors;
-            const int nNeighbors = neighbors.size();
-            for(int l=0; l<nNeighbors; l++){
-              vtkIdType points[2]{
-                v,
-                segmentationIdData[neighbors[l]]
-              };
-              tree->InsertNextCell(VTK_LINE, 2, points);
-            }
-          }
-        }
-      }
+  //   // edges
+  //   {
+  //     int nEdges = 0;
+  //     {
+  //       const auto& cp = criticalPoints[2];
+  //       const int nThreads = cp.size();
+  //       for(int j=0; j<nThreads; j++){
+  //         const auto& cp_ = cp[j];
+  //         const int n = cp_.size();
+  //         for(int k=0; k<n; k++){
+  //           nEdges+=cp_[k].neighbors.size();
+  //         }
+  //       }
+  //     }
+  //     nEdges++; // make room for main branch
+  //     tree->AllocateExact(0, 0, nEdges, 2, 0, 0, 0, 0);
 
-      // add main branch
-      {
-        vtkIdType points[2]{
-          segmentationIdData[minId],
-          segmentationIdData[maxId]
-        };
-        tree->InsertNextCell(VTK_LINE, 2, points);
-      }
-    }
+  //     // add edges
+  //     {
+  //       // int edgeCursor = 0;
+  //       const auto& cp = criticalPoints[2];
+  //       const int nThreads = cp.size();
+  //       for(int j=0; j<nThreads; j++){
+  //         const auto& cp_ = cp[j];
+  //         const int n = cp_.size();
+  //         for(int k=0; k<n; k++){
+  //           const auto& v = segmentationIdData[cp_[k].id];
+  //           const auto& neighbors = cp_[k].neighbors;
+  //           const int nNeighbors = neighbors.size();
+  //           for(int l=0; l<nNeighbors; l++){
+  //             vtkIdType points[2]{
+  //               v,
+  //               segmentationIdData[neighbors[l]]
+  //             };
+  //             tree->InsertNextCell(VTK_LINE, 2, points);
+  //           }
+  //         }
+  //       }
+  //     }
 
-
-  }
+  //     // add main branch
+  //     {
+  //       vtkIdType points[2]{
+  //         segmentationIdData[minId],
+  //         segmentationIdData[maxId]
+  //       };
+  //       tree->InsertNextCell(VTK_LINE, 2, points);
+  //     }
+  //   }
+  // }
 
 
 
