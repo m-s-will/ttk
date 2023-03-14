@@ -137,9 +137,9 @@ int ttkExTreeM::RequestData(vtkInformation *,
   const size_t nVertices = input->GetNumberOfPoints();
 
   // Get triangulation of the input object
-  // auto triangulation = ttkAlgorithm::GetTriangulation(input);
-  // if(!triangulation)
-  //   return 0;
+  auto triangulation2 = ttkAlgorithm::GetTriangulation(input);
+  if(!triangulation2)
+    return 0;
   // // Precondition triangulation
   // this->preconditionTriangulation(triangulation);
   MyImplicitTriangulation triangulation;
@@ -207,30 +207,33 @@ int ttkExTreeM::RequestData(vtkInformation *,
   }
 
   // compute critical points
-  // type -> cp
-  std::array<std::vector<std::vector<ttk::ScalarFieldCriticalPoints2::CP>>,4> criticalPoints;
+  // type -> thread -> cp
+  std::array<std::vector<ttk::SimplexId>,4> criticalPoints;
   {
-    // type -> thread -> cp
-    std::array<std::vector<std::vector<ttk::ScalarFieldCriticalPoints2::CP>>,4> criticalPoints_;
+    std::array<std::vector<std::vector<ttk::SimplexId>>,4> criticalPoints_;
     ttk::ScalarFieldCriticalPoints2 subModule;
     subModule.setThreadNumber(this->threadNumber_);
     subModule.setDebugLevel(this->debugLevel_);
 
     int status = 0;
     status = subModule.computeCritialPoints<MyImplicitTriangulation>(
-      criticalPoints,
+      criticalPoints_,
       ttkUtils::GetPointer<ttk::SimplexId>(orderArray),
       ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
       ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
       &triangulation
     );
-    if(status != 1)
+    if(!status)
+      return 0;
+
+    status = subModule.mergeCriticalPointVectors(criticalPoints,criticalPoints_);
+    if(!status)
       return 0;
   }
 
-  return 1;
+  // return 1;
 
-  // // debug: build extremum graph
+  // debug: build extremum graph
   // {
   //   auto tree = vtkPolyData::GetData(outputVector, 0);
 
@@ -267,7 +270,7 @@ int ttkExTreeM::RequestData(vtkInformation *,
   //       treeOrderData[pc] = orderArrayData[v];
   //       auto pc3 = pc*3;
   //       segmentationIdData[v] = pc;
-  //       triangulation->getVertexPoint(
+  //       triangulation2->getVertexPoint(
   //         v,
   //         pointCoords[pc3],
   //         pointCoords[pc3+1],
@@ -375,43 +378,6 @@ int ttkExTreeM::RequestData(vtkInformation *,
   //       tree->InsertNextCell(VTK_LINE, 2, points);
   //     }
   //   }
-  // }
-
-
-
-
-  // // Init segmentation
-  // auto segmentationIds
-  //   = vtkSmartPointer<vtkDataArray>::Take(orderArray->NewInstance());
-  // segmentationIds->SetName("BranchId");
-  // segmentationIds->SetNumberOfComponents(1);
-  // segmentationIds->SetNumberOfTuples(nVertices);
-
-  // // Compute merge tree segmentation
-  // std::vector<ttk::mt::Propagation<ttk::SimplexId>> propagations;
-  // std::vector<const ttk::mt::Propagation<ttk::SimplexId> *> sortedPropagations;
-  // {
-  //   int status = 0;
-  //   ttkTypeMacroT(
-  //     triangulation->getType(),
-  //     (status = this->computeMergeTreeSegmentation<ttk::SimplexId, T0>(
-  //       ttkUtils::GetPointer<ttk::SimplexId>(segmentationIds), propagations,
-
-  //       static_cast<T0 *>(triangulation->getData()), orderArrayData,
-  //       this->GetType())));
-  //   if(!status)
-  //     return 0;
-
-  //   ttkTypeMacroAT(
-  //     scalarArray->GetDataType(), triangulation->getType(),
-  //     (status = this->finalizePropagations<T0, ttk::SimplexId, T1>(
-  //       sortedPropagations,
-  //       ttkUtils::GetPointer<ttk::SimplexId>(segmentationIds), propagations,
-
-  //       static_cast<T1 *>(triangulation->getData()),
-  //       ttkUtils::GetPointer<T0>(scalarArray))));
-  //   if(!status)
-  //     return 0;
   // }
 
   // Finalize Output

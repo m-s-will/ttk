@@ -263,14 +263,14 @@ namespace ttk {
         auto& cp2 = cp[2][threadId];
         auto& cp3 = cp[3][threadId];
 
-        std::array<SimplexId,32> lowerLinkVertices; // room for max 32 vertices
-        std::array<SimplexId,32> upperLinkVertices; // room for max 32 vertices
-        int nLowerLinkVertices=0;
-        int nUpperLinkVertices=0;
+        // general case
+        std::array<SimplexId,32> lowerMem; // room for max 32 vertices
+        std::array<SimplexId,32> upperMem; // room for max 32 vertices
+        std::array<SimplexId,32> lowerMem2; // used by general case
+        std::array<SimplexId,32> upperMem2; // used by general case
 
         #pragma omp for
         for(SimplexId v=0; v<nVertices; v++){
-
           const SimplexId orderV = order[v];
           const SimplexId nNeighbors = triangulation->getVertexNeighborNumber(v);
 
@@ -278,87 +278,81 @@ namespace ttk {
             std::bitset<14> upperLinkKey;
             std::bitset<14> lowerLinkKey;
 
-            SimplexId minId = -1;
-            int nMin = 0;
-            SimplexId maxId = -1;
-            int nMax = 0;
+            lowerMem[0] = -1;
+            upperMem[0] = -1;
+            int lowerCursor=0;
+            int upperCursor=0;
 
             for(SimplexId n=0; n<14; n++){
-              SimplexId u = -1;
+              SimplexId u{0};
               triangulation->getVertexNeighbor(v, n, u);
+
               const SimplexId orderN = order[u];
               if(orderV<orderN){
                 upperLinkKey[n]=1;
-                if(maxId != desManifold[u]){
-                  maxId = desManifold[u];
-                  nMax++;
+                if(upperMem[upperCursor] != desManifold[u]){
+                  upperMem[++upperCursor] = desManifold[u];
                 }
               } else {
                 lowerLinkKey[n]=1;
-                if(minId != ascManifold[u]){
-                  minId = ascManifold[u];
-                  nMin++;
+                if(lowerMem[lowerCursor] != ascManifold[u]){
+                  lowerMem[++lowerCursor] = ascManifold[u];
                 }
               }
             }
 
-            if(nMin==0)
+            if(lowerCursor==0)
               cp0.emplace_back(v);
 
-            if(nMax==0)
+            if(upperCursor==0)
               cp3.emplace_back(v);
 
-            if(nMin>1 && lut[lowerLinkKey.to_ulong()]==0){
+            // if lowerCursor or upperCursor >1 then more than one extremum reachable
+            if(lowerCursor>1 && lut[lowerLinkKey.to_ulong()]==0)
               cp1.emplace_back(v);
-            }
-            if(nMax>1 && lut[upperLinkKey.to_ulong()]==0){
+
+            if(upperCursor>1 && lut[upperLinkKey.to_ulong()]==0)
               cp2.emplace_back(v);
-            }
           } else {
-            // compute lower and upper link vertices
-            nLowerLinkVertices=0;
-            nUpperLinkVertices=0;
+            lowerMem[0] = -1;
+            upperMem[0] = -1;
+            int lowerCursor=0;
+            int upperCursor=0;
+            int lowerCursor2=0;
+            int upperCursor2=0;
 
             for(SimplexId n=0; n<nNeighbors; n++){
-              SimplexId u = -1;
+              SimplexId u{0};
               triangulation->getVertexNeighbor(v, n, u);
+
               const SimplexId orderN = order[u];
               if(orderV<orderN){
-                upperLinkVertices[nUpperLinkVertices++]=u;
+                upperMem2[upperCursor2++] = u;
+                if(upperMem[upperCursor] != desManifold[u]){
+                  upperMem[++upperCursor] = desManifold[u];
+                }
               } else {
-                lowerLinkVertices[nLowerLinkVertices++]=u;
+                lowerMem2[lowerCursor2++] = u;
+                if(lowerMem[lowerCursor] != ascManifold[u]){
+                  lowerMem[++lowerCursor] = ascManifold[u];
+                }
               }
             }
 
-            // check if min
-            if(nLowerLinkVertices<1)
+            if(lowerCursor==0)
               cp0.emplace_back(v);
 
-            // check if max
-            if(nUpperLinkVertices<1)
+            if(upperCursor==0)
               cp3.emplace_back(v);
 
-            // check if lower and upper link lead to more than one extremum
-            const int numberOfReachableMinima = this->computeNumberOfReachableExtrema(
-              lowerLinkVertices,
-              nLowerLinkVertices,
-              ascManifold
-            );
-            if(numberOfReachableMinima>1 && this->computeNumberOfLinkComponents(lowerLinkVertices,nLowerLinkVertices,triangulation)>1)
+            if(lowerCursor>1 && this->computeNumberOfLinkComponents(lowerMem2,lowerCursor2,triangulation)>1)
               cp1.emplace_back(v);
 
-            const int numberOfReachableMaxima = this->computeNumberOfReachableExtrema(
-              upperLinkVertices,
-              nUpperLinkVertices,
-              desManifold
-            );
-            if(numberOfReachableMaxima>1 && this->computeNumberOfLinkComponents(upperLinkVertices,nUpperLinkVertices,triangulation)>1)
+            if(upperCursor>1 && this->computeNumberOfLinkComponents(upperMem2,upperCursor2,triangulation)>1)
               cp2.emplace_back(v);
           }
         }
       }
-
-      // std::cout<<n0<<" "<<n1<<" "<<n2<<" "<<n3<<std::endl;
 
       this->printMsg(msg, 1, timer.getElapsedTime(), this->threadNumber_);
 
@@ -397,7 +391,6 @@ namespace ttk {
       const TT* triangulation
     ) const {
       ttk::Timer timer;
-
       const std::string msg{"Computing Critical Points"};
       this->printMsg(msg, 0, 0, this->threadNumber_, ttk::debug::LineMode::REPLACE);
 
@@ -555,12 +548,38 @@ namespace ttk {
     //   return 1;
     // }
 
+    int mergeCriticalPointVectors(
+      std::array<std::vector<SimplexId>,4>& criticalPoints,
+      const std::array<std::vector<std::vector<SimplexId>>,4>& criticalPoints_
+    ) const {
+      ttk::Timer timer;
+      const std::string msg{"Merging Critical Point Vectors"};
+      this->printMsg(msg, 0, 0, this->threadNumber_, ttk::debug::LineMode::REPLACE);
+
+      #pragma omp parallel for schedule(static,1) num_threads(this->threadNumber_)
+      for(int b=0; b<4; b++){
+        const auto& cp = criticalPoints_[b];
+        const size_t nVectors = cp.size();
+        size_t nCriticalPoints = 0;
+        for(size_t i=0; i<nVectors; i++)
+          nCriticalPoints += cp[i].size();
+
+        criticalPoints[b].resize(nCriticalPoints);
+
+        this->computeIdArray(
+          criticalPoints[b].data(),
+          cp
+        );
+      }
+      this->printMsg(msg, 1, timer.getElapsedTime(), this->threadNumber_);
+      return 1;
+    }
+
     int computeIdArray(
       SimplexId* ids,
       const std::vector<std::vector<SimplexId>>& criticalPoints
     ) const {
       const size_t nThreads = criticalPoints.size();
-
       size_t offset = 0;
       for(size_t t=0; t<nThreads; t++){
         const auto& cp_ = criticalPoints[t];
@@ -569,7 +588,6 @@ namespace ttk {
           ids[offset++] = cp_[j];
         }
       }
-
       return 1;
     }
   }; // ScalarFieldCriticalPoints2 class
