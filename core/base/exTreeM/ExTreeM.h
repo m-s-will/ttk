@@ -359,6 +359,7 @@ namespace ttk {
                    const ttk::SimplexId *order,
                    ttk::SimplexId *descendingManifold,
                    ttk::SimplexId *tempArray,
+                   std::vector<ttk::SimplexId> &saveGlobalIds,
                    const triangulationType *triangulation,
                    ttk::SimplexId nMaxima,
                    ttk::SimplexId nSaddles) {
@@ -368,7 +369,6 @@ namespace ttk {
       ttk::Timer buildTimer;
       // sort the maxima and saddles by their order, the maxima ascending, the
       // saddles descending
-      // ttk::SimplexId nVertices = triangulation->getNumberOfVertices();
       TTK_PSORT(this->threadNumber_, maxima, maxima + nMaxima,
                 [&](ttk::SimplexId p1, ttk::SimplexId p2) {
                   return (order[p1] < order[p2]);
@@ -384,25 +384,10 @@ namespace ttk {
 #pragma omp for nowait
         for(ttk::SimplexId i = 0; i < nMaxima; i++) {
           maximaLocalToGlobal[i] = maxima[i];
+          saveGlobalIds[i] = tempArray[maxima[i]];
           tempArray[maxima[i]] = i;
-          // descendingManifold[maxima[i]] = -i - 1;
-        }
-/*
-#pragma omp for
-      for(ttk::SimplexId i = 0; i < nVertices; i++) {
-          // go once over descendingManifold and transfrom from global to local
-          // don't do this for the maxima
-          auto pointsTo = descendingManifold[i];
-          if(pointsTo >= 0){
-            descendingManifold[i] = -descendingManifold[pointsTo] - 1;
-          }
         }
 
-#pragma omp for
-        for(ttk::SimplexId i = 0; i < nMaxima; i++) {
-          descendingManifold[maxima[i]] = i;
-        }
-*/
 #pragma omp for nowait
         for(ttk::SimplexId i = 0; i < nSaddles; i++) {
           saddlesLocalToGlobal[i] = saddles[i];
@@ -424,10 +409,11 @@ namespace ttk {
         for(int j = 0; j < nNeighbors; j++) {
           triangulation->getVertexNeighbor(gId, j, neighborId);
           //  get the manifold result for this neighbor
-          //  problematic if manifold is dense and not sparse, because we need
-          //  the id of the point to which it is ascending, not the id of the
-          //  segmentation
           if(order[neighborId] > thisOrder) {
+            // this->printMsg("maximum " +
+            // std::to_string(descendingManifold[neighborId]) + " reachable from
+            // neighbor " + std::to_string(neighborId) + " for saddle " +
+            // std::to_string(gId));
             triplet[triplet[14]] = tempArray[descendingManifold[neighborId]];
             triplet[14]++;
           }
@@ -453,9 +439,9 @@ namespace ttk {
       ttk::SimplexId *tempArray,
       const ttk::SimplexId *order,
       const triangulationType *triangulation,
-      ttk::SimplexId &nMinima,
-      ttk::SimplexId &nSaddle2,
-      ttk::SimplexId &nMaxima) {
+      const ttk::SimplexId nMinima,
+      const ttk::SimplexId nSaddle2,
+      const ttk::SimplexId nMaxima) {
 
       // start global timer
       ttk::Timer globalTimer;
@@ -465,8 +451,7 @@ namespace ttk {
       // print input parameters in table format
       this->printMsg(
         {{"#Threads", std::to_string(this->threadNumber_)},
-         {"#Vertices", std::to_string(triangulation->getNumberOfVertices())},
-         {"#Minima", std::to_string(nMinima)}});
+         {"#Vertices", std::to_string(triangulation->getNumberOfVertices())}});
       this->printMsg(ttk::debug::Separator::L1);
 
       // -----------------------------------------------------------------------
@@ -484,6 +469,7 @@ namespace ttk {
         this->printMsg("Allocating memory", 0, ttk::debug::LineMode::REPLACE);
         persistencePairs.resize(nMaxima);
         branches.resize(nMaxima);
+        std::vector<ttk::SimplexId> saveGlobalIds(nMaxima);
         std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> maximaTriplets(
           nMaxima);
         std::vector<std::array<ttk::SimplexId, 15>> saddleTriplets(nSaddle2);
@@ -493,12 +479,19 @@ namespace ttk {
                        this->threadNumber_);
 
         ttk::Timer ascTimer;
+        ttk::SimplexId globalMin = 0;
+#pragma omp parallel for num_threads(this->threadNumber_)
+        for(ttk::SimplexId min = 0; min < nMinima; min++) {
+          if(order[minimaIds[min]] == 0) {
+            globalMin = minimaIds[min];
+          }
+        }
         this->printMsg(
           "Starting with findAscPaths", 0, ttk::debug::LineMode::REPLACE);
         findAscPaths<triangulationType>(
           saddleTriplets, maximaLocalToGlobal, saddlesLocalToGlobal, maximaIds,
-          saddle2Ids, order, descendingManifold, tempArray, triangulation,
-          nMaxima, nSaddle2);
+          saddle2Ids, order, descendingManifold, tempArray, saveGlobalIds,
+          triangulation, nMaxima, nSaddle2);
         this->printMsg("Finished with findAscPaths", 1,
                        ascTimer.getElapsedTime(), this->threadNumber_);
 
@@ -507,7 +500,7 @@ namespace ttk {
           "Starting with PersistencePairs", 0, ttk::debug::LineMode::REPLACE);
         constructPersistencePairs(persistencePairs, maximaTriplets,
                                   saddleTriplets, maximaLocalToGlobal,
-                                  saddlesLocalToGlobal, minimaIds[0]);
+                                  saddlesLocalToGlobal, globalMin);
         this->printMsg("Finished with PersistencePairs", 1,
                        pairTimer.getElapsedTime(), this->threadNumber_);
 
@@ -525,12 +518,14 @@ namespace ttk {
         constructSegmentation<triangulationType>(segmentation, branches, order,
                                                  descendingManifold, tempArray,
                                                  triangulation);
-        this->printMsg("Finished with mergetree segmentation", 1,
+        this->printMsg("Finished mergetree segmentation", 1,
                        segmentationTimer.getElapsedTime(), this->threadNumber_);
-        // ProfilerStop();
-        // CALLGRIND_STOP_INSTRUMENTATION;
-        // CALLGRIND_DUMP_STATS;
-        //  print the progress of the current subprocedure with elapsed time
+//  print the progress of the current subprocedure with elapsed time
+// transform the manifold back
+#pragma omp parallel for num_threads(this->threadNumber_)
+        for(ttk::SimplexId i = 0; i < nMaxima; i++) {
+          tempArray[maximaIds[i]] = saveGlobalIds[i];
+        }
 
         this->printMsg("Computing extremum pairs",
                        1, // progress

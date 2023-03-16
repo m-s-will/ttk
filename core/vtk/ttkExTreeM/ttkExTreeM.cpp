@@ -4,6 +4,7 @@
 #include <vtkImageData.h>
 #include <vtkInformation.h>
 #include <vtkPolyData.h>
+#include <vtkUnstructuredGrid.h>
 
 #include <vtkCellData.h>
 #include <vtkPointData.h>
@@ -98,7 +99,7 @@ vtkStandardNewMacro(ttkExTreeM);
 
 ttkExTreeM::ttkExTreeM() {
   this->SetNumberOfInputPorts(1);
-  this->SetNumberOfOutputPorts(2);
+  this->SetNumberOfOutputPorts(3);
 }
 
 ttkExTreeM::~ttkExTreeM() {
@@ -115,14 +116,75 @@ int ttkExTreeM::FillInputPortInformation(int port, vtkInformation *info) {
 int ttkExTreeM::FillOutputPortInformation(int port, vtkInformation *info) {
   switch(port) {
     case 0:
-      info->Set(vtkDataObject::DATA_TYPE_NAME(), "vtkPolyData");
-      return 1;
     case 1:
+      info->Set(vtkDataObject::DATA_TYPE_NAME(), "vtkUnstructuredGrid");
+      return 1;
+    case 2:
       info->Set(ttkAlgorithm::SAME_DATA_TYPE_AS_INPUT_PORT(), 0);
       return 1;
     default:
       return 0;
   }
+}
+
+template <class triangulationType>
+int ttkExTreeM::getMergeTree(vtkUnstructuredGrid *outputSkeletonArcs,
+                             std::vector<ExTreeM::Branch> &mergeTree,
+                             const triangulationType *triangulation) {
+  vtkNew<vtkUnstructuredGrid> skeletonArcs{};
+  ttk::SimplexId pointIds[2];
+  ttk::SimplexId pointOrders[2];
+  vtkNew<vtkPoints> points{};
+  vtkNew<vtkLongLongArray> data{};
+  data->SetNumberOfComponents(1);
+  data->SetName("Order");
+  vtkNew<vtkLongLongArray> gIdArray{};
+  gIdArray->SetNumberOfComponents(1);
+  gIdArray->SetName("GlobalPointIds");
+  float point[3];
+  std::map<ttk::SimplexId, ttk::SimplexId> addedPoints;
+  ttk::SimplexId currentId = 0;
+  for(auto const &b : mergeTree) {
+    auto &vertices = b.vertices;
+    for(size_t p = 0; p < vertices.size() - 1; p++) {
+      pointIds[0] = vertices[p].second;
+      pointIds[1] = vertices[p + 1].second;
+      pointOrders[0] = vertices[p].first;
+      pointOrders[1] = vertices[p + 1].first;
+      // add each point only once to the vtkPoints
+      // addedPoints.insert(x).second inserts x and is true if x was not in
+      // addedPoints beforehand
+      if(addedPoints.insert({pointIds[0], currentId}).second) {
+        // this->printMsg("point " + std::to_string(pointIds[0]));
+        triangulation->getVertexPoint(
+          pointIds[0], point[0], point[1], point[2]);
+        points->InsertNextPoint(point);
+        data->InsertNextTuple1(pointOrders[0]);
+        gIdArray->InsertNextTuple1(pointIds[0]);
+        currentId++;
+      }
+      if(addedPoints.insert({pointIds[1], currentId}).second) {
+        // this->printMsg("point " + std::to_string(pointIds[1]));
+        triangulation->getVertexPoint(
+          pointIds[1], point[0], point[1], point[2]);
+        points->InsertNextPoint(point);
+        data->InsertNextTuple1(pointOrders[1]);
+        gIdArray->InsertNextTuple1(pointIds[1]);
+        currentId++;
+      }
+      // this->printMsg("Join Tree Arc: " + std::to_string(pointIds[0]) + " "
+      //                + std::to_string(pointIds[1]));
+      pointIds[0] = addedPoints.at(pointIds[0]);
+      pointIds[1] = addedPoints.at(pointIds[1]);
+      skeletonArcs->InsertNextCell(VTK_LINE, 2, pointIds);
+    }
+  }
+  skeletonArcs->SetPoints(points);
+  outputSkeletonArcs->ShallowCopy(skeletonArcs);
+  outputSkeletonArcs->GetPointData()->AddArray(data);
+  outputSkeletonArcs->GetPointData()->AddArray(gIdArray);
+
+  return 1;
 }
 
 int ttkExTreeM::RequestData(vtkInformation *,
@@ -169,11 +231,15 @@ int ttkExTreeM::RequestData(vtkInformation *,
   descendingManifold->SetNumberOfTuples(nVertices);
   descendingManifold->SetName(ttk::MorseSmaleDescendingName);
 
-  vtkNew<ttkSimplexIdTypeArray> segmentationId{};
-  segmentationId->SetNumberOfComponents(1);
-  segmentationId->SetNumberOfTuples(nVertices);
-  segmentationId->SetName("SegmentationId");
-  auto segmentationIdData = ttkUtils::GetPointer<ttk::SimplexId>(segmentationId);
+  vtkNew<ttkSimplexIdTypeArray> joinSegmentationId{};
+  joinSegmentationId->SetNumberOfComponents(1);
+  joinSegmentationId->SetNumberOfTuples(nVertices);
+  joinSegmentationId->SetName("JoinSegmentationId");
+
+  vtkNew<ttkSimplexIdTypeArray> splitSegmentationId{};
+  splitSegmentationId->SetNumberOfComponents(1);
+  splitSegmentationId->SetNumberOfTuples(nVertices);
+  splitSegmentationId->SetName("SplitSegmentationId");
 
   // compute path compression
   {
@@ -228,6 +294,56 @@ int ttkExTreeM::RequestData(vtkInformation *,
 
     status = subModule.mergeCriticalPointVectors(criticalPoints,criticalPoints_);
     if(!status)
+      return 0;
+  }
+
+  // compute joinTree
+  std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> persistencePairsJoin{};
+  std::vector<ExTreeM::Branch> mergeTreeJoin{};
+  {
+    int status = 0;
+#pragma omp parallel for num_threads(this->threadNumber_)
+    for(size_t i = 0; i < nVertices; i++) {
+      orderArrayData[i] = nVertices - orderArrayData[i] - 1;
+    }
+
+    status = this->computePairs<MyImplicitTriangulation>(
+      persistencePairsJoin, mergeTreeJoin,
+      ttkUtils::GetPointer<ttk::SimplexId>(joinSegmentationId),
+      criticalPoints[3].data(), criticalPoints[1].data(),
+      criticalPoints[0].data(),
+      ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
+      ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold), orderArrayData,
+      &triangulation, criticalPoints[3].size(), criticalPoints[1].size(),
+      criticalPoints[0].size());
+
+    if(status != 1)
+      return 0;
+  }
+
+  // compute splitTree
+  std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>>
+    persistencePairsSplit{};
+  std::vector<ExTreeM::Branch> mergeTreeSplit{};
+  {
+    int status = 0;
+#pragma omp parallel for num_threads(this->threadNumber_)
+    for(size_t i = 0; i < nVertices; i++) {
+      orderArrayData[i] = nVertices - orderArrayData[i] - 1;
+    }
+
+    status = this->computePairs<MyImplicitTriangulation>(
+      persistencePairsSplit, mergeTreeSplit,
+      ttkUtils::GetPointer<ttk::SimplexId>(splitSegmentationId),
+      criticalPoints[0].data(), // minima
+      criticalPoints[2].data(), // 2-saddles
+      criticalPoints[3].data(), // maxima
+      ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
+      ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold), orderArrayData,
+      &triangulation, criticalPoints[0].size(), criticalPoints[2].size(),
+      criticalPoints[3].size());
+
+    if(status != 1)
       return 0;
   }
 
@@ -386,15 +502,29 @@ int ttkExTreeM::RequestData(vtkInformation *,
     this->printMsg(
       "Generating Output Data Objects", 0, 0, ttk::debug::LineMode::REPLACE);
 
+    {
+      auto outputMergeTreeJoin = vtkUnstructuredGrid::GetData(outputVector, 0);
+      ttkTypeMacroT(triangulation2->getType(),
+                    getMergeTree<T0>(outputMergeTreeJoin, mergeTreeJoin,
+                                     (T0 *)triangulation2->getData()));
+    }
+
+    {
+      auto outputMergeTreeSplit = vtkUnstructuredGrid::GetData(outputVector, 1);
+      ttkTypeMacroT(triangulation2->getType(),
+                    getMergeTree<T0>(outputMergeTreeSplit, mergeTreeSplit,
+                                     (T0 *)triangulation2->getData()));
+    }
     // Create segmentation output
     {
-      auto segmentation = vtkDataSet::GetData(outputVector, 1);
+      auto segmentation = vtkDataSet::GetData(outputVector, 2);
       segmentation->ShallowCopy(input);
 
       auto segmentationPD = segmentation->GetPointData();
       segmentationPD->AddArray(ascendingManifold);
       segmentationPD->AddArray(descendingManifold);
-      segmentationPD->AddArray(segmentationId);
+      segmentationPD->AddArray(joinSegmentationId);
+      segmentationPD->AddArray(splitSegmentationId);
     }
 
     this->printMsg("Generating Output Data Objects", 1, timer.getElapsedTime());

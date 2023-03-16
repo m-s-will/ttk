@@ -18,7 +18,7 @@
         <DataTypeDomain name="input_type">
             <DataType value="vtkDataSet" />
         </DataTypeDomain>
-        <Documentation>vtkDataSet containing the Descending Segmentation.</Documentation>
+        <Documentation>vtkDataSet containing the Ascending + Descending Segmentation.</Documentation>
       </InputProperty>
 
       <InputProperty name="Critical Points" port_index="1" command="SetInputConnection">
@@ -48,9 +48,12 @@
       <!-- Create a UI group that contains all input parameter widgets (here only one) -->
       <!-- OUTPUT PARAMETER WIDGETS -->
 
-      <OutputPort name="PersistencePairs" index="0" id="port0" />
-      <OutputPort name="MergeTree" index="1" id="port1" />
-      <OutputPort name="Segmentation" index="2" id="port2" />
+      <OutputPort name="PersistencePairsMaxima" index="0" id="port0" />
+      <OutputPort name="SplitTree" index="1" id="port1" />
+      <OutputPort name="SplitTreeSegmentation" index="2" id="port2" />
+      <OutputPort name="PersistencePairsMinima" index="3" id="port3" />
+      <OutputPort name="JoinTree" index="4" id="port4" />
+      <OutputPort name="JoinTreeSegmentation" index="5" id="port5" />
 
       <!-- DEBUG -->
       ${DEBUG_WIDGETS}

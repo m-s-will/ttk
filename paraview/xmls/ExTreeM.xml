@@ -41,8 +41,9 @@
         <Property name="Type" />
       </PropertyGroup>
 
-      <OutputPort name="Merge Tree" index="0" />
-      <OutputPort name="Segmentation" index="1" />
+      <OutputPort name="Join Tree" index="0" />
+      <OutputPort name="Split Tree" index="1" />
+      <OutputPort name="Segmentation" index="2" />
 
       ${DEBUG_WIDGETS}
 

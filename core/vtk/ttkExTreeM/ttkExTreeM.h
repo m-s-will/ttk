@@ -9,6 +9,8 @@
 // TTK Base Includes
 #include <ExTreeM.h>
 
+class vtkUnstructuredGrid;
+
 class TTKEXTREEM_EXPORT ttkExTreeM
   : public ttkAlgorithm // we inherit from the generic ttkAlgorithm class
   ,
@@ -33,4 +35,9 @@ protected:
   int RequestData(vtkInformation *request,
                   vtkInformationVector **inputVector,
                   vtkInformationVector *outputVector) override;
+
+  template <class triangulationType = ttk::AbstractTriangulation>
+  int getMergeTree(vtkUnstructuredGrid *outputSkeletonArcs,
+                   std::vector<ExTreeM::Branch> &mergeTree,
+                   const triangulationType *triangulation);
 };
