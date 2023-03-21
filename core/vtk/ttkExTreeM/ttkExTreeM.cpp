@@ -236,10 +236,10 @@ int ttkExTreeM::RequestData(vtkInformation *,
   joinSegmentationId->SetNumberOfTuples(nVertices);
   joinSegmentationId->SetName("JoinSegmentationId");
 
-  /*vtkNew<ttkSimplexIdTypeArray> splitSegmentationId{};
+  vtkNew<ttkSimplexIdTypeArray> splitSegmentationId{};
   splitSegmentationId->SetNumberOfComponents(1);
   splitSegmentationId->SetNumberOfTuples(nVertices);
-  splitSegmentationId->SetName("SplitSegmentationId");*/
+  splitSegmentationId->SetName("SplitSegmentationId");
 
   // compute path compression
   {
@@ -334,7 +334,7 @@ int ttkExTreeM::RequestData(vtkInformation *,
 
     status = this->computePairs<MyImplicitTriangulation>(
       persistencePairsSplit, mergeTreeSplit,
-      ttkUtils::GetPointer<ttk::SimplexId>(joinSegmentationId),
+      ttkUtils::GetPointer<ttk::SimplexId>(splitSegmentationId),
       criticalPoints[0].data(), // minima
       criticalPoints[2].data(), // 2-saddles
       criticalPoints[3].data(), // maxima
@@ -347,7 +347,6 @@ int ttkExTreeM::RequestData(vtkInformation *,
       return 0;
   }
 
-  /*
   // Finalize Output
   {
     ttk::Timer timer;
@@ -382,6 +381,6 @@ int ttkExTreeM::RequestData(vtkInformation *,
     this->printMsg("Generating Output Data Objects", 1, timer.getElapsedTime());
     this->printMsg(ttk::debug::Separator::L1);
   }
-  */
+
   return 1;
 }
