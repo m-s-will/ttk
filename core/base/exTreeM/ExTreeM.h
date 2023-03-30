@@ -19,6 +19,7 @@
 #include <Triangulation.h>
 #include <chrono>
 #include <limits.h>
+#include <numeric>
 #include <set>
 #include <numeric>
 

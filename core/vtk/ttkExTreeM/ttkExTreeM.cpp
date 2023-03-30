@@ -361,7 +361,6 @@ int ttkExTreeM::RequestData(vtkInformation *,
       return 0;
   }
 
-
   // Finalize Output
   {
     ttk::Timer timer;
