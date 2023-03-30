@@ -43,7 +43,8 @@ namespace ttk {
 
       const SimplexId nVertices = triangulation->getNumberOfVertices();
 
-      constexpr int lutSize = pow(2,14);
+      //constexpr int lutSize = pow(2,14);
+      constexpr int lutSize = 16384;
       std::array<unsigned char,lutSize> lut;
 
       std::array<int,64> lut2;

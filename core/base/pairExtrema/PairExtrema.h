@@ -20,6 +20,8 @@
 #include <chrono>
 #include <limits.h>
 #include <set>
+#include <numeric>
+
 
 #define duration(a) \
   std::chrono::duration_cast<std::chrono::nanoseconds>(a).count()

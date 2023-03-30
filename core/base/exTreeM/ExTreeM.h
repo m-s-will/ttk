@@ -20,6 +20,7 @@
 #include <chrono>
 #include <limits.h>
 #include <set>
+#include <numeric>
 
 #define duration(a) \
   std::chrono::duration_cast<std::chrono::nanoseconds>(a).count()
@@ -307,6 +308,7 @@ namespace ttk {
     }
     template <typename triangulationType>
     int constructSegmentation(ttk::SimplexId *segmentation,
+                              unsigned char *isLeaf,
                               const std::vector<Branch> &branches,
                               const ttk::SimplexId *order,
                               ttk::SimplexId *descendingManifold,
@@ -323,6 +325,7 @@ namespace ttk {
         auto orderForVertex = order[i];
         if(orderForVertex <= trunkSaddle.first) {
           segmentation[i] = trunkSaddle.second;
+          isLeaf[i] = 0;
           continue;
         }
         auto maximum
@@ -340,6 +343,12 @@ namespace ttk {
         auto vect = &cBranch->vertices;
         auto lower = std::lower_bound(
           vect->rbegin(), vect->rend(), std::make_pair(orderForVertex, i));
+        if (lower == vect->rend() - 1){
+          isLeaf[i] = 1;
+        } else {
+          isLeaf[i] = 0;
+        }
+
         segmentation[i] = (*lower).second;
       }
       this->printMsg("Finished phase 3 of segmentation: ", 1,
@@ -397,7 +406,6 @@ namespace ttk {
                      0, buildTimer.getElapsedTime(), ttk::debug::LineMode::NEW,
                      ttk::debug::Priority::DETAIL);
       ttk::Timer tripletTimer;
-
 #pragma omp parallel for num_threads(this->threadNumber_)
       for(ttk::SimplexId i = 0; i < nSaddles; i++) {
         const auto &gId = saddles[i];
@@ -420,7 +428,12 @@ namespace ttk {
         }
         sortAndRemoveUniques(triplet);
       }
-
+      ttk::SimplexId edgesInEG = 0;
+      for(ttk::SimplexId i = 0; i < nSaddles; i++) {
+        auto &triplet = saddleTriplets[i];
+        edgesInEG+=triplet[14];
+      }
+      this->printMsg("#Edges in the EG: " + std::to_string(edgesInEG));
       this->printMsg("Finished building the saddleTriplets", 0,
                      tripletTimer.getElapsedTime(), ttk::debug::LineMode::NEW,
                      ttk::debug::Priority::DETAIL);
@@ -432,6 +445,7 @@ namespace ttk {
       std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &persistencePairs,
       std::vector<Branch> &branches,
       ttk::SimplexId *segmentation,
+      unsigned char *isLeaf,
       const ttk::SimplexId *minimaIds,
       ttk::SimplexId *saddle2Ids,
       ttk::SimplexId *maximaIds,
@@ -515,7 +529,7 @@ namespace ttk {
         ttk::Timer segmentationTimer;
         this->printMsg("Starting with mergetree segmentation", 0,
                        ttk::debug::LineMode::REPLACE);
-        constructSegmentation<triangulationType>(segmentation, branches, order,
+        constructSegmentation<triangulationType>(segmentation, isLeaf, branches, order,
                                                  descendingManifold, tempArray,
                                                  triangulation);
         this->printMsg("Finished mergetree segmentation", 1,

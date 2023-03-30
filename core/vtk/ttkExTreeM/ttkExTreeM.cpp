@@ -15,6 +15,7 @@
 #include <vtkIdTypeArray.h>
 #include <vtkIntArray.h>
 #include <vtkSignedCharArray.h>
+#include <vtkUnsignedCharArray.h>
 
 #include <ttkMacros.h>
 #include <ttkUtils.h>
@@ -200,6 +201,7 @@ int ttkExTreeM::RequestData(vtkInformation *,
 
   // Get triangulation of the input object
   auto triangulation2 = ttkAlgorithm::GetTriangulation(input);
+  this->printMsg("#Edges in original domain: " + std::to_string(triangulation2->getNumberOfEdges()));
   if(!triangulation2)
     return 0;
   // // Precondition triangulation
@@ -240,6 +242,16 @@ int ttkExTreeM::RequestData(vtkInformation *,
   splitSegmentationId->SetNumberOfComponents(1);
   splitSegmentationId->SetNumberOfTuples(nVertices);
   splitSegmentationId->SetName("SplitSegmentationId");
+
+  vtkNew<vtkUnsignedCharArray> isSplitLeaf{};
+  isSplitLeaf->SetNumberOfComponents(1);
+  isSplitLeaf->SetNumberOfTuples(nVertices);
+  isSplitLeaf->SetName("isSplitLeaf");
+
+  vtkNew<vtkUnsignedCharArray> isJoinLeaf{};
+  isJoinLeaf->SetNumberOfComponents(1);
+  isJoinLeaf->SetNumberOfTuples(nVertices);
+  isJoinLeaf->SetName("isJoinLeaf");
 
   // compute path compression
   {
@@ -310,6 +322,7 @@ int ttkExTreeM::RequestData(vtkInformation *,
     status = this->computePairs<MyImplicitTriangulation>(
       persistencePairsJoin, mergeTreeJoin,
       ttkUtils::GetPointer<ttk::SimplexId>(joinSegmentationId),
+      ttkUtils::GetPointer<unsigned char>(isJoinLeaf),
       criticalPoints[3].data(), criticalPoints[1].data(),
       criticalPoints[0].data(),
       ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
@@ -335,6 +348,7 @@ int ttkExTreeM::RequestData(vtkInformation *,
     status = this->computePairs<MyImplicitTriangulation>(
       persistencePairsSplit, mergeTreeSplit,
       ttkUtils::GetPointer<ttk::SimplexId>(splitSegmentationId),
+      ttkUtils::GetPointer<unsigned char>(isSplitLeaf),
       criticalPoints[0].data(), // minima
       criticalPoints[2].data(), // 2-saddles
       criticalPoints[3].data(), // maxima
@@ -347,154 +361,6 @@ int ttkExTreeM::RequestData(vtkInformation *,
       return 0;
   }
 
-  // return 1;
-
-  // debug: build extremum graph
-  // {
-  //   auto tree = vtkPolyData::GetData(outputVector, 0);
-
-  //   // points
-  //   ttk::SimplexId maxO = nVertices-1;
-  //   ttk::SimplexId maxId = 0;
-  //   ttk::SimplexId minId = 0;
-  //   {
-  //     int nPoints = 0;
-  //     for(int i=2; i<4; i++){
-  //       const auto& cp = criticalPoints[i];
-  //       const int nThreads = cp.size();
-  //       for(int j=0; j<nThreads; j++){
-  //         nPoints += cp[j].size();
-  //       }
-  //     }
-  //     nPoints++; // make room for global minimum
-
-  //     // init point data
-  //     vtkNew<ttkSimplexIdTypeArray> treeOrder;
-  //     treeOrder->SetNumberOfTuples(nPoints);
-  //     treeOrder->SetName(orderArray->GetName());
-  //     auto treeOrderData = ttkUtils::GetPointer<ttk::SimplexId>(treeOrder);
-  //     tree->GetPointData()->AddArray(treeOrder);
-
-  //     auto points = vtkSmartPointer<vtkPoints>::New();
-  //     points->SetDataTypeToFloat();
-  //     points->SetNumberOfPoints(nPoints);
-  //     tree->SetPoints(points);
-  //     auto pointCoords = static_cast<float*>(points->GetData()->GetVoidPointer(0));
-  //     int pointCursor = 0;
-
-  //     auto addPoint = [=](int& pc, const ttk::SimplexId& v){
-  //       treeOrderData[pc] = orderArrayData[v];
-  //       auto pc3 = pc*3;
-  //       segmentationIdData[v] = pc;
-  //       triangulation2->getVertexPoint(
-  //         v,
-  //         pointCoords[pc3],
-  //         pointCoords[pc3+1],
-  //         pointCoords[pc3+2]
-  //       );
-  //       pc++;
-  //     };
-
-  //     // maxima
-  //     {
-  //       const auto& cp = criticalPoints[3];
-  //       const int nThreads = cp.size();
-  //       for(int j=0; j<nThreads; j++){
-  //         const auto& cp_ = cp[j];
-  //         const int n = cp_.size();
-  //         for(int k=0; k<n; k++){
-  //           const auto& v = cp_[k].id;
-  //           if(orderArrayData[v]==maxO)
-  //             maxId = v;
-  //           addPoint(pointCursor, v);
-  //         }
-  //       }
-  //     }
-
-  //     // saddles
-  //     {
-  //       const auto& cp = criticalPoints[2];
-  //       const int nThreads = cp.size();
-  //       for(int j=0; j<nThreads; j++){
-  //         const auto& cp_ = cp[j];
-  //         const int n = cp_.size();
-  //         for(int k=0; k<n; k++){
-  //           addPoint(pointCursor, cp_[k].id);
-  //         }
-  //       }
-  //     }
-
-  //     // find and add global minimum
-  //     {
-  //       const auto& cp = criticalPoints[0];
-  //       const int nThreads = cp.size();
-  //       [=](int& pc, ttk::SimplexId& id){
-  //         for(int j=0; j<nThreads; j++){
-  //           const auto& cp_ = cp[j];
-  //           const int n = cp_.size();
-  //           for(int k=0; k<n; k++){
-  //             const auto& v = cp_[k].id;
-  //             if(orderArrayData[v]!=0)
-  //               continue;
-  //             id = v;
-  //             addPoint(pc, v);
-  //             return;
-  //           }
-  //         }
-  //       }(pointCursor,minId);
-  //     }
-  //   }
-
-  //   // edges
-  //   {
-  //     int nEdges = 0;
-  //     {
-  //       const auto& cp = criticalPoints[2];
-  //       const int nThreads = cp.size();
-  //       for(int j=0; j<nThreads; j++){
-  //         const auto& cp_ = cp[j];
-  //         const int n = cp_.size();
-  //         for(int k=0; k<n; k++){
-  //           nEdges+=cp_[k].neighbors.size();
-  //         }
-  //       }
-  //     }
-  //     nEdges++; // make room for main branch
-  //     tree->AllocateExact(0, 0, nEdges, 2, 0, 0, 0, 0);
-
-  //     // add edges
-  //     {
-  //       // int edgeCursor = 0;
-  //       const auto& cp = criticalPoints[2];
-  //       const int nThreads = cp.size();
-  //       for(int j=0; j<nThreads; j++){
-  //         const auto& cp_ = cp[j];
-  //         const int n = cp_.size();
-  //         for(int k=0; k<n; k++){
-  //           const auto& v = segmentationIdData[cp_[k].id];
-  //           const auto& neighbors = cp_[k].neighbors;
-  //           const int nNeighbors = neighbors.size();
-  //           for(int l=0; l<nNeighbors; l++){
-  //             vtkIdType points[2]{
-  //               v,
-  //               segmentationIdData[neighbors[l]]
-  //             };
-  //             tree->InsertNextCell(VTK_LINE, 2, points);
-  //           }
-  //         }
-  //       }
-  //     }
-
-  //     // add main branch
-  //     {
-  //       vtkIdType points[2]{
-  //         segmentationIdData[minId],
-  //         segmentationIdData[maxId]
-  //       };
-  //       tree->InsertNextCell(VTK_LINE, 2, points);
-  //     }
-  //   }
-  // }
 
   // Finalize Output
   {
@@ -525,6 +391,8 @@ int ttkExTreeM::RequestData(vtkInformation *,
       segmentationPD->AddArray(descendingManifold);
       segmentationPD->AddArray(joinSegmentationId);
       segmentationPD->AddArray(splitSegmentationId);
+      segmentationPD->AddArray(isSplitLeaf);
+      segmentationPD->AddArray(isJoinLeaf);
     }
 
     this->printMsg("Generating Output Data Objects", 1, timer.getElapsedTime());
