@@ -205,10 +205,48 @@ public:
   void AddInputData(vtkDataSet *);
   void AddInputData(int, vtkDataSet *);
 
+  /**
+   * @brief This method tests whether the input is a nullptr.
+   * If the computation is being done on multiple processes, it is possible
+   * that the domain of one process or more is empty, but not others, therefore
+   * in that particular case the rest of the filter will not be computed but
+   * an error message will not be sent.
+   *
+   * @tparam inputType
+   * @param input  the input to assess
+   * @return int 0: error, 1: stop without error, 2: continue
+   */
+  template <typename inputType>
+  inline int checkEmptyMPIInput(inputType *input) {
+    if(!input) {
+#ifdef TTK_ENABLE_MPI
+      if(ttk::isRunningWithMPI()) {
+        return 1;
+      } else {
+#endif
+        return 0;
+#ifdef TTK_ENABLE_MPI
+      }
+#endif
+    }
+    return 2;
+  };
+
 protected:
   ttkAlgorithm();
   ~ttkAlgorithm() override;
 
+#ifdef TTK_ENABLE_MPI
+  /**
+   * @brief Creates a new communicator if one of the processes doesn't contain
+   * any point or cells. In this case, the RankArray is update for vertices and
+   * cells to match the new ranks.
+   *
+   * @param input input data set
+   * @return int 0 if input contains no points or no cells
+   */
+  int updateMPICommunicator(vtkDataSet *input);
+#endif
   /**
    * This method is called in GetTriangulation, after the triangulation as been
    * created. It verifies that ghost cells and points are present and if they
@@ -236,14 +274,15 @@ protected:
 
   bool checkGlobalIdValidity(ttk::LongSimplexId *globalIds,
                              ttk::SimplexId simplexNumber,
-                             unsigned char *ghost);
+                             unsigned char *ghost,
+                             int *rankArray);
   /**
    * This methods generates global ids and is called during the MPI
    * preconditioning. It behaves differently for PolyData and ImageData
    * datasets.
    */
 
-  bool GenerateGlobalIds(
+  int GenerateGlobalIds(
     vtkDataSet *input,
     std::unordered_map<ttk::SimplexId, ttk::SimplexId> &vertGtoL,
     std::vector<int> &neighborRanks);
