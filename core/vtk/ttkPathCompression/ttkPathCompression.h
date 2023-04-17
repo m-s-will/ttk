@@ -138,11 +138,6 @@ public:
   vtkGetMacro(ForceInputOffsetScalarField, bool);
 
 protected:
-  template <typename scalarType, typename triangulationType>
-  int dispatch(vtkDataArray *const inputScalars,
-               const SimplexId *const inputOffsets,
-               const triangulationType &triangulation);
-
   ttkPathCompression();
 
   int FillInputPortInformation(int port, vtkInformation *info) override;

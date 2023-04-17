@@ -47,26 +47,6 @@ void setArray(vtkArrayType &vtkArray, vectorType &vector) {
   ttkUtils::SetVoidArray(vtkArray, vector.data(), vector.size(), 1);
 }
 
-template <typename scalarType, typename triangulationType>
-int ttkPathCompression::dispatch(vtkDataArray *const inputScalars,
-                                  const SimplexId *const inputOffsets,
-                                  const triangulationType &triangulation) {
-
-  const auto scalars = ttkUtils::GetPointer<scalarType>(inputScalars);
-
-  const int ret = this->execute(
-    segmentations_, inputOffsets, triangulation);
-
-#ifndef TTK_ENABLE_KAMIKAZE
-  if(ret != 0) {
-    this->printErr("PathCompression.execute() error");
-    return -1;
-  }
-#endif
-
-  return ret;
-}
-
 int ttkPathCompression::RequestData(vtkInformation *ttkNotUsed(request),
                                       vtkInformationVector **inputVector,
                                       vtkInformationVector *outputVector) {
@@ -96,32 +76,18 @@ int ttkPathCompression::RequestData(vtkInformation *ttkNotUsed(request),
   }
   this->preconditionTriangulation(triangulation);
 
-  const auto inputScalars = this->GetInputArrayToProcess(0, inputVector);
+  vtkDataSet *inputDataSet = vtkDataSet::GetData(inputVector[0]);
+  if(!inputDataSet)
+    return 0;
 
-#ifndef TTK_ENABLE_KAMIKAZE
-  if(inputScalars == nullptr) {
-    this->printErr("wrong scalars.");
-    return -1;
+  auto order = ttkAlgorithm::GetOrderArray(inputDataSet, 0);
+  if(!order) {
+    this->printErr("Unable to retrieve input array.");
+    return 0;
   }
-#endif
-
-  auto inputOffsets = ttkAlgorithm::GetOrderArray(
-    input, 0, 1, this->ForceInputOffsetScalarField);
-
-#ifndef TTK_ENABLE_KAMIKAZE
-  if(inputOffsets == nullptr) {
-    this->printErr("wrong offsets.");
-    return -1;
-  }
-  if(inputOffsets->GetDataType() != VTK_INT
-     and inputOffsets->GetDataType() != VTK_ID_TYPE) {
-    this->printErr("input offset field type not supported.");
-    return -1;
-  }
-#endif
 
   this->printMsg("Launching computation on field `"
-                 + std::string(inputScalars->GetName()) + "'...");
+                 + std::string(order->GetName()) + "'...");
 
   // morse complexes
   const SimplexId numberOfVertices = triangulation->getNumberOfVertices();
@@ -158,12 +124,30 @@ int ttkPathCompression::RequestData(vtkInformation *ttkNotUsed(request),
                           ttkUtils::GetPointer<SimplexId>(morseSmaleManifold)};
 
   int ret{};
+#ifdef TTK_ENABLE_MPI
+  if(ttk::isRunningWithMPI()) {
+    auto pointData = inputDataSet->GetPointData();
+    auto rankArray = pointData->GetArray("RankArray");
+    auto globalIds = pointData->GetGlobalIds();
 
-  ttkVtkTemplateMacro(
-    inputScalars->GetDataType(), triangulation->getType(),
-    (ret = dispatch<VTK_TT, TTK_TT>(
-       inputScalars, ttkUtils::GetPointer<SimplexId>(inputOffsets),
-       *static_cast<TTK_TT *>(triangulation->getData()))));
+    ttkTypeMacroT(
+      triangulation->getType(),
+      (ret = this->execute<T0>(
+         segmentations_, ttkUtils::GetPointer<SimplexId>(order),
+         *(T0 *)triangulation->getData(), ttkUtils::GetPointer<int>(rankArray),
+         ttkUtils::GetPointer<ttk::SimplexId>(globalIds))));
+  } else {
+    ttkTypeMacroT(triangulation->getType(),
+                  (ret = this->execute<T0>(
+                     segmentations_, ttkUtils::GetPointer<SimplexId>(order),
+                     *(T0 *)triangulation->getData())));
+  }
+#else
+  ttkTypeMacroT(triangulation->getType(),
+                (ret = this->execute<T0>(segmentations_,
+                                         ttkUtils::GetPointer<SimplexId>(order),
+                                         *(T0 *)triangulation->getData())));
+#endif // TTK_ENABLE_MPI
 
   if(ret != 0) {
     return -1;
@@ -190,4 +174,3 @@ int ttkPathCompression::RequestData(vtkInformation *ttkNotUsed(request),
 
   return !ret;
 }
-

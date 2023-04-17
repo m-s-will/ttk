@@ -52,7 +52,9 @@ namespace ttk {
     template <typename triangulationType>
     inline int execute(OutputManifold &outManifold,
                        const SimplexId *const offsets,
-                       const triangulationType &triangulation);
+                       const triangulationType &triangulation,
+                       const int *rankArray = nullptr,
+                       const ttk::SimplexId *globalIds = nullptr);
 
     /**
      * Enable/Disable computation of the geometrical embedding of the
@@ -72,21 +74,28 @@ namespace ttk {
      */
     inline void preconditionTriangulation(AbstractTriangulation *const data) {
       data->preconditionVertexNeighbors();
+#if TTK_ENABLE_MPI
+      if(ttk::isRunningWithMPI())
+        data->preconditionDistributedVertices();
+#endif
     }
 
     template <typename triangulationType>
-    int computePathCompression(
-      SimplexId *const ascManifold,
-      SimplexId *const dscManifold,
-      const SimplexId *const orderArr,
-      const triangulationType &triangulation) const;
+    int computePathCompression(SimplexId *const ascManifold,
+                               SimplexId *const dscManifold,
+                               const SimplexId *const orderArr,
+                               const triangulationType &triangulation,
+                               const int *rankArray = nullptr,
+                               const ttk::SimplexId *globalIds = nullptr) const;
 
     template <typename triangulationType>
-    int computePathCompressionSingle(
-      SimplexId *const manifold,
-      const bool computeAscending,
-      const SimplexId *const orderArr,
-      const triangulationType &triangulation) const;
+    int computePathCompressionSingle(SimplexId *const manifold,
+                                     const bool computeAscending,
+                                     const SimplexId *const orderArr,
+                                     const triangulationType &triangulation,
+                                     const int *rankArray = nullptr,
+                                     const ttk::SimplexId *globalIds
+                                     = nullptr) const;
 
     template <typename triangulationType>
     int computeFinalSegmentation(
@@ -110,7 +119,9 @@ namespace ttk {
 template <typename triangulationType>
 int ttk::PathCompression::execute(OutputManifold &outManifold,
                                   const SimplexId *const orderArray,
-                                  const triangulationType &triangulation) {
+                                  const triangulationType &triangulation,
+                                  const int *rankArray,
+                                  const ttk::SimplexId *globalIds) {
 #ifndef TTK_ENABLE_KAMIKAZE
   if(orderArray == nullptr) {
     this->printErr("Input offset field pointer is null.");
@@ -120,14 +131,14 @@ int ttk::PathCompression::execute(OutputManifold &outManifold,
 
   if((ComputeAscendingSegmentation && ComputeDescendingSegmentation) ||
     ComputeFinalSegmentation) {
-    computePathCompression(outManifold.ascending_,
-      outManifold.descending_, orderArray, triangulation);
+    computePathCompression(outManifold.ascending_, outManifold.descending_,
+                           orderArray, triangulation, rankArray, globalIds);
   } else if(ComputeAscendingSegmentation) {
-    computePathCompressionSingle(
-      outManifold.ascending_, true, orderArray, triangulation);
+    computePathCompressionSingle(outManifold.ascending_, true, orderArray,
+                                 triangulation, rankArray, globalIds);
   } else if(ComputeDescendingSegmentation) {
-    computePathCompressionSingle(
-      outManifold.descending_, false, orderArray, triangulation);
+    computePathCompressionSingle(outManifold.descending_, false, orderArray,
+                                 triangulation, rankArray, globalIds);
   }
 
   if(ComputeFinalSegmentation) {
@@ -143,10 +154,17 @@ int ttk::PathCompression::computePathCompression(
   SimplexId *const ascManifold,
   SimplexId *const dscManifold,
   const SimplexId *const orderArr,
-  const triangulationType &triangulation) const {
+  const triangulationType &triangulation,
+  const int *rankArray,
+  const ttk::SimplexId *globalIds) const {
 
   ttk::Timer localTimer;
-
+  bool useMPI = false;
+#if TTK_ENABLE_MPI
+  if(ttk::isRunningWithMPI() && rankArray != nullptr && globalIds != nullptr) {
+    useMPI = true;
+  }
+#endif
   //this->printWrn(ttk::debug::Separator::L1);
   // print the progress of the current subprocedure (currently 0%)
   const std::string msg = "Computing Asc + Desc Segmentation";
@@ -300,10 +318,18 @@ int ttk::PathCompression::computePathCompressionSingle(
   SimplexId *const manifold,
   const bool computeAscending,
   const SimplexId *const orderArr,
-  const triangulationType &triangulation) const {
+  const triangulationType &triangulation,
+  const int *rankArray,
+  const ttk::SimplexId *globalIds) const {
 
   ttk::Timer localTimer;
+  bool useMPI = false;
 
+#if TTK_ENABLE_MPI
+  if(ttk::isRunningWithMPI() && rankArray != nullptr && globalIds != nullptr) {
+    useMPI = true;
+  }
+#endif
   //this->printWrn(ttk::debug::Separator::L1);
   // print the progress of the current subprocedure (currently 0%)
   const std::string msg = "Computing "+std::string(computeAscending? "Ascending" : "Descending")+" Segmentation";

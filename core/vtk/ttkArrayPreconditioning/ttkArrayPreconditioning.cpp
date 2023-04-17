@@ -101,8 +101,6 @@ int ttkArrayPreconditioning::RequestData(vtkInformation *ttkNotUsed(request),
           ttkArrayPreconditioning::GetOrderArrayName(scalarArray).data());
         orderArray->SetNumberOfComponents(1);
         orderArray->SetNumberOfTuples(nVertices);
-
-        this->printMsg(std::to_string(scalarArray->GetDataType()));
         ttkTypeMacroA(
           scalarArray->GetDataType(),
           (status = processScalarArray(
