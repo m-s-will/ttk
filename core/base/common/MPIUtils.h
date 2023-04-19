@@ -1017,12 +1017,12 @@ namespace ttk {
         // finished with this rank
         ReceiveAndAddToVector(
           rankIdOfMaxScalar, structTag, unsortedReceivedValues);
-        sends++;
-        cout << "Finished " << to_string(processedValueCounter) << " of "
+        // sends++;
+        /*cout << "Finished " << to_string(processedValueCounter) << " of "
              << to_string(totalSize) << endl;
         cout << "We sent and received stuff to and from rank "
              << to_string(rankIdOfMaxScalar) << " "
-             << to_string(sendandreceivetimer.getElapsedTime()) << endl;
+             << to_string(sendandreceivetimer.getElapsedTime()) << endl;*/
       }
     }
   }
@@ -1145,9 +1145,8 @@ namespace ttk {
 
     // when all are done sorting, rank 0 requests the highest values and
     // merges them
-    cout << "populate vector and sort distributed done "
-         << to_string(fillAndSortTimer.getElapsedTime()) << endl;
-    ;
+    // cout << "populate vector and sort distributed done "
+    //     << to_string(fillAndSortTimer.getElapsedTime()) << endl;
 
     MPI_Barrier(ttk::MPIcomm_);
 
@@ -1177,7 +1176,7 @@ namespace ttk {
           unsortedReceivedValues[i] = ownValues;
         } else {
           ReceiveAndAddToVector<DT, IT>(i, structTag, unsortedReceivedValues);
-          sends++;
+          // sends++;
         }
       }
       while(processedValueCounter < totalSize) {
@@ -1186,7 +1185,7 @@ namespace ttk {
                        orderResendValues, orderedValuesForRank, sortingValues,
                        totalSize, sends);
       }
-      cout << "Number of communication steps: " + to_string(sends);
+      // cout << "Number of communication steps: " + to_string(sends);
     } else { // other Ranks
       // send the next burstsize values and then wait for an answer from the
       // root rank
@@ -1217,8 +1216,8 @@ namespace ttk {
       MPI_Send(sortingValues.data(), 0, MPI_CHAR, 0, structTag * ttk::MPIrank_,
                ttk::MPIcomm_);
     }
-    cout << "communication and merging done "
-         << to_string(mergeTimer.getElapsedTime()) << endl;
+    // cout << "communication and merging done "
+    //      << to_string(mergeTimer.getElapsedTime()) << endl;
 
     // all ranks do the following
     MPI_Barrier(ttk::MPIcomm_);
@@ -1232,7 +1231,7 @@ namespace ttk {
     ttk::exchangeGhostDataWithoutTriangulation<ttk::SimplexId, IT>(
       orderArray, getVertexRank, getVertexGlobalId, getVertexLocalId, nVerts,
       ttk::MPIcomm_, neighbors);
-    cout << "local ordering done " << to_string(orderTimer.getElapsedTime());
+    // cout << "local ordering done " << to_string(orderTimer.getElapsedTime());
   }
 
   /**

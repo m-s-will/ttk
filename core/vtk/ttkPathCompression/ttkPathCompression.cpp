@@ -126,16 +126,15 @@ int ttkPathCompression::RequestData(vtkInformation *ttkNotUsed(request),
   int ret{};
 #ifdef TTK_ENABLE_MPI
   if(ttk::isRunningWithMPI()) {
+    this->printMsg("Running with MPI in vtk layer");
     auto pointData = inputDataSet->GetPointData();
-    auto rankArray = pointData->GetArray("RankArray");
-    auto globalIds = pointData->GetGlobalIds();
+    auto globalIds = pointData->GetArray("GlobalPointIds");
 
-    ttkTypeMacroT(
-      triangulation->getType(),
-      (ret = this->execute<T0>(
-         segmentations_, ttkUtils::GetPointer<SimplexId>(order),
-         *(T0 *)triangulation->getData(), ttkUtils::GetPointer<int>(rankArray),
-         ttkUtils::GetPointer<ttk::SimplexId>(globalIds))));
+    ttkTypeMacroT(triangulation->getType(),
+                  (ret = this->execute<T0>(
+                     segmentations_, ttkUtils::GetPointer<SimplexId>(order),
+                     *(T0 *)triangulation->getData(),
+                     ttkUtils::GetPointer<ttk::SimplexId>(globalIds))));
   } else {
     ttkTypeMacroT(triangulation->getType(),
                   (ret = this->execute<T0>(
