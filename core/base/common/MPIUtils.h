@@ -961,9 +961,7 @@ namespace ttk {
               std::vector<std::vector<value<DT, IT>>> &unsortedReceivedValues,
               std::vector<std::vector<IT>> &orderResendValues,
               std::vector<IT> &orderedValuesForRank,
-              std::vector<value<DT, IT>> &sortingValues,
-              IT totalSize,
-              IT &sends) {
+              std::vector<value<DT, IT>> &sortingValues) {
     // take the current maximum scalar over all ranks
     int rankIdOfMaxScalar = -1;
     DT maxScalar = std::numeric_limits<DT>::lowest();
@@ -1017,7 +1015,6 @@ namespace ttk {
         // finished with this rank
         ReceiveAndAddToVector(
           rankIdOfMaxScalar, structTag, unsortedReceivedValues);
-        // sends++;
         /*cout << "Finished " << to_string(processedValueCounter) << " of "
              << to_string(totalSize) << endl;
         cout << "We sent and received stuff to and from rank "
@@ -1158,7 +1155,6 @@ namespace ttk {
     // get the complete size  of the dataset by summing up the local sizes
     MPI_Reduce(&localSize, &totalSize, 1, MPI_IT, MPI_SUM, 0, ttk::MPIcomm_);
     if(ttk::MPIrank_ == 0) {
-      IT sends = 0;
       IT currentOrder = totalSize - 1;
       std::vector<std::vector<value<DT, IT>>> unsortedReceivedValues;
       unsortedReceivedValues.resize(ttk::MPIsize_);
@@ -1176,14 +1172,12 @@ namespace ttk {
           unsortedReceivedValues[i] = ownValues;
         } else {
           ReceiveAndAddToVector<DT, IT>(i, structTag, unsortedReceivedValues);
-          // sends++;
         }
       }
       while(processedValueCounter < totalSize) {
         getMax<DT, IT>(intTag, structTag, currentOrder, burstSize, MPI_IT,
                        processedValueCounter, unsortedReceivedValues,
-                       orderResendValues, orderedValuesForRank, sortingValues,
-                       totalSize, sends);
+                       orderResendValues, orderedValuesForRank, sortingValues);
       }
       // cout << "Number of communication steps: " + to_string(sends);
     } else { // other Ranks
