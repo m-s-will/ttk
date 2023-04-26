@@ -26,6 +26,9 @@ namespace ttk {
 
     ScalarFieldCriticalPoints2(){
       this->setDebugMsgPrefix("ScalarFieldCriticalPoints2");
+#ifdef TTK_ENABLE_MPI
+      hasMPISupport_ = true;
+#endif
     }
 
     void toXYZ(ttk::SimplexId* xyz, const ttk::SimplexId idx) const {
@@ -234,13 +237,12 @@ namespace ttk {
     }
 
     template <typename TT = ttk::AbstractTriangulation>
-    int computeCritialPoints(
-      std::array<std::vector<std::vector<SimplexId>>,4>& cp,
-      const SimplexId* order,
-      const SimplexId* ascManifold,
-      const SimplexId* desManifold,
-      const TT* triangulation
-    ) const {
+    int computeCriticalPoints(
+      std::array<std::vector<std::vector<SimplexId>>, 4> &cp,
+      const SimplexId *order,
+      const SimplexId *ascManifold,
+      const SimplexId *desManifold,
+      const TT *triangulation) const {
       ttk::Timer timer;
 
       const std::string msg{"Computing Critical Points"};
@@ -272,86 +274,99 @@ namespace ttk {
 
         #pragma omp for
         for(SimplexId v=0; v<nVertices; v++){
-          const SimplexId orderV = order[v];
-          const SimplexId nNeighbors = triangulation->getVertexNeighborNumber(v);
+// check if this vertex belongs to current rank
+#ifdef TTK_ENABLE_MPI
+          if(triangulation->getVertexRank(v) == ttk::MPIrank_) {
+#endif
+            const SimplexId orderV = order[v];
+            const SimplexId nNeighbors
+              = triangulation->getVertexNeighborNumber(v);
+            if(nNeighbors == 14) {
+              std::bitset<14> upperLinkKey;
+              std::bitset<14> lowerLinkKey;
 
-          if(nNeighbors==14){
-            std::bitset<14> upperLinkKey;
-            std::bitset<14> lowerLinkKey;
+              lowerMem[0] = -1;
+              upperMem[0] = -1;
+              int lowerCursor = 0;
+              int upperCursor = 0;
 
-            lowerMem[0] = -1;
-            upperMem[0] = -1;
-            int lowerCursor=0;
-            int upperCursor=0;
+              for(SimplexId n = 0; n < 14; n++) {
+                SimplexId u{0};
+                triangulation->getVertexNeighbor(v, n, u);
 
-            for(SimplexId n=0; n<14; n++){
-              SimplexId u{0};
-              triangulation->getVertexNeighbor(v, n, u);
-
-              const SimplexId orderN = order[u];
-              if(orderV<orderN){
-                upperLinkKey[n]=1;
-                if(upperMem[upperCursor] != desManifold[u]){
-                  upperMem[++upperCursor] = desManifold[u];
-                }
-              } else {
-                lowerLinkKey[n]=1;
-                if(lowerMem[lowerCursor] != ascManifold[u]){
-                  lowerMem[++lowerCursor] = ascManifold[u];
-                }
-              }
-            }
-
-            if(lowerCursor==0)
-              cp0.emplace_back(v);
-
-            if(upperCursor==0)
-              cp3.emplace_back(v);
-
-            // if lowerCursor or upperCursor >1 then more than one extremum reachable
-            if(lowerCursor>1 && lut[lowerLinkKey.to_ulong()]==0)
-              cp1.emplace_back(v);
-
-            if(upperCursor>1 && lut[upperLinkKey.to_ulong()]==0)
-              cp2.emplace_back(v);
-          } else {
-            lowerMem[0] = -1;
-            upperMem[0] = -1;
-            int lowerCursor=0;
-            int upperCursor=0;
-            int lowerCursor2=0;
-            int upperCursor2=0;
-
-            for(SimplexId n=0; n<nNeighbors; n++){
-              SimplexId u{0};
-              triangulation->getVertexNeighbor(v, n, u);
-
-              const SimplexId orderN = order[u];
-              if(orderV<orderN){
-                upperMem2[upperCursor2++] = u;
-                if(upperMem[upperCursor] != desManifold[u]){
-                  upperMem[++upperCursor] = desManifold[u];
-                }
-              } else {
-                lowerMem2[lowerCursor2++] = u;
-                if(lowerMem[lowerCursor] != ascManifold[u]){
-                  lowerMem[++lowerCursor] = ascManifold[u];
+                const SimplexId orderN = order[u];
+                if(orderV < orderN) {
+                  upperLinkKey[n] = 1;
+                  if(upperMem[upperCursor] != desManifold[u]) {
+                    upperMem[++upperCursor] = desManifold[u];
+                  }
+                } else {
+                  lowerLinkKey[n] = 1;
+                  if(lowerMem[lowerCursor] != ascManifold[u]) {
+                    lowerMem[++lowerCursor] = ascManifold[u];
+                  }
                 }
               }
+
+              if(lowerCursor == 0)
+                cp0.emplace_back(v);
+
+              if(upperCursor == 0)
+                cp3.emplace_back(v);
+
+              // if lowerCursor or upperCursor >1 then more than one extremum
+              // reachable
+              if(lowerCursor > 1 && lut[lowerLinkKey.to_ulong()] == 0)
+                cp1.emplace_back(v);
+
+              if(upperCursor > 1 && lut[upperLinkKey.to_ulong()] == 0)
+                cp2.emplace_back(v);
+            } else {
+              lowerMem[0] = -1;
+              upperMem[0] = -1;
+              int lowerCursor = 0;
+              int upperCursor = 0;
+              int lowerCursor2 = 0;
+              int upperCursor2 = 0;
+
+              for(SimplexId n = 0; n < nNeighbors; n++) {
+                SimplexId u{0};
+                triangulation->getVertexNeighbor(v, n, u);
+
+                const SimplexId orderN = order[u];
+                if(orderV < orderN) {
+                  upperMem2[upperCursor2++] = u;
+                  if(upperMem[upperCursor] != desManifold[u]) {
+                    upperMem[++upperCursor] = desManifold[u];
+                  }
+                } else {
+                  lowerMem2[lowerCursor2++] = u;
+                  if(lowerMem[lowerCursor] != ascManifold[u]) {
+                    lowerMem[++lowerCursor] = ascManifold[u];
+                  }
+                }
+              }
+              if(lowerCursor == 0)
+                cp0.emplace_back(v);
+
+              if(upperCursor == 0)
+                cp3.emplace_back(v);
+
+              if(lowerCursor > 1
+                 && this->computeNumberOfLinkComponents(
+                      lowerMem2, lowerCursor2, triangulation)
+                      > 1)
+                cp1.emplace_back(v);
+
+              if(upperCursor > 1
+                 && this->computeNumberOfLinkComponents(
+                      upperMem2, upperCursor2, triangulation)
+                      > 1)
+                cp2.emplace_back(v);
             }
-
-            if(lowerCursor==0)
-              cp0.emplace_back(v);
-
-            if(upperCursor==0)
-              cp3.emplace_back(v);
-
-            if(lowerCursor>1 && this->computeNumberOfLinkComponents(lowerMem2,lowerCursor2,triangulation)>1)
-              cp1.emplace_back(v);
-
-            if(upperCursor>1 && this->computeNumberOfLinkComponents(upperMem2,upperCursor2,triangulation)>1)
-              cp2.emplace_back(v);
+#ifdef TTK_ENABLE_MPI
           }
+#endif
         }
       }
 
@@ -382,15 +397,12 @@ namespace ttk {
       return 1;
     };
 
-
     template <typename TT = ttk::AbstractTriangulation>
-    int computeCritialPoints(
-      std::array<std::vector<std::vector<CP>>,4>& cp,
-      const SimplexId* order,
-      const SimplexId* ascManifold,
-      const SimplexId* desManifold,
-      const TT* triangulation
-    ) const {
+    int computeCriticalPoints(std::array<std::vector<std::vector<CP>>, 4> &cp,
+                              const SimplexId *order,
+                              const SimplexId *ascManifold,
+                              const SimplexId *desManifold,
+                              const TT *triangulation) const {
       ttk::Timer timer;
       const std::string msg{"Computing Critical Points"};
       this->printMsg(msg, 0, 0, this->threadNumber_, ttk::debug::LineMode::REPLACE);
@@ -421,89 +433,102 @@ namespace ttk {
 
         #pragma omp for
         for(SimplexId v=0; v<nVertices; v++){
-          const SimplexId orderV = order[v];
-          const SimplexId nNeighbors = triangulation->getVertexNeighborNumber(v);
+#ifdef TTK_ENABLE_MPI
+          if(triangulation->getVertexRank(v) == ttk::MPIrank_) {
+#endif
+            const SimplexId orderV = order[v];
+            const SimplexId nNeighbors
+              = triangulation->getVertexNeighborNumber(v);
 
-          if(nNeighbors==14){
-            std::bitset<14> upperLinkKey;
-            std::bitset<14> lowerLinkKey;
+            if(nNeighbors == 14) {
+              std::bitset<14> upperLinkKey;
+              std::bitset<14> lowerLinkKey;
 
-            lowerMem[0] = -1;
-            upperMem[0] = -1;
-            int lowerCursor=0;
-            int upperCursor=0;
+              lowerMem[0] = -1;
+              upperMem[0] = -1;
+              int lowerCursor = 0;
+              int upperCursor = 0;
 
-            for(SimplexId n=0; n<14; n++){
-              SimplexId u{0};
-              triangulation->getVertexNeighbor(v, n, u);
+              for(SimplexId n = 0; n < 14; n++) {
+                SimplexId u{0};
+                triangulation->getVertexNeighbor(v, n, u);
 
-              const SimplexId orderN = order[u];
-              if(orderV<orderN){
-                upperLinkKey[n]=1;
-                if(upperMem[upperCursor] != desManifold[u]){
-                  upperMem[++upperCursor] = desManifold[u];
-                }
-              } else {
-                lowerLinkKey[n]=1;
-                if(lowerMem[lowerCursor] != ascManifold[u]){
-                  lowerMem[++lowerCursor] = ascManifold[u];
-                }
-              }
-            }
-
-            if(lowerCursor==0)
-              cp0.emplace_back(v);
-
-            if(upperCursor==0)
-              cp3.emplace_back(v);
-
-            if(lowerCursor>1 && lut[lowerLinkKey.to_ulong()]==0){
-              this->processSaddle(cp1,lowerMem,v,lowerCursor);
-            }
-
-            if(upperCursor>1 && lut[upperLinkKey.to_ulong()]==0){
-              this->processSaddle(cp2,upperMem,v,upperCursor);
-            }
-          } else {
-            lowerMem[0] = -1;
-            upperMem[0] = -1;
-            int lowerCursor=0;
-            int upperCursor=0;
-            int lowerCursor2=0;
-            int upperCursor2=0;
-
-            for(SimplexId n=0; n<nNeighbors; n++){
-              SimplexId u{0};
-              triangulation->getVertexNeighbor(v, n, u);
-
-              const SimplexId orderN = order[u];
-              if(orderV<orderN){
-                upperMem2[upperCursor2++] = u;
-                if(upperMem[upperCursor] != desManifold[u]){
-                  upperMem[++upperCursor] = desManifold[u];
-                }
-              } else {
-                lowerMem2[lowerCursor2++] = u;
-                if(lowerMem[lowerCursor] != ascManifold[u]){
-                  lowerMem[++lowerCursor] = ascManifold[u];
+                const SimplexId orderN = order[u];
+                if(orderV < orderN) {
+                  upperLinkKey[n] = 1;
+                  if(upperMem[upperCursor] != desManifold[u]) {
+                    upperMem[++upperCursor] = desManifold[u];
+                  }
+                } else {
+                  lowerLinkKey[n] = 1;
+                  if(lowerMem[lowerCursor] != ascManifold[u]) {
+                    lowerMem[++lowerCursor] = ascManifold[u];
+                  }
                 }
               }
+
+              if(lowerCursor == 0)
+                cp0.emplace_back(v);
+
+              if(upperCursor == 0)
+                cp3.emplace_back(v);
+
+              if(lowerCursor > 1 && lut[lowerLinkKey.to_ulong()] == 0) {
+                this->processSaddle(cp1, lowerMem, v, lowerCursor);
+              }
+
+              if(upperCursor > 1 && lut[upperLinkKey.to_ulong()] == 0) {
+                this->processSaddle(cp2, upperMem, v, upperCursor);
+              }
+            } else {
+              lowerMem[0] = -1;
+              upperMem[0] = -1;
+              int lowerCursor = 0;
+              int upperCursor = 0;
+              int lowerCursor2 = 0;
+              int upperCursor2 = 0;
+
+              for(SimplexId n = 0; n < nNeighbors; n++) {
+                SimplexId u{0};
+                triangulation->getVertexNeighbor(v, n, u);
+
+                const SimplexId orderN = order[u];
+                if(orderV < orderN) {
+                  upperMem2[upperCursor2++] = u;
+                  if(upperMem[upperCursor] != desManifold[u]) {
+                    upperMem[++upperCursor] = desManifold[u];
+                  }
+                } else {
+                  lowerMem2[lowerCursor2++] = u;
+                  if(lowerMem[lowerCursor] != ascManifold[u]) {
+                    lowerMem[++lowerCursor] = ascManifold[u];
+                  }
+                }
+              }
+
+              if(lowerCursor == 0)
+                cp0.emplace_back(v);
+
+              if(upperCursor == 0)
+                cp3.emplace_back(v);
+
+              if(lowerCursor > 1
+                 && this->computeNumberOfLinkComponents(
+                      lowerMem2, lowerCursor2, triangulation)
+                      > 1) {
+                this->processSaddle(cp1, lowerMem, v, lowerCursor);
+              }
+
+              if(upperCursor > 1
+                 && this->computeNumberOfLinkComponents(
+                      upperMem2, upperCursor2, triangulation)
+                      > 1) {
+                this->processSaddle(cp2, upperMem, v, upperCursor);
+              }
             }
-
-            if(lowerCursor==0)
-              cp0.emplace_back(v);
-
-            if(upperCursor==0)
-              cp3.emplace_back(v);
-
-            if(lowerCursor>1 && this->computeNumberOfLinkComponents(lowerMem2,lowerCursor2,triangulation)>1){
-              this->processSaddle(cp1,lowerMem,v,lowerCursor);
-            }
-
-            if(upperCursor>1 && this->computeNumberOfLinkComponents(upperMem2,upperCursor2,triangulation)>1){
-              this->processSaddle(cp2,upperMem,v,upperCursor);
-            }
+#ifdef TTK_ENABLE_MPI
           }
+#endif
         }
       }
 

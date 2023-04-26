@@ -83,16 +83,11 @@ int ttkScalarFieldCriticalPoints2::RequestData(vtkInformation *ttkNotUsed(reques
   int status = 0;
   ttkTypeMacroT(
     triangulation->getType(),
-    (
-      status = this->computeCritialPoints<T0>(
-        criticalPoints,
-        ttkUtils::GetPointer<ttk::SimplexId>(inputOrder),
-        ttkUtils::GetPointer<ttk::SimplexId>(ascManifold),
-        ttkUtils::GetPointer<ttk::SimplexId>(desManifold),
-        static_cast<const T0 *>(triangulation->getData())
-      )
-    )
-  );
+    (status = this->computeCriticalPoints<T0>(
+       criticalPoints, ttkUtils::GetPointer<ttk::SimplexId>(inputOrder),
+       ttkUtils::GetPointer<ttk::SimplexId>(ascManifold),
+       ttkUtils::GetPointer<ttk::SimplexId>(desManifold),
+       static_cast<const T0 *>(triangulation->getData()))));
 
   if(status != 1)
     return 0;
