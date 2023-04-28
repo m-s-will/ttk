@@ -118,11 +118,15 @@ int ttkScalarFieldCriticalPoints2::RequestData(vtkInformation *ttkNotUsed(reques
 
       auto array = of->GetArray(("cp"+std::to_string(b)+"id").data());
       array->SetNumberOfTuples(nCriticalPoints);
+      this->printMsg("cp" + std::to_string(b) + "id:");
 
       this->computeIdArray(
         ttkUtils::GetPointer<ttk::SimplexId>(array),
         cp
       );
+      for(size_t i = 0; i < nCriticalPoints; i++) {
+        this->printMsg(std::to_string(array->GetTuple(i)[0]));
+      }
     }
 
     this->printMsg(msg, 1, timer.getElapsedTime(), this->threadNumber_);
