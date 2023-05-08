@@ -40,11 +40,14 @@ void ttk::PDBarycenter::runMatching(
 #pragma omp parallel for num_threads(threadNumber_) schedule(dynamic, 1)
 #endif
   for(int i = 0; i < numberOfInputs_; i++) {
+    double delta_lim = 0.01;
     PersistenceDiagramAuction auction(
       current_bidder_diagrams_[i], barycenter_goods_[i], wasserstein_,
-      geometrical_factor_, lambda_, 0.01, kdt, correspondence_kdt_map, epsilon,
-      min_diag_price->at(i), use_kdt);
+      geometrical_factor_, lambda_, delta_lim, kdt, correspondence_kdt_map,
+      epsilon, min_diag_price->at(i), use_kdt);
     int n_biddings = 0;
+    auction.initLowerBoundCostWeight(delta_lim);
+    auction.initLowerBoundCost(i);
     auction.buildUnassignedBidders();
     auction.reinitializeGoods();
     auction.runAuctionRound(n_biddings, i);
@@ -62,6 +65,8 @@ void ttk::PDBarycenter::runMatching(
 
     double quotient = epsilon * auction.getAugmentedNumberOfBidders() / cost;
     precision_[i] = quotient < 1 ? 1. / sqrt(1 - quotient) - 1 : 10;
+    if(auction.getRelativePrecision() == 0)
+      precision_[i] = 0;
     // Resizes the diagram which was enrich with diagonal bidders
     // during the auction
     // TODO do this inside the auction !
@@ -83,10 +88,10 @@ void ttk::PDBarycenter::runMatchingAuction(
   for(int i = 0; i < numberOfInputs_; i++) {
     PersistenceDiagramAuction auction(
       current_bidder_diagrams_[i], barycenter_goods_[i], wasserstein_,
-      geometrical_factor_, lambda_, 0.01, kdt, correspondence_kdt_map,
+      geometrical_factor_, lambda_, 0.01, kdt, correspondence_kdt_map, 0,
       (*min_diag_price)[i], use_kdt);
     std::vector<MatchingType> matchings;
-    double cost = auction.run(matchings);
+    double cost = auction.run(matchings, i);
     all_matchings->at(i) = matchings;
 
     (*total_cost) += cost * cost;
