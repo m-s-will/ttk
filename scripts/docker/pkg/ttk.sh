@@ -22,7 +22,7 @@ require-pkgs \
     libprotobuf-dev         \
     libpugixml-dev          \
     libsqlite3-dev          \
-    libgraphviz-dev	    \
+    libgraphviz-dev	        \
     libtheora-dev           \
     libtiff-dev             \
     libxml2-dev             \
@@ -30,8 +30,23 @@ require-pkgs \
     protobuf-compiler       \
     python3-dev             \
     python3-numpy-dev       \
-    mpich-dev               \
+    wget                    \
     zlib1g-dev
+
+export mpich=4.0.2
+export mpich_prefix=mpich-$mpich
+
+wget https://www.mpich.org/static/downloads/$mpich/$mpich_prefix.tar.gz
+tar xvzf $mpich_prefix.tar.gz
+cd $mpich_prefix
+./configure --disable-fortran
+make -j 4
+make install
+make clean
+cd ..
+rm -rf $mpich_prefix
+
+/sbin/ldconfig
 
 if [ -n "${DEV}" ]; then
         #echo "DEVELOPER MODE"
@@ -39,9 +54,8 @@ if [ -n "${DEV}" ]; then
 fi
 
 # get source code
-(curl -kL "https://github.com/topology-tool-kit/ttk/archive/${TTK_VERSION}.tar.gz" | tar zx --strip-components 1) ||
-(curl -kL "https://github.com/topology-tool-kit/ttk/archive/v${TTK_VERSION}.tar.gz" | tar zx --strip-components 1)
-
+git clone https://github.com/m-s-will/ttk.git
+git checkout mpi_container
 # actually compile
 cmake-default \
     -DTTK_BUILD_DOCUMENTATION=OFF \
