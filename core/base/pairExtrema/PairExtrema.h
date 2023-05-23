@@ -635,12 +635,6 @@ namespace ttk {
           triangulation->getVertexNeighbor(gId, j, neighborId);
           //  get the manifold result for this neighbor
           if(order[neighborId] > thisOrder) {
-            // tempArray only knows about the maxima in the current rank, but
-            // the ascending and descending may know about maxima outside 2
-            // possibilities:
-            // 1. collect the reachable maxima over all saddles and fill
-            // temparray / maximaLocalToGlobal with that
-            // 2. only work with the global values, use e.g. maps
             triplet[triplet[14]] = tempArray[descendingManifold[neighborId]];
             this->printMsg("Saddle " + std::to_string(gId) + " reaches maximum "
                            + std::to_string(descendingManifold[neighborId]));
@@ -737,9 +731,9 @@ namespace ttk {
         this->printMsg(
           "Starting with PersistencePairs", 0, ttk::debug::LineMode::REPLACE);
 #ifdef TTK_ENABLE_MPI
-        constructPersistencePairsDistributed<triangulationType>(
-          persistencePairs, maximaTriplets, saddle2Ids, saddleTriplets,
-          triangulation);
+        // constructPersistencePairsDistributed<triangulationType>(
+        //   persistencePairs, maximaTriplets, saddle2Ids, saddleTriplets,
+        //   triangulation);
 #else
         constructPersistencePairs(persistencePairs, maximaTriplets,
                                   saddleTriplets, maximaLocalToGlobal,

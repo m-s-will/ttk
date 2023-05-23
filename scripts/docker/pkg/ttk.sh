@@ -30,6 +30,7 @@ require-pkgs \
     protobuf-compiler       \
     python3-dev             \
     python3-numpy-dev       \
+    mpich-dev               \
     zlib1g-dev
 
 if [ -n "${DEV}" ]; then
@@ -52,6 +53,7 @@ cmake-default \
     -DTTK_ENABLE_CPU_OPTIMIZATION=OFF \
     -DTTK_ENABLE_OPENMP=ON \
     -DTTK_ENABLE_KAMIKAZE=ON \
+    -DTTK_ENABLE_MPI=ON \
     ..
 
 # call Ninja manually to ignore duplicate targets
