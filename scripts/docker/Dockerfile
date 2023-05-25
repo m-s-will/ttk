@@ -65,6 +65,14 @@ RUN  install-helper /tmp/zfp.sh
 COPY pkg/spectra.sh /tmp
 RUN  install-helper /tmp/spectra.sh
 
+#install MPICH
+COPY pkg/mpich.sh /tmp
+RUN  install-helper /tmp/mpich.sh
+
+#install OpenMPI
+#COPY pkg/ompi.sh /tmp
+#RUN  install-helper /tmp/ompi.sh
+
 # install ParaView
 ARG paraview=5.10.1
 ENV PARAVIEW_VERSION=${paraview}

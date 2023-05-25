@@ -31,20 +31,10 @@ require-pkgs \
     python3-dev             \
     python3-numpy-dev       \
     wget                    \
-    zlib1g-dev
+    zlib1g-dev              \
+    git
 
-export mpich=4.0.2
-export mpich_prefix=mpich-$mpich
 
-wget https://www.mpich.org/static/downloads/$mpich/$mpich_prefix.tar.gz
-tar xvzf $mpich_prefix.tar.gz
-cd $mpich_prefix
-./configure --disable-fortran
-make -j 4
-make install
-make clean
-cd ..
-rm -rf $mpich_prefix
 
 /sbin/ldconfig
 
@@ -55,7 +45,9 @@ fi
 
 # get source code
 git clone https://github.com/m-s-will/ttk.git
+cd ttk
 git checkout mpi_container
+
 # actually compile
 cmake-default \
     -DTTK_BUILD_DOCUMENTATION=OFF \
@@ -68,6 +60,9 @@ cmake-default \
     -DTTK_ENABLE_OPENMP=ON \
     -DTTK_ENABLE_KAMIKAZE=ON \
     -DTTK_ENABLE_MPI=ON \
+    -DVTK_MODULE_ENABLE_ttkExTreeM=NO \
+    -DVTK_MODULE_ENABLE_ttkPairExtrema=NO \
+    -DVTK_MODULE_ENABLE_ttkGradientGraph=NO \
     ..
 
 # call Ninja manually to ignore duplicate targets
