@@ -89,7 +89,7 @@ ARG ttk=dev
 ENV TTK_VERSION=${ttk}
 
 ENV DEV=""
-
+ADD https://api.github.com/repos/m-s-will/ttk/git/refs/heads/mpi_container version.json
 COPY pkg/ttk.sh /tmp
 RUN  install-helper /tmp/ttk.sh
 
