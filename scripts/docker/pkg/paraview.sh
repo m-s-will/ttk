@@ -42,6 +42,7 @@ conf_args \
     -DPARAVIEW_USE_PYTHON=ON                    \
     -DPARAVIEW_USE_QT=OFF 				        \
     -DVTK_USE_X:BOOL=OFF 					    \
+    -DVTK_USE_64BIT_IDS=ON					    \
     -DVTK_OPENGL_HAS_OSMESA:BOOL=ON 		    \
     -DVTK_SMP_IMPLEMENTATION_TYPE=OpenMP        \
     -DVTKOSPRAY_ENABLE_DENOISER=${enable_dn}

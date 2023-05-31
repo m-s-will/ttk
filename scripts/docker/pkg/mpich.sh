@@ -9,7 +9,7 @@ wget https://www.mpich.org/static/downloads/$mpich/$mpich_prefix.tar.gz
 tar xvzf $mpich_prefix.tar.gz
 cd $mpich_prefix
 ./configure --disable-fortran
-make -j
+make -j 8
 make install
 make clean
 cd ..
