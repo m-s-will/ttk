@@ -120,7 +120,7 @@ RUN apt-get update \
  && apt-get -yqq --no-install-recommends install $(cat /usr/local/.pkgs) \
  && apt-get clean \
  && rm -rf /var/cache/apt/lists
-
+RUN /sbin/ldconfig
 # run pvserver by default
 CMD /usr/local/bin/pvserver
 EXPOSE 11111

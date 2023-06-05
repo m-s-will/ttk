@@ -1087,6 +1087,7 @@ namespace ttk {
    * and a global id
    * @param[in] nThreads number of parallel threads
    */
+  // TODO: change to use multiple arrays more generally, not
   template <typename DT, typename IT>
   void sortVerticesDistributed(std::vector<value<DT, IT>> &values,
                                const int nThreads) {
