@@ -1,0 +1,11 @@
+NAME
+  ttkExTreeMUnstructured
+SOURCES
+  ttkExTreeMUnstructured.cpp
+HEADERS
+  ttkExTreeMUnstructured.h
+DEPENDS
+  exTreeM
+  pathCompression
+  scalarFieldCriticalPoints2
+  ttkAlgorithm
