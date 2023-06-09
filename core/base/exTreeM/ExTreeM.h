@@ -54,7 +54,7 @@ namespace ttk {
     int constructPersistencePairs(
       std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &pairs,
       std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &maximaTriplets,
-      std::vector<std::array<ttk::SimplexId, 15>> &saddleTriplets,
+      std::vector<std::array<ttk::SimplexId, 45>> &saddleTriplets,
       const std::vector<ttk::SimplexId> &maximaLocalToGlobal,
       const std::vector<ttk::SimplexId> &saddlesLocalToGlobal,
       ttk::SimplexId globalMin) {
@@ -92,7 +92,7 @@ namespace ttk {
               i++) {
             auto &triplet = saddleTriplets[i];
             ttk::SimplexId temp;
-            for(int p = 0; p < triplet[14]; p++) {
+            for(int p = 0; p < triplet[44]; p++) {
               // TODO if OMP 5.1 is widespread: use omp atomic compare
               const auto &max = triplet[p];
               // this->printMsg("max: " + std::to_string(max));
@@ -137,7 +137,7 @@ namespace ttk {
                 pairs[maximum]
                   = std::make_pair(saddlesLocalToGlobal[largestSaddle],
                                    maximaLocalToGlobal[maximum]);
-                auto largestMax = triplet[triplet[14] - 1];
+                auto largestMax = triplet[triplet[44] - 1];
                 maximumPointer[maximum] = largestMax;
                 maximaTriplets[maximum]
                   = (std::make_pair(largestSaddle, largestMax));
@@ -187,12 +187,12 @@ namespace ttk {
 #pragma omp for schedule(guided)
           for(size_t i = 0; i < saddleTriplets.size(); i++) {
             auto &triplet = saddleTriplets[i];
-            for(int r = 0; r < triplet[14]; r++) {
+            for(int r = 0; r < triplet[44]; r++) {
               triplet[r] = maximumPointer[triplet[r]];
             }
             sortAndRemoveUniques(triplet);
-            if(triplet[14] == 1) {
-              triplet[14] = 0;
+            if(triplet[44] == 1) {
+              triplet[44] = 0;
             }
           }
           //#pragma omp single
@@ -224,17 +224,17 @@ namespace ttk {
       return 1;
     }
 
-    void sortAndRemoveUniques(std::array<ttk::SimplexId, 15> &triplet) {
-      std::sort(triplet.begin(), triplet.begin() + triplet[14]);
+    void sortAndRemoveUniques(std::array<ttk::SimplexId, 45> &triplet) {
+      std::sort(triplet.begin(), triplet.begin() + triplet[44]);
       int tempPointer = 1;
-      for(int p = 1; p < triplet[14]; p++) {
+      for(int p = 1; p < triplet[44]; p++) {
         if(triplet[p - 1]
            != triplet[p]) { // if we have a new value, we step ahead
           triplet[tempPointer] = triplet[p];
           tempPointer++;
         }
       }
-      triplet[14] = tempPointer;
+      triplet[44] = tempPointer;
     }
 
     int constructMergeTree(
@@ -361,7 +361,7 @@ namespace ttk {
 
     template <typename triangulationType>
     int
-      findAscPaths(std::vector<std::array<ttk::SimplexId, 15>> &saddleTriplets,
+      findAscPaths(std::vector<std::array<ttk::SimplexId, 45>> &saddleTriplets,
                    std::vector<ttk::SimplexId> &maximaLocalToGlobal,
                    std::vector<ttk::SimplexId> &saddlesLocalToGlobal,
                    ttk::SimplexId *maxima,
@@ -411,10 +411,12 @@ namespace ttk {
       for(ttk::SimplexId i = 0; i < nSaddles; i++) {
         const auto &gId = saddles[i];
         const auto &nNeighbors = triangulation->getVertexNeighborNumber(gId);
+        // if(nNeighbors > 35) this->printMsg("Jetzt wirds stressig " +
+        // std::to_string(nNeighbors));
         auto &triplet = saddleTriplets[i];
         auto &thisOrder = order[gId];
         ttk::SimplexId neighborId = 0;
-        triplet[14] = 0;
+        triplet[44] = 0;
         for(int j = 0; j < nNeighbors; j++) {
           triangulation->getVertexNeighbor(gId, j, neighborId);
           //  get the manifold result for this neighbor
@@ -423,8 +425,8 @@ namespace ttk {
             // std::to_string(descendingManifold[neighborId]) + " reachable from
             // neighbor " + std::to_string(neighborId) + " for saddle " +
             // std::to_string(gId));
-            triplet[triplet[14]] = tempArray[descendingManifold[neighborId]];
-            triplet[14]++;
+            triplet[triplet[44]] = tempArray[descendingManifold[neighborId]];
+            triplet[44]++;
           }
         }
         sortAndRemoveUniques(triplet);
@@ -432,7 +434,7 @@ namespace ttk {
       ttk::SimplexId edgesInEG = 0;
       for(ttk::SimplexId i = 0; i < nSaddles; i++) {
         auto &triplet = saddleTriplets[i];
-        edgesInEG+=triplet[14];
+        edgesInEG += triplet[44];
       }
       this->printMsg("#Edges in the EG: " + std::to_string(edgesInEG));
       this->printMsg("Finished building the saddleTriplets", 0,
@@ -487,7 +489,7 @@ namespace ttk {
         std::vector<ttk::SimplexId> saveGlobalIds(nMaxima);
         std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> maximaTriplets(
           nMaxima);
-        std::vector<std::array<ttk::SimplexId, 15>> saddleTriplets(nSaddle2);
+        std::vector<std::array<ttk::SimplexId, 45>> saddleTriplets(nSaddle2);
         std::vector<ttk::SimplexId> maximaLocalToGlobal(nMaxima);
         std::vector<ttk::SimplexId> saddlesLocalToGlobal(nSaddle2);
         this->printMsg("Allocating memory", 1, preTimer.getElapsedTime(),
