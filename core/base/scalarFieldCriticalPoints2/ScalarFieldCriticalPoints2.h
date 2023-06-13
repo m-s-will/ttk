@@ -179,10 +179,9 @@ namespace ttk {
 
     template <typename TT = ttk::AbstractTriangulation>
     int computeNumberOfLinkComponents(
-      const std::array<SimplexId,32>& linkVertices,
+      const std::array<SimplexId, 45> &linkVertices,
       const int nLinkVertices,
-      const TT* triangulation
-    ) const {
+      const TT *triangulation) const {
 
       // compute map
       std::unordered_map<SimplexId,SimplexId> linkVerticesMap;
@@ -267,10 +266,10 @@ namespace ttk {
         // general case
         std::array<SimplexId,32> lowerMem; // room for max 32 vertices
         std::array<SimplexId,32> upperMem; // room for max 32 vertices
-        std::array<SimplexId,32> lowerMem2; // used by general case
-        std::array<SimplexId,32> upperMem2; // used by general case
+        std::array<SimplexId, 45> lowerMem2; // used by general case
+        std::array<SimplexId, 45> upperMem2; // used by general case
 
-        #pragma omp for
+#pragma omp for
         for(SimplexId v=0; v<nVertices; v++){
           const SimplexId orderV = order[v];
           const SimplexId nNeighbors = triangulation->getVertexNeighborNumber(v);
@@ -417,10 +416,10 @@ namespace ttk {
         // general case
         std::array<SimplexId,32> lowerMem; // room for max 32 vertices
         std::array<SimplexId,32> upperMem; // room for max 32 vertices
-        std::array<SimplexId,32> lowerMem2; // used by general case
-        std::array<SimplexId,32> upperMem2; // used by general case
+        std::array<SimplexId, 45> lowerMem2; // used by general case
+        std::array<SimplexId, 45> upperMem2; // used by general case
 
-        #pragma omp for
+#pragma omp for
         for(SimplexId v=0; v<nVertices; v++){
           const SimplexId orderV = order[v];
           const SimplexId nNeighbors = triangulation->getVertexNeighborNumber(v);
