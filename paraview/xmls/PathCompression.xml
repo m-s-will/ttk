@@ -127,14 +127,14 @@
        </IntVectorProperty>
 
        <IntVectorProperty name="ComputeFinalSegmentation"
-         label="Morse-Smale Complex Hash"
-         command="SetComputeMSSegmentationHash"
+         label="Morse-Smale Complex Segmentation"
+         command="SetComputeFinalSegmentation"
          number_of_elements="1"
          default_values="1"
          panel_visibility="default">
          <BooleanDomain name="bool"/>
          <Documentation>
-           Toggles the creation of a hash from the Ascending and Descending labels that can still exhibit hash collisions.
+           Toggles the creation of a tuple from the Ascending and Descending labels.
          </Documentation>
        </IntVectorProperty>
 
