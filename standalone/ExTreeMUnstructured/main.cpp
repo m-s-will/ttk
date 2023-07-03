@@ -130,6 +130,7 @@ int main(int argc, char **argv) {
       contourTree->SetUseAllCores(false);
       contourTree->SetThreadNumber(threadNumber);
       contourTree->SetTreeType(2); // Contour tree
+      contourTree->SetWithAdvStats(false);
       contourTree->Modified();
       contourTree->Update();
     }

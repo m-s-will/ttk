@@ -341,8 +341,9 @@ namespace ttk {
 
         // Empty node
 #ifndef TTK_ENABLE_KAMIKAZE
+
         std::cerr << "[ttkFTMTree]: node without arcs:" << node->getVertexId()
-                  << std::endl;
+                  << " " << node->getOrigin() << std::endl;
 #endif
         return nullSuperArc;
       }
