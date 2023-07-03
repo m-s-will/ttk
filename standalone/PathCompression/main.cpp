@@ -71,7 +71,6 @@ int main(int argc, char **argv) {
 
   pathCompression->SetComputeAscendingSegmentation(true);
   pathCompression->SetComputeDescendingSegmentation(true);
-  pathCompression->SetComputeMSSegmentationHash(true);
   pathCompression->SetInputArrayToProcess(
     0, 0, 0, 0, inputArrayNames[0].data());
   pathCompression->Update();
