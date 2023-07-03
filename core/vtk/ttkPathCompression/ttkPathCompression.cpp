@@ -190,4 +190,3 @@ int ttkPathCompression::RequestData(vtkInformation *ttkNotUsed(request),
 
   return !ret;
 }
-

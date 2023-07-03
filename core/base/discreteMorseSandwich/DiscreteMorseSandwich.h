@@ -13,7 +13,8 @@
 /// "Discrete Morse Sandwich: Fast Computation of Persistence Diagrams for
 /// Scalar Data -- An Algorithm and A Benchmark" \n
 /// Pierre Guillou, Jules Vidal, Julien Tierny \n
-/// Technical Report, arXiv:2206.13932, 2022
+/// IEEE Transactions on Visualization and Computer Graphics, 2023.\n
+/// arXiv:2206.13932, 2023.
 ///
 ///
 /// \sa ttk::dcg::DiscreteGradient
@@ -429,6 +430,9 @@ namespace ttk {
     void alloc(const triangulationType &triangulation) {
       Timer tm{};
       const auto dim{this->dg_.getDimensionality()};
+      if(dim > 3 || dim < 1) {
+        return;
+      }
       this->firstRepMin_.resize(triangulation.getNumberOfVertices());
       if(dim > 1) {
         this->firstRepMax_.resize(triangulation.getNumberOfCells());

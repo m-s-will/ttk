@@ -2602,6 +2602,20 @@ namespace ttk {
       return 0;
     }
 
+    // This method should be called to initialize and populate the
+    // ghostCellsPerOwner_ and the remoteGhostCells_ attributes.
+
+    virtual int preconditionExchangeGhostCells() {
+      return 0;
+    }
+
+    // This method should be called to initialize and populate the
+    // ghostVerticesPerOwner_ and the remoteGhostVertices_ attributes.
+
+    virtual int preconditionExchangeGhostVertices() {
+      return 0;
+    }
+
     virtual int setVertexRankArray(const int *ttkNotUsed(rankArray)) {
       return 0;
     }
@@ -2863,23 +2877,49 @@ namespace ttk {
       return this->neighborRanks_;
     }
 
+    virtual inline const std::vector<std::array<ttk::SimplexId, 6>> &
+      getNeighborVertexBBoxes() const {
+      return this->neighborVertexBBoxes_;
+    }
+
     virtual inline const std::vector<std::vector<SimplexId>> &
       getGhostCellsPerOwner() const {
+      if(!hasPreconditionedExchangeGhostCells_) {
+        printErr("The ghostCellsOwner_ attribute has not been populated!");
+        printErr(
+          "Please call preconditionExchangeGhostCells in a pre-process.");
+      }
       return this->ghostCellsPerOwner_;
     }
 
     virtual inline const std::vector<std::vector<SimplexId>> &
       getRemoteGhostCells() const {
+      if(!hasPreconditionedExchangeGhostCells_) {
+        printErr("The remoteGhostCells_ attribute has not been populated!");
+        printErr(
+          "Please call preconditionExchangeGhostCells in a pre-process.");
+      }
       return this->remoteGhostCells_;
     }
 
     virtual inline const std::vector<std::vector<SimplexId>> &
       getGhostVerticesPerOwner() const {
+      if(!hasPreconditionedExchangeGhostVertices_) {
+        printErr(
+          "The ghostVerticesPerOwner_ attribute has not been populated!");
+        printErr(
+          "Please call preconditionExchangeGhostVertices in a pre-process.");
+      }
       return this->ghostVerticesPerOwner_;
     }
 
     virtual inline const std::vector<std::vector<SimplexId>> &
       getRemoteGhostVertices() const {
+      if(!hasPreconditionedExchangeGhostVertices_) {
+        printErr("The remoteGhostVertices_ attribute has not been populated!");
+        printErr(
+          "Please call preconditionExchangeGhostVertices in a pre-process.");
+      }
       return this->remoteGhostVertices_;
     }
 
@@ -3817,21 +3857,17 @@ namespace ttk {
     // global ids of local (owned) vertices that are ghost vertices of other
     // (neighboring) ranks (per MPI rank)
     std::vector<std::vector<SimplexId>> remoteGhostVertices_{};
-    // global ids of (local) ghost edges per each MPI (neighboring) rank
-    std::vector<std::vector<SimplexId>> ghostEdgesPerOwner_{};
-    // global ids of local (owned) edges that are ghost edges of other
-    // (neighboring) ranks (per MPI rank)
-    std::vector<std::vector<SimplexId>> remoteGhostEdges_{};
-    // global ids of (local) ghost triangles per each MPI (neighboring) rank
-    std::vector<std::vector<SimplexId>> ghostTrianglesPerOwner_{};
-    // global ids of local (owned) triangles that are ghost triangles of other
-    // (neighboring) ranks (per MPI rank)
-    std::vector<std::vector<SimplexId>> remoteGhostTriangles_{};
+    // hold the neighboring ranks vertex bounding boxes (metaGrid_ coordinates)
+    std::vector<std::array<SimplexId, 6>> neighborVertexBBoxes_{};
+    // hold the neighboring ranks cells bounding boxes (metaGrid_ coordinates)
+    std::vector<std::array<SimplexId, 6>> neighborCellBBoxes_{};
 
     bool hasPreconditionedDistributedCells_{false};
+    bool hasPreconditionedExchangeGhostCells_{false};
     bool hasPreconditionedDistributedEdges_{false};
     bool hasPreconditionedDistributedTriangles_{false};
     bool hasPreconditionedDistributedVertices_{false};
+    bool hasPreconditionedExchangeGhostVertices_{false};
     bool hasPreconditionedGlobalBoundary_{false};
 
 #endif // TTK_ENABLE_MPI

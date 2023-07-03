@@ -13,7 +13,7 @@
 #include <vtkUnstructuredGrid.h>
 #include <vtkVersion.h>
 
-vtkCellArray *GetCells(vtkDataSet *dataSet) {
+static vtkCellArray *GetCells(vtkDataSet *dataSet) {
   switch(dataSet->GetDataObjectType()) {
     case VTK_UNSTRUCTURED_GRID: {
       auto dataSetAsUG = static_cast<vtkUnstructuredGrid *>(dataSet);
@@ -29,7 +29,7 @@ vtkCellArray *GetCells(vtkDataSet *dataSet) {
   return nullptr;
 }
 
-int checkCellTypes(vtkPointSet *object) {
+static int checkCellTypes(vtkPointSet *object) {
 
   size_t nTypes = 0;
 
@@ -38,14 +38,13 @@ int checkCellTypes(vtkPointSet *object) {
     auto objectAsUG = vtkUnstructuredGrid::SafeDownCast(object);
     auto distinctCellTypes = objectAsUG->GetDistinctCellTypesArray();
     nTypes = distinctCellTypes->GetNumberOfTuples();
-  } else {
+  } else
 #endif
+  {
     auto cellTypes = vtkSmartPointer<vtkCellTypes>::New();
     object->GetCellTypes(cellTypes);
     nTypes = cellTypes->GetNumberOfTypes();
-#if VTK_VERSION_NUMBER >= VTK_VERSION_CHECK(9, 2, 0)
   }
-#endif
 
   // if cells are empty
   if(nTypes == 0)
@@ -146,7 +145,11 @@ bool RegistryValue::isValid(vtkDataSet *dataSet) const {
     image->GetSpacing(spacing_);
     image->GetDimensions(dimensions_);
 
+#ifdef TTK_ENABLE_MPI
+    bool isValid = triangulation->getIsMPIValid();
+#else
     bool isValid = true;
+#endif
     for(int i = 0; i < 6; i++)
       if(this->extent[i] != extent_[i])
         isValid = false;

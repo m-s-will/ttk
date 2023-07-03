@@ -34,6 +34,11 @@
 ///
 /// \sa ttk::MergeTreePrincipalGeodesics
 /// \sa ttkAlgorithm
+///
+/// \b Online \b examples: \n
+///   - <a
+///   href="https://topology-tool-kit.github.io/examples/mergeTreePGA/">Merge
+///   Tree Principal Geodesic Analysis example</a> \n
 
 #pragma once
 
@@ -76,14 +81,8 @@ private:
   // Output
   // -> base class
 
-  void setDataVisualization(int numInputs, int numInputs2) {
-    // Trees
-    treesNodes.resize(numInputs);
-    treesNodes2.resize(numInputs2);
-    treesArcs.resize(numInputs);
-    treesArcs2.resize(numInputs2);
-    treesSegmentation.resize(numInputs);
-    treesSegmentation2.resize(numInputs2);
+  void setDataVisualization(int ttkNotUsed(numInputs),
+                            int ttkNotUsed(numInputs2)) {
   }
 
   void resetDataVisualization() {
