@@ -2,6 +2,5 @@ NAME
   ttkPeriodicGhostsGeneration
 DEPENDS
   ttkAlgorithm
-OPTIONAL_DEPENDS
   VTK::FiltersParallelDIY2
   VTK::ImagingCore
