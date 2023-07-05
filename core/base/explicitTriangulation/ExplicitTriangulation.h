@@ -718,13 +718,10 @@ namespace ttk {
 
   protected:
     template <typename Func0, typename Func1, typename Func2>
-    int exchangeDistributedInternal(
-      std::vector<std::vector<SimplexId>> &globalIdPerOwnedGhostCell,
-      std::vector<std::vector<SimplexId>> &globalIdPerLocalGhostCell,
-      const Func0 &getGlobalSimplexId,
-      const Func1 &storeGlobalSimplexId,
-      const Func2 &iterCond,
-      const int nSimplicesPerCell);
+    int exchangeDistributedInternal(const Func0 &getGlobalSimplexId,
+                                    const Func1 &storeGlobalSimplexId,
+                                    const Func2 &iterCond,
+                                    const int nSimplicesPerCell);
 
     int preconditionDistributedCellRanges();
     size_t

@@ -2923,26 +2923,6 @@ namespace ttk {
       return this->remoteGhostVertices_;
     }
 
-    virtual inline const std::vector<std::vector<SimplexId>> *
-      getGhostEdgesPerOwner() const {
-      return &(this->ghostEdgesPerOwner_);
-    }
-
-    virtual inline const std::vector<std::vector<SimplexId>> *
-      getRemoteGhostEdges() const {
-      return &(this->remoteGhostEdges_);
-    }
-
-    virtual inline const std::vector<std::vector<SimplexId>> *
-      getGhostTrianglesPerOwner() const {
-      return &(this->ghostTrianglesPerOwner_);
-    }
-
-    virtual inline const std::vector<std::vector<SimplexId>> *
-      getRemoteGhostTriangles() const {
-      return &(this->remoteGhostTriangles_);
-    }
-
     virtual inline void setHasPreconditionedDistributedVertices(bool flag) {
       this->hasPreconditionedDistributedVertices_ = flag;
     }
@@ -2952,12 +2932,6 @@ namespace ttk {
     }
     virtual inline bool hasPreconditionedDistributedCells() const {
       return this->hasPreconditionedDistributedCells_;
-    }
-    virtual inline bool hasPreconditionedDistributedEdges() const {
-      return this->hasPreconditionedDistributedEdges_;
-    }
-    virtual inline bool hasPreconditionedDistributedTriangles() const {
-      return this->hasPreconditionedDistributedTriangles_;
     }
 
     inline int getDistributedGlobalCellId(const SimplexId &localCellId,
@@ -3854,7 +3828,7 @@ namespace ttk {
     std::vector<std::vector<SimplexId>> remoteGhostCells_{};
     // global ids of (local) ghost vertices per each MPI (neighboring) rank
     std::vector<std::vector<SimplexId>> ghostVerticesPerOwner_{};
-    // global ids of local (owned) vertices that are ghost vertices of other
+    // global ids of local (owned) vertices that are ghost cells of other
     // (neighboring) ranks (per MPI rank)
     std::vector<std::vector<SimplexId>> remoteGhostVertices_{};
     // hold the neighboring ranks vertex bounding boxes (metaGrid_ coordinates)

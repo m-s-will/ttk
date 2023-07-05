@@ -1064,17 +1064,15 @@ size_t ttk::ExplicitTriangulation::computeCellRangeOffsets(
 
 template <typename Func0, typename Func1, typename Func2>
 int ttk::ExplicitTriangulation::exchangeDistributedInternal(
-  std::vector<std::vector<SimplexId>> &globalIdPerOwnedGhostCell,
-  std::vector<std::vector<SimplexId>> &globalIdPerLocalGhostCell,
   const Func0 &getGlobalSimplexId,
   const Func1 &storeGlobalSimplexId,
   const Func2 &iterCond,
   const int nSimplicesPerCell) {
 
   // per neighbor, owned ghost cell simplex global ids to transfer back
-  globalIdPerOwnedGhostCell.resize(ttk::MPIsize_);
+  std::vector<std::vector<SimplexId>> globalIdPerOwnedGhostCell(ttk::MPIsize_);
   // per neighbor, non-owned ghost cell simplex global ids to transfer back
-  globalIdPerLocalGhostCell.resize(ttk::MPIsize_);
+  std::vector<std::vector<SimplexId>> globalIdPerLocalGhostCell(ttk::MPIsize_);
 
   const auto MIT{ttk::getMPIType(ttk::SimplexId{})};
 
@@ -1262,8 +1260,6 @@ int ExplicitTriangulation::preconditionDistributedEdges() {
 
   const auto nEdgesPerCell{this->getDimensionality() == 3 ? 6 : 3};
   this->exchangeDistributedInternal(
-    ghostEdgesPerOwner_,
-    remoteGhostEdges_,
     [this](const SimplexId lcid, const int j) {
       SimplexId leid{};
       this->getCellEdgeInternal(lcid, j, leid);
@@ -1398,8 +1394,6 @@ int ExplicitTriangulation::preconditionDistributedTriangles() {
 
   const auto nTrianglesPerCell{4};
   this->exchangeDistributedInternal(
-    ghostTrianglesPerOwner_,
-    remoteGhostTriangles_,
     [this](const SimplexId lcid, const int j) {
       SimplexId ltid{};
       this->getCellTriangleInternal(lcid, j, ltid);
