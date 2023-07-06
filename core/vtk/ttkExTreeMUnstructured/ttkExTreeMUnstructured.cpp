@@ -213,7 +213,7 @@ int ttkExTreeMUnstructured::RequestData(vtkInformation *,
     int status = 0;
     ttkTypeMacroT(
       triangulation->getType(),
-      (status = subModule.computeCritialPoints<T0>(
+      (status = subModule.computeCriticalPoints<T0>(
          criticalPoints_, ttkUtils::GetPointer<ttk::SimplexId>(orderArray),
          ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
          ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),

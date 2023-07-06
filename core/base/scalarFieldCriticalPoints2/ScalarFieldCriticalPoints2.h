@@ -280,12 +280,8 @@ namespace ttk {
             const SimplexId orderV = order[v];
             const SimplexId nNeighbors
               = triangulation->getVertexNeighborNumber(v);
-            if(nNeighbors == 14) {
-              std::bitset<14> upperLinkKey;
-              std::bitset<14> lowerLinkKey;
-
-          if (false){  // remove check to work for explicit triangulation
-          //if(nNeighbors==14){
+            if(false) { // remove check to work for explicit triangulation
+              // if(nNeighbors==14){
               std::bitset<14> upperLinkKey;
               std::bitset<14> lowerLinkKey;
 
