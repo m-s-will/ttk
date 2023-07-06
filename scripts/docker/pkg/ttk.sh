@@ -22,7 +22,7 @@ require-pkgs \
     libprotobuf-dev         \
     libpugixml-dev          \
     libsqlite3-dev          \
-    libgraphviz-dev	    \
+    libgraphviz-dev	        \
     libtheora-dev           \
     libtiff-dev             \
     libxml2-dev             \
@@ -30,7 +30,13 @@ require-pkgs \
     protobuf-compiler       \
     python3-dev             \
     python3-numpy-dev       \
-    zlib1g-dev
+    wget                    \
+    zlib1g-dev              \
+    git
+
+
+
+/sbin/ldconfig
 
 if [ -n "${DEV}" ]; then
         #echo "DEVELOPER MODE"
@@ -38,8 +44,9 @@ if [ -n "${DEV}" ]; then
 fi
 
 # get source code
-(curl -kL "https://github.com/topology-tool-kit/ttk/archive/${TTK_VERSION}.tar.gz" | tar zx --strip-components 1) ||
-(curl -kL "https://github.com/topology-tool-kit/ttk/archive/v${TTK_VERSION}.tar.gz" | tar zx --strip-components 1)
+git clone https://github.com/m-s-will/ttk.git
+cd ttk
+git checkout mpi_container
 
 # actually compile
 cmake-default \
@@ -47,11 +54,16 @@ cmake-default \
     -DTTK_BUILD_PARAVIEW_PLUGINS=ON \
     -DTTK_BUILD_STANDALONE_APPS=OFF \
     -DTTK_BUILD_VTK_WRAPPERS=ON \
-    -DTTK_BUILD_VTK_PYTHON_MODULE=OFF \
+    -DTTK_BUILD_VTK_PYTHON_MODULE=ON \
     -DTTK_ENABLE_DOUBLE_TEMPLATING=OFF \
-    -DTTK_ENABLE_CPU_OPTIMIZATION=OFF \
+    -DTTK_ENABLE_CPU_OPTIMIZATION=ON \
+    -DTTK_ENABLE_64BIT_IDS=ON \
     -DTTK_ENABLE_OPENMP=ON \
     -DTTK_ENABLE_KAMIKAZE=ON \
+    -DTTK_ENABLE_MPI=ON \
+    -DVTK_MODULE_ENABLE_ttkExTreeM=NO \
+    -DVTK_MODULE_ENABLE_ttkPairExtrema=NO \
+    -DVTK_MODULE_ENABLE_ttkGradientGraph=NO \
     ..
 
 # call Ninja manually to ignore duplicate targets

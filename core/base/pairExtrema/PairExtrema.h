@@ -43,15 +43,185 @@ namespace ttk {
       std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>>
         vertices; // order, globalId, first pair is the maximum
       Branch *parentBranch = nullptr;
+      // rank?
     };
 
     int preconditionTriangulation(
       ttk::AbstractTriangulation *triangulation) const {
-      if(triangulation)
+      if(triangulation) {
         triangulation->preconditionVertexNeighbors();
+#ifdef TTK_ENABLE_MPI
+        triangulation->preconditionDistributedVertices();
+#endif
+      }
       return 0;
     }
 
+#ifdef TTK_ENABLE_MPI
+    template <typename triangulationType>
+    int constructPersistencePairsDistributed(
+      std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &pairs,
+      std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &maximaTriplets,
+      ttk::SimplexId *saddles,
+      std::vector<std::array<ttk::SimplexId, 15>> &saddleTriplets,
+      const triangulationType *triangulation) {
+      int step = 0;
+      bool changed = true;
+      // std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>>
+      // saddleMaxPairs{};
+      // std::vector<ttk::SimplexId> maximumPointer(maximaLocalToGlobal.size());
+      // std::iota(std::begin(maximumPointer), std::end(maximumPointer), 0);
+      // ttk::SimplexId nrOfPairs = 0;
+      // ttk::SimplexId globalMax = maximaLocalToGlobal.size() - 1;
+      while(changed) {
+        ttk::Timer stepTimer;
+        changed = false;
+        this->printMsg(ttk::debug::Separator::L2, ttk::debug::Priority::DETAIL);
+        this->printMsg("Running step " + std::to_string(step),
+                       //  + ", Pairs: " + std::to_string(nrOfPairs),
+                       0, 0, ttk::debug::LineMode::NEW,
+                       ttk::debug::Priority::DETAIL);
+
+        ttk::Timer buildTimer;
+
+        // make localtoglobal smaller by deleting used maxima?
+        std::map<ttk::SimplexId, ttk::SimplexId> ownSaddles;
+        std::map<ttk::SimplexId, ttk::SimplexId> foreignSaddles;
+        // this->printMsg("starting with parallel step");
+        // TODO MPI: maxima may be in other ranks and need to be called there
+        for(ttk::SimplexId i = 0; i < (ttk::SimplexId)saddleTriplets.size();
+            i++) {
+          auto &triplet = saddleTriplets[i];
+          for(int p = 0; p < triplet[14]; p++) {
+            // TODO if OMP 5.1 is widespread: use omp atomic compare
+            const auto &max = triplet[p];
+            this->printMsg("Saddle: " + std::to_string(saddles[i])
+                           + ", max: " + std::to_string(max));
+            // save only maximum saddle
+            if(triangulation->getVertexRank(max) == ttk::MPIrank_) {
+              if(ownSaddles.find(max) != ownSaddles.end()) {
+                ownSaddles[max] = std::min(saddles[i], ownSaddles[max]);
+              } else {
+                ownSaddles.emplace(max, i);
+              }
+            } else {
+              if(foreignSaddles.find(max) != foreignSaddles.end()) {
+                foreignSaddles[max] = std::min(saddles[i], foreignSaddles[max]);
+              } else {
+                foreignSaddles.emplace(max, i);
+              }
+            }
+          }
+        }
+        //#pragma omp single
+        // this->printMsg("Finished building largestSaddlesForMax");
+
+        this->printMsg("Finished building largestSaddlesForMax", 0.2,
+                       buildTimer.getElapsedTime(), ttk::debug::LineMode::NEW,
+                       ttk::debug::Priority::DETAIL);
+        ttk::Timer pairTimer;
+
+        std::vector<SimplexId> lActiveMaxima;
+        // lActiveMaxima.reserve(maximaLocalToGlobal.size());
+        //#pragma omp single
+        //  this->printMsg("starting finding pairs");
+
+        for(size_t i = 0; i < ownSaddles.size(); i++) {
+          ttk::SimplexId maximum = i;
+          auto largestSaddle = ownSaddles[maximum];
+          if(largestSaddle < (ttk::SimplexId)saddleTriplets.size()) {
+            const auto &triplet = saddleTriplets[largestSaddle];
+            // TODO MPI: saddle may be in other rank
+            if(triplet[0]
+               == maximum) { // smalles maximum reachable from the saddle
+              // changed = true;
+              //#pragma omp atomic
+              //  nrOfPairs++;
+              // pairs[maximum]
+              //   = std::make_pair(saddlesLocalToGlobal[largestSaddle],
+              //                    maximaLocalToGlobal[maximum]);
+              auto largestMax = triplet[triplet[14] - 1];
+              // maximumPointer[maximum] = largestMax;
+              maximaTriplets[maximum]
+                = (std::make_pair(largestSaddle, largestMax));
+              lActiveMaxima.push_back(maximum);
+            }
+          }
+        }
+        //#pragma omp single
+        // this->printMsg("Finished finding pairs");
+
+        this->printMsg("Finished finding pairs and swapping pointers", 0.5,
+                       pairTimer.getElapsedTime(), ttk::debug::LineMode::NEW,
+                       ttk::debug::Priority::DETAIL);
+        /*
+        ttk::Timer compressTimer;
+        // TODO MPI: maximumPointer may need to be updated over ranks
+        // each rank the complete maximumpointer or only the reachable maxima
+        // from the saddles in the rank? use pathcompression on the
+        // maximumPointer
+        size_t lnActiveMaxima = lActiveMaxima.size();
+        size_t currentIndex = 0;
+
+        while(lnActiveMaxima > 0) {
+          for(size_t i = 0; i < lnActiveMaxima; i++) {
+            ttk::SimplexId &v = lActiveMaxima[i];
+            //ttk::SimplexId &nextPointer = maximumPointer[v];
+
+            // compress paths
+            //nextPointer = maximumPointer[nextPointer];
+            //if(nextPointer != maximumPointer[nextPointer]) {
+            //  lActiveMaxima[currentIndex++] = v;
+            //}
+          }
+          lnActiveMaxima = currentIndex;
+          currentIndex = 0;
+        }
+        this->printMsg("Did pathcompression on maximumpointer", 0.8,
+                       compressTimer.getElapsedTime(),
+                       ttk::debug::LineMode::NEW, ttk::debug::Priority::DETAIL);
+        ttk::Timer replaceTimer;
+        // replace the values with their maximumPointers, delete the saddle if
+        // max and min are the same
+        //#pragma omp single
+        // this->printMsg("starting replacing saddletriplets");
+
+        for(size_t i = 0; i < saddleTriplets.size(); i++) {
+          auto &triplet = saddleTriplets[i];
+          //for(int r = 0; r < triplet[14]; r++) {
+          //  triplet[r] = maximumPointer[triplet[r]];
+          //}
+          sortAndRemoveUniques(triplet);
+          if(triplet[14] == 1) {
+            triplet[14] = 0;
+          }
+        }
+        //#pragma omp single
+        // this->printMsg("finished replacing saddletriplets");
+
+        this->printMsg("Replaced values and deleted unnecessary saddles.", 1,
+                       replaceTimer.getElapsedTime(), ttk::debug::LineMode::NEW,
+                       ttk::debug::Priority::DETAIL);
+
+        this->printMsg("Finished step " + std::to_string(step), 1,
+                       stepTimer.getElapsedTime(), ttk::debug::LineMode::NEW,
+                       ttk::debug::Priority::DETAIL);
+        step++;
+        */
+      }
+      // the global max is always in the last position of the
+      // maximaLocalToGlobal vector and needs to connect with the global
+      // minimum
+      // pairs[pairs.size() - 1] = std::make_pair(
+      //  globalMin, maximaLocalToGlobal[maximaLocalToGlobal.size() - 1]);
+      // maximaTriplets[maximaTriplets.size() - 1] = std::make_pair(
+      //  globalMin,
+      //  maximaTriplets.size()
+      //    - 1); // maximaTriplets[globalmax] = (globalmin, globalmax);
+
+      return 1;
+    }
+#else
     int constructPersistencePairs(
       std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &pairs,
       std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> &maximaTriplets,
@@ -88,6 +258,7 @@ namespace ttk {
         // this->printMsg("starting with parallel step");
 #pragma omp parallel num_threads(this->threadNumber_)
         {
+          // TODO MPI: maxima may be in other ranks and need to be called there
 #pragma omp for schedule(guided)
           for(ttk::SimplexId i = 0; i < (ttk::SimplexId)saddleTriplets.size(); i++) {
             auto &triplet = saddleTriplets[i];
@@ -95,7 +266,6 @@ namespace ttk {
             for(int p = 0; p < triplet[14]; p++) {
               // TODO if OMP 5.1 is widespread: use omp atomic compare
               const auto &max = triplet[p];
-              // this->printMsg("max: " + std::to_string(max));
               if(max != globalMax) {
 #pragma omp atomic read
                 temp = largestSaddlesForMax[max];
@@ -129,6 +299,7 @@ namespace ttk {
             auto largestSaddle = largestSaddlesForMax[maximum];
             if(largestSaddle < (ttk::SimplexId)saddleTriplets.size()) {
               const auto &triplet = saddleTriplets[largestSaddle];
+              // TODO MPI: saddle may be in other rank
               if(triplet[0]
                  == maximum) { // smalles maximum reachable from the saddle
                 changed = true;
@@ -153,7 +324,10 @@ namespace ttk {
                          ttk::debug::Priority::DETAIL);
 
           ttk::Timer compressTimer;
-          // use pathcompression on the maximumPointer
+          // TODO MPI: maximumPointer may need to be updated over ranks
+          // each rank the complete maximumpointer or only the reachable maxima
+          // from the saddles in the rank? use pathcompression on the
+          // maximumPointer
           size_t lnActiveMaxima = lActiveMaxima.size();
           size_t currentIndex = 0;
 
@@ -221,6 +395,7 @@ namespace ttk {
 
       return 1;
     }
+#endif
 
     void sortAndRemoveUniques(std::array<ttk::SimplexId, 15> &triplet) {
       std::sort(triplet.begin(), triplet.begin() + triplet[14]);
@@ -344,7 +519,60 @@ namespace ttk {
 
       return 1;
     }
+#ifdef TTK_ENABLE_MPI
+    template <typename triangulationType>
+    int findAscPathsDistributed(
+      std::vector<std::array<ttk::SimplexId, 15>> &saddleTriplets,
+      ttk::SimplexId *saddles,
+      const ttk::SimplexId *order,
+      ttk::SimplexId *descendingManifold,
+      const triangulationType *triangulation,
+      ttk::SimplexId nSaddles) {
+      // construct the maximumLists for each saddle, the maxima which can be
+      // reached from this saddle and the pathLists for each maximum, the
+      // saddles points which can reach this maximum
+      ttk::Timer buildTimer;
+      // sort the maxima and saddles by their order, the maxima ascending, the
+      // saddles descending
 
+      ttk::Timer tripletTimer;
+
+      for(ttk::SimplexId i = 0; i < nSaddles; i++) {
+        const auto &gId = saddles[i];
+        this->printMsg("Generating ascending paths for Saddle "
+                       + std::to_string(gId));
+        const auto &nNeighbors = triangulation->getVertexNeighborNumber(gId);
+        auto &triplet = saddleTriplets[i];
+        auto &thisOrder = order[gId];
+        ttk::SimplexId neighborId = 0;
+        triplet[14] = 0;
+        for(int j = 0; j < nNeighbors; j++) {
+          triangulation->getVertexNeighbor(gId, j, neighborId);
+          //  get the manifold result for this neighbor
+          if(order[neighborId] > thisOrder) {
+            // tempArray only knows about the maxima in the current rank, but
+            // the ascending and descending may know about maxima outside 2
+            // possibilities:
+            // 1. collect the reachable maxima over all saddles and fill
+            // temparray / maximaLocalToGlobal with that
+            // 2. only work with the global values, use e.g. maps
+            triplet[triplet[14]] = descendingManifold[neighborId];
+            this->printMsg("Saddle " + std::to_string(gId) + " reaches maximum "
+                           + std::to_string(descendingManifold[neighborId]));
+            triplet[14]++;
+          }
+        }
+        sortAndRemoveUniques(triplet);
+        this->printMsg("Saddle " + std::to_string(gId) + " reaches "
+                       + std::to_string(triplet[14]) + " maxima.");
+      }
+
+      this->printMsg("Finished building the saddleTriplets", 0,
+                     tripletTimer.getElapsedTime(), ttk::debug::LineMode::NEW,
+                     ttk::debug::Priority::DETAIL);
+      return 1;
+    }
+#else
     template <typename triangulationType>
     int
       findAscPaths(std::vector<std::array<ttk::SimplexId, 15>> &saddleTriplets,
@@ -396,6 +624,8 @@ namespace ttk {
 #pragma omp parallel for num_threads(this->threadNumber_)
       for(ttk::SimplexId i = 0; i < nSaddles; i++) {
         const auto &gId = saddles[i];
+        this->printMsg("Generating ascending paths for Saddle "
+                       + std::to_string(gId));
         const auto &nNeighbors = triangulation->getVertexNeighborNumber(gId);
         auto &triplet = saddleTriplets[i];
         auto &thisOrder = order[gId];
@@ -405,15 +635,15 @@ namespace ttk {
           triangulation->getVertexNeighbor(gId, j, neighborId);
           //  get the manifold result for this neighbor
           if(order[neighborId] > thisOrder) {
-            // this->printMsg("maximum " +
-            // std::to_string(descendingManifold[neighborId]) + " reachable from
-            // neighbor " + std::to_string(neighborId) + " for saddle " +
-            // std::to_string(gId));
             triplet[triplet[14]] = tempArray[descendingManifold[neighborId]];
+            this->printMsg("Saddle " + std::to_string(gId) + " reaches maximum "
+                           + std::to_string(descendingManifold[neighborId]));
             triplet[14]++;
           }
         }
         sortAndRemoveUniques(triplet);
+        this->printMsg("Saddle " + std::to_string(gId) + " reaches "
+                       + std::to_string(triplet[14]) + " maxima.");
       }
 
       this->printMsg("Finished building the saddleTriplets", 0,
@@ -421,6 +651,7 @@ namespace ttk {
                      ttk::debug::Priority::DETAIL);
       return 1;
     }
+#endif
 
     template <class triangulationType>
     int computePairs(
@@ -483,44 +714,60 @@ namespace ttk {
         }
         this->printMsg(
           "Starting with findAscPaths", 0, ttk::debug::LineMode::REPLACE);
+#ifdef TTK_ENABLE_MPI
+        findAscPathsDistributed<triangulationType>(saddleTriplets, saddle2Ids,
+                                                   order, descendingManifold,
+                                                   triangulation, nSaddle2);
+
+#else
         findAscPaths<triangulationType>(
           saddleTriplets, maximaLocalToGlobal, saddlesLocalToGlobal, maximaIds,
           saddle2Ids, order, descendingManifold, tempArray, saveGlobalIds,
           triangulation, nMaxima, nSaddle2);
+#endif
         this->printMsg("Finished with findAscPaths", 1, ascTimer.getElapsedTime(), this->threadNumber_);
 
         ttk::Timer pairTimer;
         this->printMsg(
           "Starting with PersistencePairs", 0, ttk::debug::LineMode::REPLACE);
+#ifdef TTK_ENABLE_MPI
+        // constructPersistencePairsDistributed<triangulationType>(
+        //   persistencePairs, maximaTriplets, saddle2Ids, saddleTriplets,
+        //   triangulation);
+#else
         constructPersistencePairs(persistencePairs, maximaTriplets,
                                   saddleTriplets, maximaLocalToGlobal,
                                   saddlesLocalToGlobal, globalMin);
-        this->printMsg("Finished with PersistencePairs", 1, pairTimer.getElapsedTime(), this->threadNumber_);
 
+#endif
+        this->printMsg("Finished with PersistencePairs", 1, pairTimer.getElapsedTime(), this->threadNumber_);
+        /*
         ttk::Timer mergeTreeTimer;
-        this->printMsg("Starting with mergetree computation", 0, ttk::debug::LineMode::REPLACE);
-        constructMergeTree(branches, maximaTriplets,
+        this->printMsg("Starting with mergetree computation", 0,
+ttk::debug::LineMode::REPLACE); constructMergeTree(branches, maximaTriplets,
                            maximaLocalToGlobal, saddlesLocalToGlobal, order);
-        this->printMsg("Finished with mergetree computation", 1, mergeTreeTimer.getElapsedTime(), this->threadNumber_);
+        this->printMsg("Finished with mergetree computation", 1,
+mergeTreeTimer.getElapsedTime(), this->threadNumber_);
 
         ttk::Timer segmentationTimer;
-        this->printMsg("Starting with mergetree segmentation", 0, ttk::debug::LineMode::REPLACE);
-        constructSegmentation<triangulationType>(
+        this->printMsg("Starting with mergetree segmentation", 0,
+ttk::debug::LineMode::REPLACE); constructSegmentation<triangulationType>(
           segmentation, branches,
           order, descendingManifold,
           tempArray, triangulation);
         this->printMsg("Finished mergetree segmentation", 1,
                        segmentationTimer.getElapsedTime(), this->threadNumber_);
 //  print the progress of the current subprocedure with elapsed time
-// transform the manifold back
-#pragma omp parallel for num_threads(this->threadNumber_)
-        for(ttk::SimplexId i = 0; i < nMaxima; i++) {
-          tempArray[maximaIds[i]] = saveGlobalIds[i];
-        }
 
         this->printMsg("Computing extremum pairs",
                        1, // progress
                        localTimer.getElapsedTime(), this->threadNumber_);
+      */
+        // transform the manifold back
+#pragma omp parallel for num_threads(this->threadNumber_)
+        for(ttk::SimplexId i = 0; i < nMaxima; i++) {
+          tempArray[maximaIds[i]] = saveGlobalIds[i];
+        }
       }
 
       // ---------------------------------------------------------------------

@@ -65,6 +65,14 @@ RUN  install-helper /tmp/zfp.sh
 COPY pkg/spectra.sh /tmp
 RUN  install-helper /tmp/spectra.sh
 
+#install MPICH
+COPY pkg/mpich.sh /tmp
+RUN  install-helper /tmp/mpich.sh
+
+#install OpenMPI
+#COPY pkg/ompi.sh /tmp
+#RUN  install-helper /tmp/ompi.sh
+
 # install ParaView
 ARG paraview=5.10.1
 ENV PARAVIEW_VERSION=${paraview}
@@ -81,7 +89,7 @@ ARG ttk=dev
 ENV TTK_VERSION=${ttk}
 
 ENV DEV=""
-
+ADD https://api.github.com/repos/m-s-will/ttk/git/refs/heads/mpi_container version.json
 COPY pkg/ttk.sh /tmp
 RUN  install-helper /tmp/ttk.sh
 
@@ -112,7 +120,7 @@ RUN apt-get update \
  && apt-get -yqq --no-install-recommends install $(cat /usr/local/.pkgs) \
  && apt-get clean \
  && rm -rf /var/cache/apt/lists
-
+RUN /sbin/ldconfig
 # run pvserver by default
 CMD /usr/local/bin/pvserver
 EXPOSE 11111

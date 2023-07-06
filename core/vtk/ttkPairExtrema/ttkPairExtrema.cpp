@@ -395,35 +395,24 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
   // Templatize over the different input array data types and call the base code
   int status = 0; // this integer checks if the base code returns an error
   // construct the tree
-  /*ttkTypeMacroT(triangulation->getType(),
-                (status = this->computePairs<T0>(
-                   persistencePairs, mergeTree,
-                   ttkUtils::GetPointer<ttk::SimplexId>(segmentation),
-                   ttkUtils::GetPointer<ttk::SimplexId>(minimaIds),
-                   ttkUtils::GetPointer<ttk::SimplexId>(saddle2Ids),
-                   ttkUtils::GetPointer<ttk::SimplexId>(maximaIds),
-                   ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
-                   ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
-                   ttkUtils::GetPointer<ttk::SimplexId>(order),
-                   (T0 *)triangulation->getData(), nMinima, nSaddle2,
-     nMaxima)));*/
   MyImplicitTriangulation trian;
   int dim[3];
   ((vtkImageData*)inputDataSet)->GetDimensions(dim);
   trian.setDimension(dim);
   trian.preconditionVertexNeighbors();
 
-  status = this->computePairs<MyImplicitTriangulation>(
-    persistencePairsSplit, mergeTreeSplit,
-    ttkUtils::GetPointer<ttk::SimplexId>(segmentationSplit),
-    ttkUtils::GetPointer<ttk::SimplexId>(minimaIds),
-    ttkUtils::GetPointer<ttk::SimplexId>(saddle2Ids),
-    ttkUtils::GetPointer<ttk::SimplexId>(maximaIds),
-    ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
-    ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
-    ttkUtils::GetPointer<ttk::SimplexId>(order), &trian, nMinima, nSaddle2,
-    nMaxima);
-
+  ttkTypeMacroT(triangulation->getType(),
+                status = this->computePairs<T0>(
+                  persistencePairsSplit, mergeTreeSplit,
+                  ttkUtils::GetPointer<ttk::SimplexId>(segmentationSplit),
+                  ttkUtils::GetPointer<ttk::SimplexId>(minimaIds),
+                  ttkUtils::GetPointer<ttk::SimplexId>(saddle2Ids),
+                  ttkUtils::GetPointer<ttk::SimplexId>(maximaIds),
+                  ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
+                  ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
+                  ttkUtils::GetPointer<ttk::SimplexId>(order),
+                  (T0 *)triangulation->getData(), nMinima, nSaddle2, nMaxima));
+  /*
   vtkSmartPointer<vtkDataArray> invertOrder
     = vtkSmartPointer<vtkDataArray>::Take(order->NewInstance());
   invertOrder->SetNumberOfComponents(1); // only one component per tuple
@@ -435,7 +424,7 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
     invertPointer[i] = nVertices - orderPointer[i] - 1;
   }
 
-  status = this->computePairs<MyImplicitTriangulation>(
+  status = this->computePairs<triangulation->getType()>(
     persistencePairsJoin, mergeTreeJoin,
     ttkUtils::GetPointer<ttk::SimplexId>(segmentationJoin),
     ttkUtils::GetPointer<ttk::SimplexId>(maximaIds),
@@ -483,7 +472,7 @@ int ttkPairExtrema::RequestData(vtkInformation *ttkNotUsed(request),
 
   outputSegmentationJoin->ShallowCopy(inputDataSet);
   outputSegmentationJoin->GetPointData()->AddArray(segmentationJoin);
-
+  */
   // return success
   return 1;
 }

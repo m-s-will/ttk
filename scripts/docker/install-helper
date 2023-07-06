@@ -19,7 +19,7 @@ function require-pkgs() {
     pkgs=$(sort /tmp/pkgs2 | uniq | sort - /tmp/pkgs1 /tmp/pkgs1 | uniq -u | tr '\n' ' '    )
 
     echo "installing additional build packages: ${pkgs}"
-    apt-get -qq -o=Dpkg::Use-Pty=0 --no-install-recommends install ${pkgs}
+    apt-get update && apt-get -qq -o=Dpkg::Use-Pty=0 --no-install-recommends install ${pkgs}
 }
 
 # --------------------------------------------------------------------------

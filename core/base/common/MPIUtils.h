@@ -26,6 +26,7 @@
 
 #include <mpi.h>
 
+using namespace std;
 namespace ttk {
 
   inline MPI_Datatype getMPIType(const float ttkNotUsed(val)) {
@@ -1005,6 +1006,7 @@ namespace ttk {
       } else {
         // receive more values from rank, send ordering to the rank
         // send to the finished rank that we want more
+        ttk::Timer sendandreceivetimer;
         MPI_Send(orderResendValues[rankIdOfMaxScalar].data(),
                  orderResendValues[rankIdOfMaxScalar].size(), MPI_IT,
                  rankIdOfMaxScalar, intTag * rankIdOfMaxScalar, ttk::MPIcomm_);
@@ -1013,6 +1015,11 @@ namespace ttk {
         // finished with this rank
         ReceiveAndAddToVector(
           rankIdOfMaxScalar, structTag, unsortedReceivedValues);
+        /*cout << "Finished " << to_string(processedValueCounter) << " of "
+             << to_string(totalSize) << endl;
+        cout << "We sent and received stuff to and from rank "
+             << to_string(rankIdOfMaxScalar) << " "
+             << to_string(sendandreceivetimer.getElapsedTime()) << endl;*/
       }
     }
   }
@@ -1080,6 +1087,7 @@ namespace ttk {
    * and a global id
    * @param[in] nThreads number of parallel threads
    */
+  // TODO: change to use multiple arrays more generally, not
   template <typename DT, typename IT>
   void sortVerticesDistributed(std::vector<value<DT, IT>> &values,
                                const int nThreads) {
@@ -1135,6 +1143,9 @@ namespace ttk {
 
     // when all are done sorting, rank 0 requests the highest values and
     // merges them
+    // cout << "populate vector and sort distributed done "
+    //     << to_string(fillAndSortTimer.getElapsedTime()) << endl;
+
     MPI_Barrier(ttk::MPIcomm_);
 
     std::vector<IT> orderedValuesForRank;
@@ -1169,6 +1180,7 @@ namespace ttk {
                        processedValueCounter, unsortedReceivedValues,
                        orderResendValues, orderedValuesForRank, sortingValues);
       }
+      // cout << "Number of communication steps: " + to_string(sends);
     } else { // other Ranks
       // send the next burstsize values and then wait for an answer from the
       // root rank
@@ -1199,6 +1211,8 @@ namespace ttk {
       MPI_Send(sortingValues.data(), 0, MPI_CHAR, 0, structTag * ttk::MPIrank_,
                ttk::MPIcomm_);
     }
+    // cout << "communication and merging done "
+    //      << to_string(mergeTimer.getElapsedTime()) << endl;
 
     // all ranks do the following
     MPI_Barrier(ttk::MPIcomm_);
@@ -1212,6 +1226,7 @@ namespace ttk {
     ttk::exchangeGhostDataWithoutTriangulation<ttk::SimplexId, IT>(
       orderArray, getVertexRank, getVertexGlobalId, getVertexLocalId, nVerts,
       ttk::MPIcomm_, neighbors);
+    // cout << "local ordering done " << to_string(orderTimer.getElapsedTime());
   }
 
   /**
