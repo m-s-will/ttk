@@ -286,8 +286,13 @@ namespace ttk {
 
           if (false){  // remove check to work for explicit triangulation
           //if(nNeighbors==14){
-            std::bitset<14> upperLinkKey;
-            std::bitset<14> lowerLinkKey;
+              std::bitset<14> upperLinkKey;
+              std::bitset<14> lowerLinkKey;
+
+              lowerMem[0] = -1;
+              upperMem[0] = -1;
+              int lowerCursor=0;
+              int upperCursor=0;
 
               for(SimplexId n = 0; n < 14; n++) {
                 SimplexId u{0};
