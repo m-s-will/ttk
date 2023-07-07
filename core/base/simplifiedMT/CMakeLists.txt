@@ -1,0 +1,9 @@
+ttk_add_base_library(simplifiedMT
+  SOURCES
+    SimplifiedMT.cpp
+  HEADERS
+    SimplifiedMT.h
+    MarchingTetrahedraLookupTables.inl
+  DEPENDS
+    triangulation
+)

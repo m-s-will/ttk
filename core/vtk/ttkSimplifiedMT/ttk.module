@@ -1,0 +1,9 @@
+NAME
+  ttkSimplifiedMT
+SOURCES
+  ttkSimplifiedMT.cpp
+HEADERS
+  ttkSimplifiedMT.h
+DEPENDS
+  simplifiedMT
+  ttkAlgorithm
