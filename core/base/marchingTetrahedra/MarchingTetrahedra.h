@@ -927,6 +927,8 @@ int ttk::MarchingTetrahedra::computeMarchingCases_3D(
   const triangulationType &triangulation) const {
 
   ttk::Timer localTimer;
+  // TODO: in here we need to check if the maximum to which we are pointing is part of a high persistence pair
+  // throw away boundary if persistence of pair containing the maximum is less than threshold
 
   // print the progress of the current subprocedure (currently 0%)
   this->printMsg("Computing separator cases", 0, 0, this->threadNumber_,
@@ -956,6 +958,9 @@ int ttk::MarchingTetrahedra::computeMarchingCases_3D(
       const std::array<unsigned long long, 4> label
         = {scalars[vertices[0]], scalars[vertices[1]], scalars[vertices[2]],
            scalars[vertices[3]]};
+
+
+      // TODO: ask robin what is happening here
 
       // Set the fifth bit to 0 or 1
       const unsigned char index1 = (label[0] == label[1]) ? 0x00 : 0x10;
