@@ -293,6 +293,7 @@ namespace ttk {
   protected:
     // Output options
     SURFACE_MODE SurfaceMode{SURFACE_MODE::SM_SEPARATORS};
+    double PersistenceThreshold{0.0};
 
     // Output data
     SimplexId output_numberOfPoints_{};
@@ -925,6 +926,7 @@ int ttk::SimplifiedMT::computeMarchingCases_3D(
   const unsigned long long *const scalars,
   const size_t *const triangleCounter,
   const triangulationType &triangulation) const {
+  this->printMsg("Threshold " + std::to_string(PersistenceThreshold));
 
   ttk::Timer localTimer;
   // TODO: in here we need to check if the maximum to which we are pointing is part of a high persistence pair
@@ -976,7 +978,11 @@ int ttk::SimplifiedMT::computeMarchingCases_3D(
                                    : (label[2] == label[3]) ? 0x02
                                                             : 0x03;
 
+      // test: throw away every triangle if every corner is below scalar threshold
       tetCases[tet] = index1 | index2 | index3;
+      if(label[0] < PersistenceThreshold && label[1] < PersistenceThreshold && label[2] < PersistenceThreshold && label[3] < PersistenceThreshold){
+        tetCases[tet] = 0;
+      }
       threadTriangles += triangleCounter[tetCases[tet]];
     }
     numTriangles[tid] = threadTriangles;

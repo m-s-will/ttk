@@ -60,8 +60,6 @@ class vtkPolyData;
 class TTKSIMPLIFIEDMT_EXPORT ttkSimplifiedMT
   : public ttkAlgorithm,
     protected ttk::SimplifiedMT {
-private:
-  double PersistenceThreshold{0.0};
 public:
   static ttkSimplifiedMT *New();
 
