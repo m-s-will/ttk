@@ -29,8 +29,8 @@ vtkStandardNewMacro(ttkSimplifiedMT);
 
 ttkSimplifiedMT::ttkSimplifiedMT() {
   this->setDebugMsgPrefix("SimplifiedMT");
-  //this->SetNumberOfInputPorts(2);
-  this->SetNumberOfInputPorts(1);
+  this->SetNumberOfInputPorts(2);
+  //this->SetNumberOfInputPorts(1);
   this->SetNumberOfOutputPorts(1);
 }
 
@@ -42,10 +42,10 @@ int ttkSimplifiedMT::FillInputPortInformation(int port,
     return 1;
   }
   // persistence diagram
-  //if(port == 1) {
-  //  info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkUnstructuredGrid");
-  //  return 1;
-  //}
+  if(port == 1) {
+    info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkUnstructuredGrid");
+    return 1;
+  }
   return 0;
 }
 
@@ -126,7 +126,7 @@ int ttkSimplifiedMT::RequestData(vtkInformation *ttkNotUsed(request),
                                        vtkInformationVector *outputVector) {
 
   const auto input = vtkDataSet::GetData(inputVector[0]);
-  //const auto persistence = vtkUnstructuredGrid::GetData(inputVector[1]);
+  const auto persistence = vtkUnstructuredGrid::GetData(inputVector[1]);
   auto outputSeparators = vtkPolyData::GetData(outputVector, 0);
 
   if(!input)

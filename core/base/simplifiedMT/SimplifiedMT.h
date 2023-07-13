@@ -980,7 +980,7 @@ int ttk::SimplifiedMT::computeMarchingCases_3D(
 
       // test: throw away every triangle if every corner is below scalar threshold
       tetCases[tet] = index1 | index2 | index3;
-      if(label[0] < PersistenceThreshold && label[1] < PersistenceThreshold && label[2] < PersistenceThreshold && label[3] < PersistenceThreshold){
+      if(label[0] < PersistenceThreshold || label[1] < PersistenceThreshold || label[2] < PersistenceThreshold || label[3] < PersistenceThreshold){
         tetCases[tet] = 0;
       }
       threadTriangles += triangleCounter[tetCases[tet]];

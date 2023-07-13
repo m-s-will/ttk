@@ -38,7 +38,7 @@
           If it's not the case, you can use the filter "Connectivity" (and select "Extract Largest Region").
         </Documentation>
       </InputProperty>
-      <!--<InputProperty name="PersistenceDiagram" port_index="1" command="SetInputConnection">
+      <InputProperty name="PersistenceDiagram" port_index="1" command="SetInputConnection">
           <ProxyGroupDomain name="groups">
               <Group name="sources" />
               <Group name="filters" />
@@ -47,7 +47,7 @@
               <DataType value="vtkUnstructuredGrid" />
           </DataTypeDomain>
           <Documentation>Persistence Diagram / Pairs of the original Domain.</Documentation>
-      </InputProperty>-->
+      </InputProperty>
 
       <StringVectorProperty
         name="Scalar Field"
