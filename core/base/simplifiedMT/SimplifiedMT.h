@@ -32,6 +32,7 @@
 #include <climits>
 #include <queue>
 #include <type_traits>
+#include <set>
 
 #include <MarchingTetrahedraLookupTables.inl>
 
@@ -145,7 +146,7 @@ namespace ttk {
      * called prior to this.
      */
     template <typename dataType, typename triangulationType>
-    inline int execute(const dataType *const scalars,
+    inline int execute(const dataType *const scalars,const dataType *const persistenceScalars, const SimplexId numberOfPersistent,
                        const triangulationType &triangulation);
 
     /**
@@ -237,6 +238,7 @@ namespace ttk {
                                 size_t *const numTriangles,
                                 const unsigned long long *const scalars,
                                 const size_t *const triangleCounter,
+                                std::set<unsigned long long> &persistenceSet,
                                 const triangulationType &triangulation) const;
 
     /**
@@ -293,7 +295,6 @@ namespace ttk {
   protected:
     // Output options
     SURFACE_MODE SurfaceMode{SURFACE_MODE::SM_SEPARATORS};
-    double PersistenceThreshold{0.0};
 
     // Output data
     SimplexId output_numberOfPoints_{};
@@ -305,7 +306,7 @@ namespace ttk {
 } // namespace ttk
 
 template <typename dataType, typename triangulationType>
-int ttk::SimplifiedMT::execute(const dataType *const scalars,
+int ttk::SimplifiedMT::execute(const dataType *const scalars, const dataType *const persistenceScalars, const SimplexId numberOfPersistent,
                                      const triangulationType &triangulation) {
 
   Timer t;
@@ -320,8 +321,10 @@ int ttk::SimplifiedMT::execute(const dataType *const scalars,
   std::vector<unsigned char> tetCases;
   std::vector<size_t> numberOfTetCases;
   std::vector<unsigned long long> cScalars;
+  std::vector<unsigned long long> pScalars;
 
   cScalars.resize(nV);
+  pScalars.resize(numberOfPersistent);
   tetCases.resize(nC);
 
 #ifdef TTK_ENABLE_OPENMP
@@ -332,6 +335,13 @@ int ttk::SimplifiedMT::execute(const dataType *const scalars,
 
   for(SimplexId vert = 0; vert < nV; vert++)
     std::memcpy(&cScalars[vert], &scalars[vert], sizeof(dataType));
+  std::set<unsigned long long> persistenceSet;
+  this->printMsg("Before creating set");
+  for(SimplexId vert = 0; vert < numberOfPersistent; vert++){
+    std::memcpy(&pScalars[vert], &persistenceScalars[vert], sizeof(dataType));
+    persistenceSet.insert(pScalars[vert]);
+  }
+  this->printMsg("After creating set");
 
   if(dim == 2) {
     if(SurfaceMode == SURFACE_MODE::SM_SEPARATORS) {
@@ -354,17 +364,17 @@ int ttk::SimplifiedMT::execute(const dataType *const scalars,
   } else if(dim == 3) {
     if(SurfaceMode == SURFACE_MODE::SM_SEPARATORS) {
       computeMarchingCases_3D(&tetCases[0], &numberOfTetCases[0], &cScalars[0],
-                              tetLookupNumWallTriangles, triangulation);
+                              tetLookupNumWallTriangles, persistenceSet, triangulation);
       writeSeparators_3D(
         &tetCases[0], &numberOfTetCases[0], &cScalars[0], triangulation);
     } else if(SurfaceMode == SURFACE_MODE::SM_BOUNDARIES) {
       computeMarchingCases_3D(&tetCases[0], &numberOfTetCases[0], &cScalars[0],
-                              tetLookupNumTrianglesBoundaries, triangulation);
+                              tetLookupNumTrianglesBoundaries,persistenceSet, triangulation);
       writeBoundaries_3D(
         &tetCases[0], &numberOfTetCases[0], &cScalars[0], triangulation);
     } else if(SurfaceMode == SURFACE_MODE::SM_BOUNDARIES_DETAILED) {
       computeMarchingCases_3D(&tetCases[0], &numberOfTetCases[0], &cScalars[0],
-                              tetLookupNumTrianglesDetailedBoundary,
+                              tetLookupNumTrianglesDetailedBoundary, persistenceSet,
                               triangulation);
       writeBoundariesDetailed_3D(
         &tetCases[0], &numberOfTetCases[0], &cScalars[0], triangulation);
@@ -925,8 +935,8 @@ int ttk::SimplifiedMT::computeMarchingCases_3D(
   size_t *const numTriangles,
   const unsigned long long *const scalars,
   const size_t *const triangleCounter,
+  std::set<unsigned long long> &persistenceSet,
   const triangulationType &triangulation) const {
-  this->printMsg("Threshold " + std::to_string(PersistenceThreshold));
 
   ttk::Timer localTimer;
   // TODO: in here we need to check if the maximum to which we are pointing is part of a high persistence pair
@@ -962,7 +972,6 @@ int ttk::SimplifiedMT::computeMarchingCases_3D(
            scalars[vertices[3]]};
 
 
-      // TODO: ask robin what is happening here
 
       // Set the fifth bit to 0 or 1
       const unsigned char index1 = (label[0] == label[1]) ? 0x00 : 0x10;
@@ -977,10 +986,10 @@ int ttk::SimplifiedMT::computeMarchingCases_3D(
                                    : (label[1] == label[3]) ? 0x01
                                    : (label[2] == label[3]) ? 0x02
                                                             : 0x03;
-
-      // test: throw away every triangle if every corner is below scalar threshold
+      // TODO: get list of persistent maxima by persistencediagram and threshold
       tetCases[tet] = index1 | index2 | index3;
-      if(label[0] < PersistenceThreshold || label[1] < PersistenceThreshold || label[2] < PersistenceThreshold || label[3] < PersistenceThreshold){
+
+      if(persistenceSet.count(label[0])== 0 || persistenceSet.count(label[1])== 0 || persistenceSet.count(label[2])== 0 || persistenceSet.count(label[3])== 0){
         tetCases[tet] = 0;
       }
       threadTriangles += triangleCounter[tetCases[tet]];

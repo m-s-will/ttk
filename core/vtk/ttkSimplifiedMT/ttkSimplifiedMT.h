@@ -67,14 +67,13 @@ public:
 
   ttkSetEnumMacro(SurfaceMode, SURFACE_MODE);
   vtkGetEnumMacro(SurfaceMode, SURFACE_MODE);
-  vtkSetMacro(PersistenceThreshold, double);
-  vtkGetMacro(PersistenceThreshold, double);
 
 
 protected:
   template <typename scalarType, typename triangulationType>
   int dispatch(vtkDataArray *const inputScalars,
                vtkPolyData *const outputSeparators,
+               vtkDataArray *const persistenceScalars,
                const triangulationType &triangulation);
 
   ttkSimplifiedMT();

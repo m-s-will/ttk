@@ -85,9 +85,9 @@
         </Documentation>
       </IntVectorProperty>
 
-      <DoubleVectorProperty name="PersistenceThreshold" command="SetPersistenceThreshold" number_of_elements="1" default_values="0">
+      <!--<DoubleVectorProperty name="PersistenceThreshold" command="SetPersistenceThreshold" number_of_elements="1" default_values="0">
         <Documentation>The persistence threshold all persistence pairs of the output scalar field must strictly exceed (by default relative to the function range, i.e. between 0 and 1). Note, a persistence threshold of 0 will remove all flat plateau artifacts.</Documentation>
-      </DoubleVectorProperty>
+      </DoubleVectorProperty>-->
 
       ${DEBUG_WIDGETS}
 

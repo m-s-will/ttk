@@ -61,17 +61,26 @@ int ttkSimplifiedMT::FillOutputPortInformation(int port,
 template <typename scalarType, typename triangulationType>
 int ttkSimplifiedMT::dispatch(vtkDataArray *const inputScalars,
                                     vtkPolyData *const outputSeparators,
+                                    vtkDataArray *const persistenceScalars,
                                     const triangulationType &triangulation) {
 
   const auto scalars = ttkUtils::GetPointer<scalarType>(inputScalars);
+  this->printMsg("Getting persistence scalars");
+  this->printMsg("inputscalars type:" + std::to_string(inputScalars->GetDataType()));
+  this->printMsg("persistenceScalars type:" + std::to_string(persistenceScalars->GetDataType()));
+  const auto persScalars = ttkUtils::GetPointer<scalarType>(persistenceScalars);
+  ttk::SimplexId numberOfPersistent = persistenceScalars->GetNumberOfTuples();
+  this->printMsg("Got persistence scalars");
+
   const int dim = triangulation.getDimensionality();
 
   output_points_.clear();
   output_cells_labels_.clear();
   output_cells_connectivity_.clear();
 
+  this->printMsg("Starting execeute");
   const int status
-    = this->execute<scalarType, triangulationType>(scalars, triangulation);
+    = this->execute<scalarType, triangulationType>(scalars, persScalars, numberOfPersistent, triangulation);
 
   if(status != 0)
     return !this->printErr("SimplifiedMT.execute() error");
@@ -126,7 +135,7 @@ int ttkSimplifiedMT::RequestData(vtkInformation *ttkNotUsed(request),
                                        vtkInformationVector *outputVector) {
 
   const auto input = vtkDataSet::GetData(inputVector[0]);
-  const auto persistence = vtkUnstructuredGrid::GetData(inputVector[1]);
+  const auto persistence = vtkDataSet::GetData(inputVector[1]);
   auto outputSeparators = vtkPolyData::GetData(outputVector, 0);
 
   if(!input)
@@ -143,6 +152,7 @@ int ttkSimplifiedMT::RequestData(vtkInformation *ttkNotUsed(request),
   if(triangulation == nullptr)
     return !this->printErr("Triangulation is null");
 
+
   const auto inputScalars = this->GetInputArrayToProcess(0, inputVector);
 
   if(inputScalars == nullptr)
@@ -150,6 +160,12 @@ int ttkSimplifiedMT::RequestData(vtkInformation *ttkNotUsed(request),
 
   this->printMsg("Launching computation on field `"
                  + std::string(inputScalars->GetName()) + "'...");
+  for (size_t i = 0; i < persistence->GetPointData()->GetNumberOfArrays(); i++) {
+    this->printMsg("Array " + std::to_string(i) + " name: " + persistence->GetPointData()->GetArray(i)->GetName());
+  }
+  const auto persistenceScalars = persistence->GetPointData()->GetArray('ttkVertexScalarField');
+  if(persistenceScalars == nullptr)
+    return !this->printErr("no persistence scalars.");
 
   const SimplexId numberOfVertices = triangulation->getNumberOfVertices();
 
@@ -160,7 +176,7 @@ int ttkSimplifiedMT::RequestData(vtkInformation *ttkNotUsed(request),
 
   ttkVtkTemplateMacro(inputScalars->GetDataType(), triangulation->getType(),
                       (status = dispatch<VTK_TT, TTK_TT>(
-                         inputScalars, outputSeparators,
+                         inputScalars, outputSeparators, persistenceScalars,
                          *static_cast<TTK_TT *>(triangulation->getData()))));
 
   return status;
