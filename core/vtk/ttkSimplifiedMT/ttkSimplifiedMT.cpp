@@ -65,12 +65,8 @@ int ttkSimplifiedMT::dispatch(vtkDataArray *const inputScalars,
                                     const triangulationType &triangulation) {
 
   const auto scalars = ttkUtils::GetPointer<scalarType>(inputScalars);
-  this->printMsg("Getting persistence scalars");
-  this->printMsg("inputscalars type:" + std::to_string(inputScalars->GetDataType()));
-  this->printMsg("persistenceScalars type:" + std::to_string(persistenceScalars->GetDataType()));
   const auto persScalars = ttkUtils::GetPointer<scalarType>(persistenceScalars);
   ttk::SimplexId numberOfPersistent = persistenceScalars->GetNumberOfTuples();
-  this->printMsg("Got persistence scalars");
 
   const int dim = triangulation.getDimensionality();
 
@@ -160,12 +156,16 @@ int ttkSimplifiedMT::RequestData(vtkInformation *ttkNotUsed(request),
 
   this->printMsg("Launching computation on field `"
                  + std::string(inputScalars->GetName()) + "'...");
-  for (size_t i = 0; i < persistence->GetPointData()->GetNumberOfArrays(); i++) {
+  for (int i = 0; i < persistence->GetPointData()->GetNumberOfArrays(); i++) {
     this->printMsg("Array " + std::to_string(i) + " name: " + persistence->GetPointData()->GetArray(i)->GetName());
   }
-  const auto persistenceScalars = persistence->GetPointData()->GetArray('ttkVertexScalarField');
-  if(persistenceScalars == nullptr)
-    return !this->printErr("no persistence scalars.");
+
+  const auto persistenceScalars = persistence->GetPointData()->GetArray("ttkVertexScalarField");
+  const auto persistenceScalars2 = persistence->GetPointData()->GetArray(0);
+  //if(persistenceScalars == nullptr)
+  //  return !this->printErr("no persistence scalars.");
+  if(persistenceScalars2 == nullptr)
+    return !this->printErr("no persistence scalars2.");
 
   const SimplexId numberOfVertices = triangulation->getNumberOfVertices();
 
@@ -176,7 +176,7 @@ int ttkSimplifiedMT::RequestData(vtkInformation *ttkNotUsed(request),
 
   ttkVtkTemplateMacro(inputScalars->GetDataType(), triangulation->getType(),
                       (status = dispatch<VTK_TT, TTK_TT>(
-                         inputScalars, outputSeparators, persistenceScalars,
+                         inputScalars, outputSeparators, persistenceScalars2,
                          *static_cast<TTK_TT *>(triangulation->getData()))));
 
   return status;
