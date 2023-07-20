@@ -3,7 +3,7 @@
 /// \author Robin Maack <maack@rptu.de>
 /// \date May 2023.
 ///
-/// \brief TTK VTK-filter that wraps the ttk::simplifiedMT module.
+/// \brief TTK VTK-filter that wraps the ttk::SimplifiedMT module.
 ///
 /// Given an input point data array and triangulation this class executes the
 /// marching tetrahedra/triangles algorithm. It has three options that either

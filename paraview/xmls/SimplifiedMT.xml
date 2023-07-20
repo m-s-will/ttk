@@ -5,8 +5,8 @@
       class="ttkSimplifiedMT"
       label="TTK SimplifiedMT">
       <Documentation
-        long_help="TTK simplifiedMT plugin."
-        short_help="TTK simplifiedMT plugin.">
+        long_help="TTK SimplifiedMT plugin."
+        short_help="TTK SimplifiedMT plugin.">
         Given an input point data array and triangulation this class executes the marching tetrahedra/triangles algorithm. It has three options that either separate each label with a single separating geometry inbetween two labels, or a separating geometry enclosing each label (detailed and fast mode).
 
         Related publication:
