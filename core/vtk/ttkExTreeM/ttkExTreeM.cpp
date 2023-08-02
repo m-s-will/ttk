@@ -267,10 +267,17 @@ int ttkExTreeM::RequestData(vtkInformation *,
     };
 
     int status = 0;
-    ttkTypeMacroT(triangulation2->getType(),
-                  (status = subModule.execute<T0>(
-                     om, ttkUtils::GetPointer<const ttk::SimplexId>(orderArray),
-                     *(T0 *)triangulation2->getData())));
+    // ttkTypeMacroT(
+    //   triangulation2->getType(),
+    //   (status = subModule.execute<T0>(
+    //     om,
+    //     ttkUtils::GetPointer<const ttk::SimplexId>(orderArray),
+    //     *static_cast<T0*>(triangulation2->getData())
+    //   ))
+    // );
+    status = subModule.execute<MyImplicitTriangulation>(
+      om, ttkUtils::GetPointer<const ttk::SimplexId>(orderArray),
+      triangulation);
     if(status != 0)
       return 0;
   }
@@ -285,13 +292,18 @@ int ttkExTreeM::RequestData(vtkInformation *,
     subModule.setDebugLevel(this->debugLevel_);
 
     int status = 0;
-    ttkTypeMacroT(
-      triangulation2->getType(),
-      (status = subModule.computeCriticalPoints<T0>(
-         criticalPoints_, ttkUtils::GetPointer<ttk::SimplexId>(orderArray),
-         ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
-         ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
-         (T0 *)triangulation2->getData())));
+    // ttkTypeMacroT(
+    //   triangulation2->getType(),
+    //   (status = subModule.computeCriticalPoints<T0>(
+    //      criticalPoints_, ttkUtils::GetPointer<ttk::SimplexId>(orderArray),
+    //      ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
+    //      ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
+    //      (T0 *)triangulation2->getData())));
+    status = subModule.computeCriticalPoints<MyImplicitTriangulation>(
+      criticalPoints_, ttkUtils::GetPointer<ttk::SimplexId>(orderArray),
+      ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
+      ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold), &triangulation);
+
     if(!status)
       return 0;
 
@@ -310,19 +322,27 @@ int ttkExTreeM::RequestData(vtkInformation *,
       orderArrayData[i] = nVertices - orderArrayData[i] - 1;
     }
 
-    ttkTypeMacroT(triangulation2->getType(),
-                  (status = this->computePairs<T0>(
-                     persistencePairsJoin, mergeTreeJoin,
-                     ttkUtils::GetPointer<ttk::SimplexId>(joinSegmentationId),
-                     ttkUtils::GetPointer<unsigned char>(isJoinLeaf),
-                     criticalPoints[3].data(), criticalPoints[1].data(),
-                     criticalPoints[0].data(),
-                     ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
-                     ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
-                     orderArrayData, (T0 *)triangulation2->getData(),
-                     criticalPoints[3].size(), criticalPoints[1].size(),
-                     criticalPoints[0].size())));
-
+    // ttkTypeMacroT(triangulation2->getType(),
+    //               (status = this->computePairs<T0>(
+    //                  persistencePairsJoin, mergeTreeJoin,
+    //                  ttkUtils::GetPointer<ttk::SimplexId>(joinSegmentationId),
+    //                  ttkUtils::GetPointer<unsigned char>(isJoinLeaf),
+    //                  criticalPoints[3].data(), criticalPoints[1].data(),
+    //                  criticalPoints[0].data(),
+    //                  ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
+    //                  ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
+    //                  orderArrayData, (T0 *)triangulation2->getData(),
+    //                  criticalPoints[3].size(), criticalPoints[1].size(),
+    //                  criticalPoints[0].size())));
+    status = this->computePairs<MyImplicitTriangulation>(
+      persistencePairsJoin, mergeTreeJoin,
+      ttkUtils::GetPointer<ttk::SimplexId>(joinSegmentationId),
+      ttkUtils::GetPointer<unsigned char>(isJoinLeaf), criticalPoints[3].data(),
+      criticalPoints[1].data(), criticalPoints[0].data(),
+      ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
+      ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold), orderArrayData,
+      &triangulation, criticalPoints[3].size(), criticalPoints[1].size(),
+      criticalPoints[0].size());
     if(status != 1)
       return 0;
   }
@@ -338,19 +358,30 @@ int ttkExTreeM::RequestData(vtkInformation *,
       orderArrayData[i] = nVertices - orderArrayData[i] - 1;
     }
 
-    ttkTypeMacroT(triangulation2->getType(),
-                  (status = this->computePairs<T0>(
-                     persistencePairsSplit, mergeTreeSplit,
-                     ttkUtils::GetPointer<ttk::SimplexId>(splitSegmentationId),
-                     ttkUtils::GetPointer<unsigned char>(isSplitLeaf),
-                     criticalPoints[0].data(), // minima
-                     criticalPoints[2].data(), // 2-saddles
-                     criticalPoints[3].data(), // maxima
-                     ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
-                     ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
-                     orderArrayData, (T0 *)triangulation2->getData(),
-                     criticalPoints[0].size(), criticalPoints[2].size(),
-                     criticalPoints[3].size())));
+    // ttkTypeMacroT(triangulation2->getType(),
+    //               (status = this->computePairs<T0>(
+    //                  persistencePairsSplit, mergeTreeSplit,
+    //                  ttkUtils::GetPointer<ttk::SimplexId>(splitSegmentationId),
+    //                  ttkUtils::GetPointer<unsigned char>(isSplitLeaf),
+    //                  criticalPoints[0].data(), // minima
+    //                  criticalPoints[2].data(), // 2-saddles
+    //                  criticalPoints[3].data(), // maxima
+    //                  ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
+    //                  ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
+    //                  orderArrayData, (T0 *)triangulation2->getData(),
+    //                  criticalPoints[0].size(), criticalPoints[2].size(),
+    //                  criticalPoints[3].size())));
+    status = this->computePairs<MyImplicitTriangulation>(
+      persistencePairsSplit, mergeTreeSplit,
+      ttkUtils::GetPointer<ttk::SimplexId>(splitSegmentationId),
+      ttkUtils::GetPointer<unsigned char>(isSplitLeaf),
+      criticalPoints[0].data(), // minima
+      criticalPoints[2].data(), // 2-saddles
+      criticalPoints[3].data(), // maxima
+      ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
+      ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold), orderArrayData,
+      &triangulation, criticalPoints[0].size(), criticalPoints[2].size(),
+      criticalPoints[3].size());
 
     if(status != 1)
       return 0;
