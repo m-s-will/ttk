@@ -201,7 +201,6 @@ int ttkExTreeM::RequestData(vtkInformation *,
 
   // Get triangulation of the input object
   auto triangulation2 = ttkAlgorithm::GetTriangulation(input);
-  this->printMsg("#Edges in original domain: " + std::to_string(triangulation2->getNumberOfEdges()));
   if(!triangulation2)
     return 0;
   // // Precondition triangulation
@@ -311,11 +310,48 @@ int ttkExTreeM::RequestData(vtkInformation *,
     if(!status)
       return 0;
   }
+  this->printMsg("#Edges in original domain: " + std::to_string(triangulation2->getNumberOfEdges()));
+  // compute splitTree
+  std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>>
+    persistencePairsSplit{};
+  std::vector<ExTreeM::Branch> mergeTreeSplit{};
+  {
+    this->printMsg("Computing SplitTree - VTK-m joinTree");
+    int status = 0;
 
+    // ttkTypeMacroT(triangulation2->getType(),
+    //               (status = this->computePairs<T0>(
+    //                  persistencePairsSplit, mergeTreeSplit,
+    //                  ttkUtils::GetPointer<ttk::SimplexId>(splitSegmentationId),
+    //                  ttkUtils::GetPointer<unsigned char>(isSplitLeaf),
+    //                  criticalPoints[0].data(), // minima
+    //                  criticalPoints[2].data(), // 2-saddles
+    //                  criticalPoints[3].data(), // maxima
+    //                  ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
+    //                  ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
+    //                  orderArrayData, (T0 *)triangulation2->getData(),
+    //                  criticalPoints[0].size(), criticalPoints[2].size(),
+    //                  criticalPoints[3].size())));
+    status = this->computePairs<MyImplicitTriangulation>(
+      persistencePairsSplit, mergeTreeSplit,
+      ttkUtils::GetPointer<ttk::SimplexId>(splitSegmentationId),
+      ttkUtils::GetPointer<unsigned char>(isSplitLeaf),
+      criticalPoints[0].data(), // minima
+      criticalPoints[2].data(), // 2-saddles
+      criticalPoints[3].data(), // maxima
+      ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
+      ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold), orderArrayData,
+      &triangulation, criticalPoints[0].size(), criticalPoints[2].size(),
+      criticalPoints[3].size());
+
+    if(status != 1)
+      return 0;
+  }
   // compute joinTree
   std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>> persistencePairsJoin{};
   std::vector<ExTreeM::Branch> mergeTreeJoin{};
   {
+    this->printMsg("Computing JoinTree - VTK-m splitTree");
     int status = 0;
 #pragma omp parallel for num_threads(this->threadNumber_)
     for(size_t i = 0; i < nVertices; i++) {
@@ -347,45 +383,12 @@ int ttkExTreeM::RequestData(vtkInformation *,
       return 0;
   }
 
-  // compute splitTree
-  std::vector<std::pair<ttk::SimplexId, ttk::SimplexId>>
-    persistencePairsSplit{};
-  std::vector<ExTreeM::Branch> mergeTreeSplit{};
-  {
-    int status = 0;
-#pragma omp parallel for num_threads(this->threadNumber_)
-    for(size_t i = 0; i < nVertices; i++) {
-      orderArrayData[i] = nVertices - orderArrayData[i] - 1;
-    }
-
-    // ttkTypeMacroT(triangulation2->getType(),
-    //               (status = this->computePairs<T0>(
-    //                  persistencePairsSplit, mergeTreeSplit,
-    //                  ttkUtils::GetPointer<ttk::SimplexId>(splitSegmentationId),
-    //                  ttkUtils::GetPointer<unsigned char>(isSplitLeaf),
-    //                  criticalPoints[0].data(), // minima
-    //                  criticalPoints[2].data(), // 2-saddles
-    //                  criticalPoints[3].data(), // maxima
-    //                  ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
-    //                  ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold),
-    //                  orderArrayData, (T0 *)triangulation2->getData(),
-    //                  criticalPoints[0].size(), criticalPoints[2].size(),
-    //                  criticalPoints[3].size())));
-    status = this->computePairs<MyImplicitTriangulation>(
-      persistencePairsSplit, mergeTreeSplit,
-      ttkUtils::GetPointer<ttk::SimplexId>(splitSegmentationId),
-      ttkUtils::GetPointer<unsigned char>(isSplitLeaf),
-      criticalPoints[0].data(), // minima
-      criticalPoints[2].data(), // 2-saddles
-      criticalPoints[3].data(), // maxima
-      ttkUtils::GetPointer<ttk::SimplexId>(descendingManifold),
-      ttkUtils::GetPointer<ttk::SimplexId>(ascendingManifold), orderArrayData,
-      &triangulation, criticalPoints[0].size(), criticalPoints[2].size(),
-      criticalPoints[3].size());
-
-    if(status != 1)
-      return 0;
+  // swap the order data back
+  #pragma omp parallel for num_threads(this->threadNumber_)
+  for(size_t i = 0; i < nVertices; i++) {
+    orderArrayData[i] = nVertices - orderArrayData[i] - 1;
   }
+
 
   // Finalize Output
   {

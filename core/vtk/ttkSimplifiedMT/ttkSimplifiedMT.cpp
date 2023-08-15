@@ -43,7 +43,7 @@ int ttkSimplifiedMT::FillInputPortInformation(int port,
   }
   // persistence diagram
   if(port == 1) {
-    info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkUnstructuredGrid");
+    info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkDataSet");
     return 1;
   }
   return 0;
@@ -60,11 +60,13 @@ int ttkSimplifiedMT::FillOutputPortInformation(int port,
 
 template <typename scalarType, typename triangulationType>
 int ttkSimplifiedMT::dispatch(vtkDataArray *const inputScalars,
+                                    vtkDataArray *const inputManifold,
                                     vtkPolyData *const outputSeparators,
                                     vtkDataArray *const persistenceScalars,
                                     const triangulationType &triangulation) {
 
   const auto scalars = ttkUtils::GetPointer<scalarType>(inputScalars);
+  const auto manifold = ttkUtils::GetPointer<SimplexId>(inputManifold);
   const auto persScalars = ttkUtils::GetPointer<scalarType>(persistenceScalars);
   ttk::SimplexId numberOfPersistent = persistenceScalars->GetNumberOfTuples();
 
@@ -76,7 +78,7 @@ int ttkSimplifiedMT::dispatch(vtkDataArray *const inputScalars,
 
   this->printMsg("Starting execeute");
   const int status
-    = this->execute<scalarType, triangulationType>(scalars, persScalars, numberOfPersistent, triangulation);
+    = this->execute<scalarType, triangulationType>(scalars, manifold, persScalars, numberOfPersistent, triangulation);
 
   if(status != 0)
     return !this->printErr("SimplifiedMT.execute() error");
@@ -150,6 +152,7 @@ int ttkSimplifiedMT::RequestData(vtkInformation *ttkNotUsed(request),
 
 
   const auto inputScalars = this->GetInputArrayToProcess(0, inputVector);
+  const auto inputManifold = this->GetInputArrayToProcess(1, inputVector);
 
   if(inputScalars == nullptr)
     return !this->printErr("wrong scalars.");
@@ -160,12 +163,27 @@ int ttkSimplifiedMT::RequestData(vtkInformation *ttkNotUsed(request),
     this->printMsg("Array " + std::to_string(i) + " name: " + persistence->GetPointData()->GetArray(i)->GetName());
   }
 
-  const auto persistenceScalars = persistence->GetPointData()->GetArray("ttkVertexScalarField");
-  const auto persistenceScalars2 = persistence->GetPointData()->GetArray(0);
+  const auto persistenceScalars = persistence->GetPointData()->GetArray(0);
+  const auto persistenceScalars2 = persistence->GetPointData()->GetArray(1);
+  //const auto persistenceScalarsCombined = persistenceScalars + persistenceScalars2; // probably does not work
+  vtkDoubleArray* persistenceScalarsCombined = vtkDoubleArray::New();
+  persistenceScalarsCombined->SetName("persistenceScalarsCombined");
+  persistenceScalarsCombined->SetNumberOfComponents(1);
+  for (int i = 0; i < persistenceScalars->GetNumberOfTuples(); ++i)
+  {
+    double value = persistenceScalars->GetTuple1(i);
+    persistenceScalarsCombined->InsertNextTypedTuple(&value);
+  }
+  for (int i = 0; i < persistenceScalars2->GetNumberOfTuples(); ++i)
+  {
+    double value = persistenceScalars2->GetTuple1(i);
+    persistenceScalarsCombined->InsertNextTypedTuple(&value);
+  }
+
   //if(persistenceScalars == nullptr)
-  //  return !this->printErr("no persistence scalars.");
-  if(persistenceScalars2 == nullptr)
-    return !this->printErr("no persistence scalars2.");
+  //  return !this‚->printErr("no persistence scalars.");
+  if(persistenceScalarsCombined == nullptr)
+    return !this->printErr("no persistence scalars.");
 
   const SimplexId numberOfVertices = triangulation->getNumberOfVertices();
 
@@ -176,7 +194,7 @@ int ttkSimplifiedMT::RequestData(vtkInformation *ttkNotUsed(request),
 
   ttkVtkTemplateMacro(inputScalars->GetDataType(), triangulation->getType(),
                       (status = dispatch<VTK_TT, TTK_TT>(
-                         inputScalars, outputSeparators, persistenceScalars2,
+                         inputScalars, inputManifold, outputSeparators, persistenceScalarsCombined,
                          *static_cast<TTK_TT *>(triangulation->getData()))));
 
   return status;

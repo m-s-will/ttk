@@ -307,6 +307,7 @@ namespace ttk {
 
       return 1;
     }
+
     template <typename triangulationType>
     int constructSegmentation(ttk::SimplexId *segmentation,
                               unsigned char *isLeaf,
@@ -434,12 +435,13 @@ namespace ttk {
       ttk::SimplexId edgesInEG = 0;
       for(ttk::SimplexId i = 0; i < nSaddles; i++) {
         auto &triplet = saddleTriplets[i];
-        edgesInEG += triplet[44];
+        edgesInEG += triplet[4];
       }
-      this->printMsg("#Edges in the EG: " + std::to_string(edgesInEG));
       this->printMsg("Finished building the saddleTriplets", 0,
                      tripletTimer.getElapsedTime(), ttk::debug::LineMode::NEW,
                      ttk::debug::Priority::DETAIL);
+      this->printMsg("#Vertices in the EG: " + std::to_string(nMaxima + nSaddles),1);
+      this->printMsg("#Edges in the EG: " + std::to_string(edgesInEG),1);
       return 1;
     }
 

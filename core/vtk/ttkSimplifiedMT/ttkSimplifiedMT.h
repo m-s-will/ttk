@@ -72,6 +72,7 @@ public:
 protected:
   template <typename scalarType, typename triangulationType>
   int dispatch(vtkDataArray *const inputScalars,
+               vtkDataArray *const inputManifold,
                vtkPolyData *const outputSeparators,
                vtkDataArray *const persistenceScalars,
                const triangulationType &triangulation);

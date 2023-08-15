@@ -44,7 +44,7 @@
               <Group name="filters" />
           </ProxyGroupDomain>
           <DataTypeDomain name="input_type">
-              <DataType value="vtkUnstructuredGrid" />
+              <DataType value="vtkDataSet"/>
           </DataTypeDomain>
           <Documentation>Persistence Diagram / Pairs of the original Domain.</Documentation>
       </InputProperty>
@@ -66,6 +66,26 @@
         </ArrayListDomain>
         <Documentation>
           Select the scalar field to process.
+        </Documentation>
+      </StringVectorProperty>
+
+      <StringVectorProperty
+        name="Manifold"
+        command="SetInputArrayToProcess"
+        element_types="0 0 0 0 2"
+        default_values="0"
+        number_of_elements="5"
+        animateable="1"
+        >
+        <ArrayListDomain
+          name="array_list"
+          default_values="0">
+          <RequiredProperties>
+            <Property name="Input" function="Input" />
+          </RequiredProperties>
+        </ArrayListDomain>
+        <Documentation>
+          Select the manifold by which to separate.
         </Documentation>
       </StringVectorProperty>
 

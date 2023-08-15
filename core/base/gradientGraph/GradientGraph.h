@@ -88,9 +88,9 @@ namespace ttk {
                        0, // elapsed time so far
                        this->threadNumber_);
 
-        ttk::SimplexId globalMin = -2;
+        //ttk::SimplexId globalMin = -2;
         ttk::SimplexId globalMax = -2;
-        ttk::SimplexId highestOrder = 0;
+        //ttk::SimplexId highestOrder = 0;
         ttk::SimplexId gId = -1;
         const int dimension = triangulation->getDimensionality();
 
@@ -98,25 +98,29 @@ namespace ttk {
           gId = criticalGlobalIds[i];
 
           // extract the global minimum id
-          if(criticalOrder[i] == 0) {
-            globalMin = gId;
-          } else if(criticalOrder[i] > highestOrder) {
-            highestOrder = criticalOrder[i];
-            globalMax = gId;
-          }
+          //if(criticalOrder[i] == 0) {
+          //  globalMin = gId;
+          //} else if(criticalOrder[i] > highestOrder) {
+          //  highestOrder = criticalOrder[i];
+          //  globalMax = gId;
+          //}
 
-          if(inputCriticalPoints[i] == (dimension - 1)
+          if(inputCriticalPoints[i] == 1
              || inputCriticalPoints[i] == 4) {
             ttk::SimplexId neighborId;
             int nNeighbors = triangulation->getVertexNeighborNumber(gId);
+            std::cout << "Id: " << gId << std::endl;
+            std::cout << "Neighbors: " ;
             std::set<ttk::SimplexId> reachableMaxima;
             for(int j = 0; j < nNeighbors; j++) {
               triangulation->getVertexNeighbor(gId, j, neighborId);
+              std::cout << neighborId << " ";
               // only check the upper link
-              if(order[neighborId] > criticalOrder[i]) {
+              if(order[neighborId] < criticalOrder[i]) {
                 reachableMaxima.insert(ascendingManifold[neighborId]);
               }
             }
+            std::cout << std::endl;
             // we only care about vertices with an upperlink of at least 2
             if(reachableMaxima.size() > 1) {
               for(auto &maximum : reachableMaxima) {
@@ -128,8 +132,8 @@ namespace ttk {
           }
         }
 
-        gradientGraph.emplace_back(std::initializer_list<ttk::SimplexId>{
-          globalMin, 0, globalMax, highestOrder});
+        //gradientGraph.emplace_back(std::initializer_list<ttk::SimplexId>{
+        //  globalMin, 0, globalMax, highestOrder});
 
         // print the progress of the current subprocedure with elapsed time
         this->printMsg("Computing extremum pairs",
