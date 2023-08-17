@@ -132,8 +132,8 @@ int ttkSimplifiedMT::RequestData(vtkInformation *ttkNotUsed(request),
                                        vtkInformationVector **inputVector,
                                        vtkInformationVector *outputVector) {
 
-  const auto input = vtkDataSet::GetData(inputVector[0]);
-  const auto persistence = vtkDataSet::GetData(inputVector[1]);
+  const auto input = vtkDataSet::GetData(inputVector[0], 0);
+  const auto persistence = vtkDataSet::GetData(inputVector[1], 0);
   auto outputSeparators = vtkPolyData::GetData(outputVector, 0);
 
   if(!input)
@@ -154,11 +154,11 @@ int ttkSimplifiedMT::RequestData(vtkInformation *ttkNotUsed(request),
   const auto inputScalars = this->GetInputArrayToProcess(0, inputVector);
   const auto inputManifold = this->GetInputArrayToProcess(1, inputVector);
 
-  if(inputScalars == nullptr)
+  if(inputScalars == nullptr || inputManifold == nullptr)
     return !this->printErr("wrong scalars.");
 
   this->printMsg("Launching computation on field `"
-                 + std::string(inputScalars->GetName()) + "'...");
+                 + std::string(inputScalars->GetName()) + "' with manifold `" + std::string(inputManifold->GetName()) + "'");
   for (int i = 0; i < persistence->GetPointData()->GetNumberOfArrays(); i++) {
     this->printMsg("Array " + std::to_string(i) + " name: " + persistence->GetPointData()->GetArray(i)->GetName());
   }
@@ -196,6 +196,7 @@ int ttkSimplifiedMT::RequestData(vtkInformation *ttkNotUsed(request),
                       (status = dispatch<VTK_TT, TTK_TT>(
                          inputScalars, inputManifold, outputSeparators, persistenceScalarsCombined,
                          *static_cast<TTK_TT *>(triangulation->getData()))));
+
 
   return status;
 }

@@ -73,9 +73,9 @@
         name="Manifold"
         command="SetInputArrayToProcess"
         element_types="0 0 0 0 2"
-        default_values="0"
+        default_values="1"
         number_of_elements="5"
-        animateable="1"
+        animateable="0"
         >
         <ArrayListDomain
           name="array_list"
@@ -113,13 +113,14 @@
 
       <PropertyGroup panel_widget="Line" label="Input options">
         <Property name="Scalar Field" />
+        <Property name="Manifold" />
       </PropertyGroup>
 
       <PropertyGroup panel_widget="Line" label="Output options">
         <Property name="SurfaceType"/>
       </PropertyGroup>
 
-      <OutputPort name="Sepators" index="0" id="port0"/>
+      <OutputPort name="Separators" index="0" id="port0"/>
 
       <Hints>
         <ShowInMenu category="TTK - Scalar Data" />
