@@ -67,7 +67,7 @@ int ttkSimplifiedMT::dispatch(vtkDataArray *const inputScalars,
 
   const auto scalars = ttkUtils::GetPointer<scalarType>(inputScalars);
   const auto manifold = ttkUtils::GetPointer<SimplexId>(inputManifold);
-  const auto persScalars = ttkUtils::GetPointer<double>(persistenceScalars);
+  const auto persScalars = ttkUtils::GetPointer<scalarType>(persistenceScalars);
   ttk::SimplexId numberOfPersistent = persistenceScalars->GetNumberOfTuples();
   this->printMsg("Number of persistent extrema: " + std::to_string(numberOfPersistent));
   const int dim = triangulation.getDimensionality();
@@ -165,17 +165,17 @@ int ttkSimplifiedMT::RequestData(vtkInformation *ttkNotUsed(request),
 
   const auto persistenceScalars = persistence->GetPointData()->GetArray(0); // scalar values of start vertices of persistence pairs
   const auto persistenceScalars2 = persistence->GetPointData()->GetArray(1); // scalar valuse of end vertices of persistence pairs
-  vtkDoubleArray* persistenceScalarsCombined = vtkDoubleArray::New();
+  vtkFloatArray* persistenceScalarsCombined = vtkFloatArray::New();
   persistenceScalarsCombined->SetName("persistenceScalarsCombined");
   persistenceScalarsCombined->SetNumberOfComponents(1);
   for (int i = 0; i < persistenceScalars->GetNumberOfTuples(); ++i)
   {
-    double value = persistenceScalars->GetTuple1(i);
+    float value = persistenceScalars->GetTuple1(i);
     persistenceScalarsCombined->InsertNextTypedTuple(&value);
   }
   for (int i = 0; i < persistenceScalars2->GetNumberOfTuples(); ++i)
   {
-    double value = persistenceScalars2->GetTuple1(i);
+    float value = persistenceScalars2->GetTuple1(i);
     persistenceScalarsCombined->InsertNextTypedTuple(&value);
   }
 

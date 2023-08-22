@@ -48,8 +48,8 @@ namespace ttk {
      *
      * @return Hash value
      */
-    constexpr unsigned long long int getHash(const unsigned long long int a,
-                                             const unsigned long long int b) {
+    constexpr long long int getHash(const long long int a,
+                                             const long long int b) {
       return (a * b + (a * a) + (b * b) + (a * a * a) * (b * b * b))
              % ULLONG_MAX;
     }
@@ -146,7 +146,7 @@ namespace ttk {
      * called prior to this.
      */
     template <typename dataType, typename triangulationType>
-    inline int execute(const dataType *const scalars, const SimplexId *const manifold, const double *const persistenceScalars, const SimplexId numberOfPersistent,
+    inline int execute(const dataType *const scalars, const SimplexId *const manifold, const dataType *const persistenceScalars, const SimplexId numberOfPersistent,
                        const triangulationType &triangulation);
 
     /**
@@ -161,13 +161,13 @@ namespace ttk {
      * @param[in] triangulation Triangulation
      * @return int
      */
-    template <typename triangulationType>
+    template <typename dataType, typename triangulationType>
     int computeMarchingCases_2D(unsigned char *const tetCases,
                                 size_t *const numEdges,
-                                const unsigned long long *const scalars,
+                                const dataType *const scalars,
                                 const long long *const manifold,
                                 const size_t *const triangleCounter,
-                                std::set<double> &persistenceSet,
+                                std::set<dataType> &persistenceSet,
                                 const triangulationType &triangulation) const;
 
     /**
@@ -184,7 +184,7 @@ namespace ttk {
     template <typename triangulationType>
     int writeSeparators_2D(const unsigned char *const tetCases,
                            const size_t *numEdges,
-                           const unsigned long long *const scalars,
+                           const long long *const scalars,
                            const triangulationType &triangulation);
 
     /**
@@ -201,7 +201,7 @@ namespace ttk {
     template <typename triangulationType>
     int writeBoundaries_2D(const unsigned char *const tetCases,
                            const size_t *numEdges,
-                           const unsigned long long *const scalars,
+                           const long long *const scalars,
                            const triangulationType &triangulation);
 
     /**
@@ -218,7 +218,7 @@ namespace ttk {
     template <typename triangulationType>
     int writeBoundariesDetailed_2D(const unsigned char *const tetCases,
                                    const size_t *numEdges,
-                                   const unsigned long long *const scalars,
+                                   const long long *const scalars,
                                    const triangulationType &triangulation);
 
     /* 3D Datasets */
@@ -235,13 +235,13 @@ namespace ttk {
      * @param[in] triangulation Triangulation
      * @return int
      */
-    template <typename triangulationType>
+    template <typename dataType, typename triangulationType>
     int computeMarchingCases_3D(unsigned char *const tetCases,
                                 size_t *const numTriangles,
-                                const unsigned long long *const scalars,
+                                const dataType *const scalars,
                                 const long long *const manifold,
                                 const size_t *const triangleCounter,
-                                std::set<double> &persistenceSet,
+                                std::set<dataType> &persistenceSet,
                                 const triangulationType &triangulation) const;
 
     /**
@@ -258,7 +258,7 @@ namespace ttk {
     template <typename triangulationType>
     int writeSeparators_3D(const unsigned char *const tetCases,
                            const size_t *numTriangles,
-                           const unsigned long long *const scalars,
+                           const long long *const scalars,
                            const triangulationType &triangulation);
 
     /**
@@ -275,7 +275,7 @@ namespace ttk {
     template <typename triangulationType>
     int writeBoundaries_3D(const unsigned char *const tetCases,
                            const size_t *numTriangles,
-                           const unsigned long long *const scalars,
+                           const long long *const scalars,
                            const triangulationType &triangulation);
 
     /**
@@ -292,7 +292,7 @@ namespace ttk {
     template <typename triangulationType>
     int writeBoundariesDetailed_3D(const unsigned char *const tetCases,
                                    const size_t *numTriangles,
-                                   const unsigned long long *const scalars,
+                                   const long long *const scalars,
                                    const triangulationType &triangulation);
 
   protected:
@@ -303,13 +303,13 @@ namespace ttk {
     SimplexId output_numberOfPoints_{};
     SimplexId output_numberOfCells_{};
     std::vector<float> output_points_;
-    std::vector<unsigned long long> output_cells_labels_;
+    std::vector<long long> output_cells_labels_;
     std::vector<SimplexId> output_cells_connectivity_;
   };
 } // namespace ttk
 
 template <typename dataType, typename triangulationType>
-int ttk::SimplifiedMT::execute(const dataType *const scalars, const SimplexId *const manifold, const double *const persistenceScalars, const SimplexId numberOfPersistent,
+int ttk::SimplifiedMT::execute(const dataType *const scalars, const SimplexId *const manifold, const dataType *const persistenceScalars, const SimplexId numberOfPersistent,
                                      const triangulationType &triangulation) {
 
   Timer t;
@@ -323,11 +323,8 @@ int ttk::SimplifiedMT::execute(const dataType *const scalars, const SimplexId *c
 
   std::vector<unsigned char> tetCases;
   std::vector<size_t> numberOfTetCases;
-  std::vector<unsigned long long> cScalars;
-  std::vector<unsigned long long> mScalars;
+  std::vector<long long> mScalars;
 
-  cScalars.resize(nV);
-  mScalars.resize(nV);
   tetCases.resize(nC);
 
 #ifdef TTK_ENABLE_OPENMP
@@ -336,12 +333,8 @@ int ttk::SimplifiedMT::execute(const dataType *const scalars, const SimplexId *c
   numberOfTetCases.resize(1);
 #endif // TTK_ENABLE_OPENMP
 
-  for(SimplexId vert = 0; vert < nV; vert++)
-    std::memcpy(&cScalars[vert], &scalars[vert], sizeof(dataType));
-  for(SimplexId vert = 0; vert < nV; vert++)
-    std::memcpy(&mScalars[vert], &manifold[vert], sizeof(dataType));
 
-  std::set<double> persistenceSet;
+  std::set<dataType> persistenceSet;
   for(SimplexId vert = 0; vert < numberOfPersistent; vert++){
     //std::memcpy(&pScalars[vert], &persistenceScalars[vert], sizeof(dataType));
     this->printMsg("Added to persistenceSet:" + std::to_string(persistenceScalars[vert]));
@@ -350,39 +343,39 @@ int ttk::SimplifiedMT::execute(const dataType *const scalars, const SimplexId *c
 
   if(dim == 2) {
     if(SurfaceMode == SURFACE_MODE::SM_SEPARATORS) {
-      computeMarchingCases_2D(&tetCases[0], &numberOfTetCases[0], &cScalars[0], manifold,
+      computeMarchingCases_2D(&tetCases[0], &numberOfTetCases[0], &scalars[0], manifold,
                               triangleNumberLookup, persistenceSet, triangulation);
       writeSeparators_2D(
-        &tetCases[0], &numberOfTetCases[0], &mScalars[0], triangulation);
+        &tetCases[0], &numberOfTetCases[0], &manifold[0], triangulation);
     } else if(SurfaceMode == SURFACE_MODE::SM_BOUNDARIES) {
-      computeMarchingCases_2D(&tetCases[0], &numberOfTetCases[0], &cScalars[0], manifold,
+      computeMarchingCases_2D(&tetCases[0], &numberOfTetCases[0], &scalars[0], manifold,
                               triangleNumberLookupBoundary, persistenceSet, triangulation);
       writeBoundaries_2D(
-        &tetCases[0], &numberOfTetCases[0], &mScalars[0], triangulation);
+        &tetCases[0], &numberOfTetCases[0], &manifold[0], triangulation);
     } else if(SurfaceMode == SURFACE_MODE::SM_BOUNDARIES_DETAILED) {
-      computeMarchingCases_2D(&tetCases[0], &numberOfTetCases[0], &cScalars[0], manifold,
+      computeMarchingCases_2D(&tetCases[0], &numberOfTetCases[0], &scalars[0], manifold,
                               triangleNumberLookupBoundaryDetailed, persistenceSet,
                               triangulation);
       writeBoundariesDetailed_2D(
-        &tetCases[0], &numberOfTetCases[0], &mScalars[0], triangulation);
+        &tetCases[0], &numberOfTetCases[0], &manifold[0], triangulation);
     }
   } else if(dim == 3) {
     if(SurfaceMode == SURFACE_MODE::SM_SEPARATORS) {
-      computeMarchingCases_3D(&tetCases[0], &numberOfTetCases[0], &cScalars[0], manifold,
+      computeMarchingCases_3D(&tetCases[0], &numberOfTetCases[0], &scalars[0], manifold,
                               tetLookupNumWallTriangles, persistenceSet, triangulation);
       writeSeparators_3D(
-        &tetCases[0], &numberOfTetCases[0], &mScalars[0], triangulation);
+        &tetCases[0], &numberOfTetCases[0], &manifold[0], triangulation);
     } else if(SurfaceMode == SURFACE_MODE::SM_BOUNDARIES) {
-      computeMarchingCases_3D(&tetCases[0], &numberOfTetCases[0], &cScalars[0], manifold,
+      computeMarchingCases_3D(&tetCases[0], &numberOfTetCases[0], &scalars[0], manifold,
                               tetLookupNumTrianglesBoundaries,persistenceSet, triangulation);
       writeBoundaries_3D(
-        &tetCases[0], &numberOfTetCases[0], &mScalars[0], triangulation);
+        &tetCases[0], &numberOfTetCases[0], &manifold[0], triangulation);
     } else if(SurfaceMode == SURFACE_MODE::SM_BOUNDARIES_DETAILED) {
-      computeMarchingCases_3D(&tetCases[0], &numberOfTetCases[0], &cScalars[0], manifold,
+      computeMarchingCases_3D(&tetCases[0], &numberOfTetCases[0], &scalars[0], manifold,
                               tetLookupNumTrianglesDetailedBoundary, persistenceSet,
                               triangulation);
       writeBoundariesDetailed_3D(
-        &tetCases[0], &numberOfTetCases[0], &mScalars[0], triangulation);
+        &tetCases[0], &numberOfTetCases[0], &manifold[0], triangulation);
     }
   } else {
     return this->printErr("Data of dimension " + std::to_string(dim)
@@ -397,14 +390,14 @@ int ttk::SimplifiedMT::execute(const dataType *const scalars, const SimplexId *c
   return 0;
 }
 
-template <typename triangulationType>
+template <typename dataType, typename triangulationType>
 int ttk::SimplifiedMT::computeMarchingCases_2D(
   unsigned char *const tetCases,
   size_t *const numEdges,
-  const unsigned long long *const scalars,
+  const dataType *const scalars,
   const long long *const manifold,
   const size_t *const triangleCounter,
-  std::set<double> &persistenceSet,
+  std::set<dataType> &persistenceSet,
   const triangulationType &triangulation) const {
 
   ttk::Timer localTimer;
@@ -464,7 +457,7 @@ template <typename triangulationType>
 int ttk::SimplifiedMT::writeSeparators_2D(
   const unsigned char *const tetCases,
   const size_t *numEdges,
-  const unsigned long long *const scalars,
+  const long long *const scalars,
   const triangulationType &triangulation) {
 
   ttk::Timer localTimer;
@@ -496,7 +489,7 @@ int ttk::SimplifiedMT::writeSeparators_2D(
   const SimplexId numTets = triangulation.getNumberOfCells();
   float *p = output_points_.data();
   SimplexId *c = output_cells_connectivity_.data();
-  unsigned long long *m = output_cells_labels_.data();
+  long long *m = output_cells_labels_.data();
 
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel num_threads(this->threadNumber_) firstprivate(p, c, m)
@@ -533,7 +526,7 @@ int ttk::SimplifiedMT::writeSeparators_2D(
       triangulation.getVertexPoint(
         vertices[2], vertPos[2][0], vertPos[2][1], vertPos[2][2]);
 
-      const std::array<unsigned long long, 3> label
+      const std::array<long long, 3> label
         = {scalars[vertices[0]], scalars[vertices[1]], scalars[vertices[2]]};
 
       if(triangleLookupIs2Label[tetCases[tet]]) {
@@ -542,7 +535,7 @@ int ttk::SimplifiedMT::writeSeparators_2D(
         mth::getCenter(vertPos[edgeVerts[2]], vertPos[edgeVerts[3]], eC[1]);
 
         // Create a hash from vertex label 0 and 1
-        const unsigned long long sparseID
+        const long long sparseID
           = mth::getHash(label[edgeVerts[0]], label[edgeVerts[1]]);
 
         // Write the edge endpoints, cell indices, and label
@@ -570,7 +563,7 @@ int ttk::SimplifiedMT::writeSeparators_2D(
         mth::getCenter(vertPos[0], vertPos[1], vertPos[2], eC[3]);
 
         // Create a hash from all vertex label combinations
-        const std::array<unsigned long long, 3> sparseID
+        const std::array<long long, 3> sparseID
           = {mth::getHash(label[0], label[1]), mth::getHash(label[0], label[2]),
              mth::getHash(label[1], label[2])};
 
@@ -624,7 +617,7 @@ template <typename triangulationType>
 int ttk::SimplifiedMT::writeBoundaries_2D(
   const unsigned char *const tetCases,
   const size_t *numEdges,
-  const unsigned long long *const scalars,
+  const long long *const scalars,
   const triangulationType &triangulation) {
 
   ttk::Timer localTimer;
@@ -655,7 +648,7 @@ int ttk::SimplifiedMT::writeBoundaries_2D(
 
   float *p = output_points_.data();
   SimplexId *c = output_cells_connectivity_.data();
-  unsigned long long *m = output_cells_labels_.data();
+  long long *m = output_cells_labels_.data();
 
   const SimplexId numTets = triangulation.getNumberOfCells();
 
@@ -693,7 +686,7 @@ int ttk::SimplifiedMT::writeBoundaries_2D(
       triangulation.getVertexPoint(
         vertices[2], vertPos[2][0], vertPos[2][1], vertPos[2][2]);
 
-      const std::array<unsigned long long, 3> label
+      const std::array<long long, 3> label
         = {scalars[vertices[0]], scalars[vertices[1]], scalars[vertices[2]]};
 
       if(triangleLookupIs2Label[tetCases[tet]]) {
@@ -731,7 +724,7 @@ template <typename triangulationType>
 int ttk::SimplifiedMT::writeBoundariesDetailed_2D(
   const unsigned char *const tetCases,
   const size_t *numEdges,
-  const unsigned long long *const scalars,
+  const long long *const scalars,
   const triangulationType &triangulation) {
 
   ttk::Timer localTimer;
@@ -767,7 +760,7 @@ int ttk::SimplifiedMT::writeBoundariesDetailed_2D(
 
   float *p = output_points_.data();
   SimplexId *c = output_cells_connectivity_.data();
-  unsigned long long *m = output_cells_labels_.data();
+  long long *m = output_cells_labels_.data();
 
   const SimplexId numTets = triangulation.getNumberOfCells();
 
@@ -807,7 +800,7 @@ int ttk::SimplifiedMT::writeBoundariesDetailed_2D(
       triangulation.getVertexPoint(
         vertices[2], vPos[2][0], vPos[2][1], vPos[2][2]);
 
-      const std::array<unsigned long long, 3> label
+      const std::array<long long, 3> label
         = {scalars[vertices[0]], scalars[vertices[1]], scalars[vertices[2]]};
 
       if(triangleLookupIs2Label[tetCases[tet]]) {
@@ -939,14 +932,14 @@ int ttk::SimplifiedMT::writeBoundariesDetailed_2D(
   return 0;
 }
 
-template <typename triangulationType>
+template <typename dataType, typename triangulationType>
 int ttk::SimplifiedMT::computeMarchingCases_3D(
   unsigned char *const tetCases,
   size_t *const numTriangles,
-  const unsigned long long *const scalars,
+  const dataType *const scalars,
   const long long *const manifold,
   const size_t *const triangleCounter,
-  std::set<double> &persistenceSet,
+  std::set<dataType> &persistenceSet,
   const triangulationType &triangulation) const {
 
   ttk::Timer localTimer;
@@ -1002,7 +995,7 @@ int ttk::SimplifiedMT::computeMarchingCases_3D(
 
       if(persistenceSet.count(scalars[vertices[0]]) == 0 && persistenceSet.count(scalars[vertices[1]]) == 0 && persistenceSet.count(scalars[vertices[2]])== 0 && persistenceSet.count(scalars[vertices[3]]) == 0){
         //this->printMsg("killed a tet");
-        tetCases[tet] = 0;
+        tetCases[tet] = 0; /// TODO: WARUM NICHT?
       }
       threadTriangles += triangleCounter[tetCases[tet]];
     }
@@ -1021,7 +1014,7 @@ template <typename triangulationType>
 int ttk::SimplifiedMT::writeSeparators_3D(
   const unsigned char *const tetCases,
   const size_t *numTriangles,
-  const unsigned long long *const scalars,
+  const long long *const scalars,
   const triangulationType &triangulation) {
 
   ttk::Timer localTimer;
@@ -1052,7 +1045,7 @@ int ttk::SimplifiedMT::writeSeparators_3D(
 
   float *p = output_points_.data();
   SimplexId *c = output_cells_connectivity_.data();
-  unsigned long long *m = output_cells_labels_.data();
+  long long *m = output_cells_labels_.data();
 
   const SimplexId numTets = triangulation.getNumberOfCells();
 
@@ -1086,7 +1079,7 @@ int ttk::SimplifiedMT::writeSeparators_3D(
       triangulation.getCellVertex(tet, 2, vertices[2]);
       triangulation.getCellVertex(tet, 3, vertices[3]);
 
-      const std::array<unsigned long long, 4> label
+      const std::array<long long, 4> label
         = {scalars[vertices[0]], scalars[vertices[1]], scalars[vertices[2]],
            scalars[vertices[3]]};
 
@@ -1121,7 +1114,7 @@ int ttk::SimplifiedMT::writeSeparators_3D(
           vertPos[0], vertPos[1], vertPos[2], vertPos[3], tetCenter);
 
         // Create a hashes from all four label combinations
-        unsigned long long sparseMSIds[6] = {
+        long long sparseMSIds[6] = {
           mth::getHash(label[0], label[1]), mth::getHash(label[0], label[2]),
           mth::getHash(label[0], label[3]), mth::getHash(label[1], label[2]),
           mth::getHash(label[1], label[3]), mth::getHash(label[2], label[3])};
@@ -1333,7 +1326,7 @@ template <typename triangulationType>
 int ttk::SimplifiedMT::writeBoundaries_3D(
   const unsigned char *const tetCases,
   const size_t *numTriangles,
-  const unsigned long long *const scalars,
+  const long long *const scalars,
   const triangulationType &triangulation) {
 
   ttk::Timer localTimer;
@@ -1364,7 +1357,7 @@ int ttk::SimplifiedMT::writeBoundaries_3D(
 
   float *p = output_points_.data();
   SimplexId *c = output_cells_connectivity_.data();
-  unsigned long long *m = output_cells_labels_.data();
+  long long *m = output_cells_labels_.data();
 
   const SimplexId numTets = triangulation.getNumberOfCells();
 
@@ -1395,7 +1388,7 @@ int ttk::SimplifiedMT::writeBoundaries_3D(
       triangulation.getCellVertex(tet, 2, vertices[2]);
       triangulation.getCellVertex(tet, 3, vertices[3]);
 
-      const std::array<unsigned long long, 4> label
+      const std::array<long long, 4> label
         = {scalars[vertices[0]], scalars[vertices[1]], scalars[vertices[2]],
            scalars[vertices[3]]};
 
@@ -1450,7 +1443,7 @@ template <typename triangulationType>
 int ttk::SimplifiedMT::writeBoundariesDetailed_3D(
   const unsigned char *const tetCases,
   const size_t *numTriangles,
-  const unsigned long long *const scalars,
+  const long long *const scalars,
   const triangulationType &triangulation) {
 
   ttk::Timer localTimer;
@@ -1486,7 +1479,7 @@ int ttk::SimplifiedMT::writeBoundariesDetailed_3D(
 
   float *p = output_points_.data();
   SimplexId *c = output_cells_connectivity_.data();
-  unsigned long long *m = output_cells_labels_.data();
+  long long *m = output_cells_labels_.data();
 
   const SimplexId numTets = triangulation.getNumberOfCells();
 
@@ -1517,7 +1510,7 @@ int ttk::SimplifiedMT::writeBoundariesDetailed_3D(
       triangulation.getCellVertex(tet, 2, vertices[2]);
       triangulation.getCellVertex(tet, 3, vertices[3]);
 
-      const std::array<unsigned long long, 4> label
+      const std::array<long long, 4> label
         = {scalars[vertices[0]], scalars[vertices[1]], scalars[vertices[2]],
            scalars[vertices[3]]};
 
