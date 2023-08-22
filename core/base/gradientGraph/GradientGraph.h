@@ -105,8 +105,8 @@ namespace ttk {
           //  globalMax = gId;
           //}
 
-          if(inputCriticalPoints[i] == 1
-             || inputCriticalPoints[i] == 4) {
+          if(inputCriticalPoints[i] == 2
+             || inputCriticalPoints[i] == 3) {
             ttk::SimplexId neighborId;
             int nNeighbors = triangulation->getVertexNeighborNumber(gId);
             std::cout << "Id: " << gId << std::endl;
@@ -116,7 +116,7 @@ namespace ttk {
               triangulation->getVertexNeighbor(gId, j, neighborId);
               std::cout << neighborId << " ";
               // only check the upper link
-              if(order[neighborId] < criticalOrder[i]) {
+              if(order[neighborId] > criticalOrder[i]) {
                 reachableMaxima.insert(ascendingManifold[neighborId]);
               }
             }

@@ -418,8 +418,12 @@ namespace ttk {
         auto &thisOrder = order[gId];
         ttk::SimplexId neighborId = 0;
         triplet[44] = 0;
+        std::cout << "Id: " << gId << std::endl;
+        std::cout << "Order: " << thisOrder << std::endl;
+        std::cout << "Neighbors: ";
         for(int j = 0; j < nNeighbors; j++) {
           triangulation->getVertexNeighbor(gId, j, neighborId);
+          std::cout << neighborId << " " << order[neighborId] << ", ";
           //  get the manifold result for this neighbor
           if(order[neighborId] > thisOrder) {
             // this->printMsg("maximum " +
@@ -430,12 +434,13 @@ namespace ttk {
             triplet[44]++;
           }
         }
+        std::cout << std::endl;
         sortAndRemoveUniques(triplet);
       }
       ttk::SimplexId edgesInEG = 0;
       for(ttk::SimplexId i = 0; i < nSaddles; i++) {
         auto &triplet = saddleTriplets[i];
-        edgesInEG += triplet[4];
+        edgesInEG += triplet[44];
       }
       this->printMsg("Finished building the saddleTriplets", 0,
                      tripletTimer.getElapsedTime(), ttk::debug::LineMode::NEW,

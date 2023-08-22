@@ -57,6 +57,7 @@ struct MyImplicitTriangulation {
       const auto& dz =  offsetsLUT[j+2];
 
       offsetsLUT2[i] = dx + dy*this->dim[0] + dz*this->dimXY;
+      //std::cout << offsetsLUT2[i] << " ";
     }
   }
 
@@ -90,7 +91,6 @@ struct MyImplicitTriangulation {
       (y==0?4:y==this->dimM1[1]?8:0)+
       (z==0?16:z==this->dimM1[2]?32:0)
     ;
-
     nIdx = idx + offsetsLUT2[key*14+n];
   }
 };

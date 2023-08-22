@@ -159,7 +159,7 @@ int ttkGradientGraph::RequestData(vtkInformation *ttkNotUsed(request),
     return 0;
 
   auto manifoldPointData = inputDataSet->GetPointData();
-  auto ascendingManifold = manifoldPointData->GetArray("AscendingManifold");
+  auto ascendingManifold = manifoldPointData->GetArray("DescendingManifold");
   auto criticalPointData = inputCriticalPoints->GetPointData();
   auto criticalGlobalIds = criticalPointData->GetArray("GlobalPointIds");
   auto criticalType = criticalPointData->GetArray("CriticalType");
