@@ -32,7 +32,14 @@ namespace ttk {
                            const GVLID &getVertexLocalId,
                            const size_t nVerts,
                            const int burstSize,
+#ifdef TTK_ENABLE_MPI
+                           std::map<int, int> neighborsToId = {},
                            std::vector<int> neighbors
+
+#else
+                           const std::vector<int> &neighbors
+#endif
+
                            = {}) const { // start global timer
       ttk::Timer globalTimer;
 
@@ -52,7 +59,7 @@ namespace ttk {
       if(ttk::isRunningWithMPI()) {
         ttk::produceOrdering<DT>(orderArray, scalarArray, getVertexGlobalId,
                                  getVertexRank, getVertexLocalId, nVerts,
-                                 burstSize, neighbors);
+                                 burstSize, neighbors, neighborsToId);
       }
 #else
       this->printMsg("MPI not enabled!");

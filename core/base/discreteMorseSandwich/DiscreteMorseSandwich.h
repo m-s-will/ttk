@@ -509,7 +509,7 @@ std::vector<std::vector<SimplexId>>
     const auto followVPath = [this, &mins, &triangulation](const SimplexId v) {
       std::vector<Cell> vpath{};
       this->dg_.getDescendingPath(Cell{0, v}, vpath, triangulation);
-      Cell &lastCell = vpath.back();
+      const Cell &lastCell = vpath.back();
       if(lastCell.dim_ == 0 && this->dg_.isCellCritical(lastCell)) {
         mins.emplace_back(lastCell.id_);
       }
@@ -558,7 +558,7 @@ std::vector<std::vector<SimplexId>>
       = [this, dim, &maxs, &triangulation](const SimplexId v) {
           std::vector<Cell> vpath{};
           this->dg_.getAscendingPath(Cell{dim, v}, vpath, triangulation);
-          Cell &lastCell = vpath.back();
+          const Cell &lastCell = vpath.back();
           if(lastCell.dim_ == dim && this->dg_.isCellCritical(lastCell)) {
             maxs.emplace_back(lastCell.id_);
           } else if(lastCell.dim_ == dim - 1) {
@@ -905,8 +905,6 @@ void ttk::DiscreteMorseSandwich::getSaddleSaddlePairs(
     }
   }
 
-  Timer tmpar{};
-
   if(this->Compute2SaddlesChildren) {
     this->s2Children_.resize(saddles2.size());
   }
@@ -949,10 +947,10 @@ void ttk::DiscreteMorseSandwich::getSaddleSaddlePairs(
 
   // compute 2-saddles boundaries in parallel
 
-#ifdef TTK_ENABLE_OPENMP
+#ifdef TTK_ENABLE_OPENMP4
 #pragma omp parallel for num_threads(threadNumber_) schedule(dynamic) \
   firstprivate(onBoundary)
-#endif // TTK_ENABLE_OPENMP
+#endif // TTK_ENABLE_OPENMP4
   for(size_t i = 0; i < saddles2.size(); ++i) {
     // 2-saddles sorted in increasing order
     const auto s2 = saddles2[i];
@@ -1258,7 +1256,7 @@ int ttk::DiscreteMorseSandwich::computePersistencePairs(
     nBoundComp = std::max(nBoundComp, 0);
 
     // print Betti numbers
-    std::vector<std::vector<std::string>> rows{
+    const std::vector<std::vector<std::string>> rows{
       {" #Connected components", std::to_string(nConnComp)},
       {" #Topological handles", std::to_string(nHandles)},
       {" #Cavities", std::to_string(nCavities)},

@@ -276,7 +276,7 @@ jobs:
         brew install --cask xquartz
         brew install wget llvm libomp ninja python open-mpi
         # TTK dependencies
-        brew install boost eigen graphviz numpy embree websocketpp ccache
+        brew install boost eigen graphviz numpy websocketpp ccache
         # prepend ccache to system path
         echo "$(brew --prefix)/opt/ccache/libexec" >> $GITHUB_PATH
 
@@ -360,7 +360,7 @@ jobs:
       run: |
         cd ttk-data/tests
         mkdir output_screenshots
-        python3 -u validate.py || (tar zcf screenshots.tar.gz output_screenshots && false)
+        pvpython -u validate.py || (tar zcf screenshots.tar.gz output_screenshots && false)
       env:
         PV_PLUGIN_PATH: /usr/local/bin/plugins/TopologyToolKit
 

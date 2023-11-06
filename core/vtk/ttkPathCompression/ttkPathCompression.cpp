@@ -25,7 +25,7 @@ ttkPathCompression::ttkPathCompression() {
 }
 
 int ttkPathCompression::FillInputPortInformation(int port,
-                                                   vtkInformation *info) {
+                                                 vtkInformation *info) {
   if(port == 0) {
     info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkDataSet");
     return 1;
@@ -34,7 +34,7 @@ int ttkPathCompression::FillInputPortInformation(int port,
 }
 
 int ttkPathCompression::FillOutputPortInformation(int port,
-                                                    vtkInformation *info) {
+                                                  vtkInformation *info) {
   if(port == 0) {
     info->Set(ttkAlgorithm::SAME_DATA_TYPE_AS_INPUT_PORT(), 0);
     return 1;
@@ -42,134 +42,122 @@ int ttkPathCompression::FillOutputPortInformation(int port,
   return 0;
 }
 
-template <typename vtkArrayType, typename vectorType>
-void setArray(vtkArrayType &vtkArray, vectorType &vector) {
-  ttkUtils::SetVoidArray(vtkArray, vector.data(), vector.size(), 1);
+template <typename triangulationType>
+int ttkPathCompression::dispatch(const SimplexId *const inputOrderArray,
+                                 const triangulationType &triangulation) {
+
+  const int ret = this->execute<triangulationType>(
+    segmentations_, inputOrderArray, triangulation);
+
+  if(ret != 0)
+    return !this->printErr("PathCompression.execute() error");
+
+  return ret;
 }
 
 int ttkPathCompression::RequestData(vtkInformation *ttkNotUsed(request),
-                                      vtkInformationVector **inputVector,
-                                      vtkInformationVector *outputVector) {
+                                    vtkInformationVector **inputVector,
+                                    vtkInformationVector *outputVector) {
 
   const auto input = vtkDataSet::GetData(inputVector[0]);
   auto outputMorseComplexes = vtkDataSet::GetData(outputVector, 0);
 
-#ifndef TTK_ENABLE_KAMIKAZE
-  if(!input) {
-    this->printErr("Input pointer is NULL.");
-    return -1;
-  }
-  if(input->GetNumberOfPoints() == 0) {
-    this->printErr("Input has no point.");
-    return -1;
-  }
-  if(!outputMorseComplexes) {
-    this->printErr("Output pointers are NULL.");
-    return -1;
-  }
-#endif
+  if(!input)
+    return !this->printErr("Input pointer is NULL.");
+
+  if(input->GetNumberOfPoints() == 0)
+    return !this->printErr("Input has no point.");
+
+  if(!outputMorseComplexes)
+    return !this->printErr("Output pointers are NULL.");
 
   const auto triangulation = ttkAlgorithm::GetTriangulation(input);
-  if(triangulation == nullptr) {
-    this->printErr("Triangulation is null");
-    return 0;
-  }
+
+  if(triangulation == nullptr)
+    return !this->printErr("Triangulation is null");
+
   this->preconditionTriangulation(triangulation);
 
-  vtkDataSet *inputDataSet = vtkDataSet::GetData(inputVector[0]);
-  if(!inputDataSet)
-    return 0;
+  const auto inputScalars = this->GetInputArrayToProcess(0, inputVector);
 
-  auto order = ttkAlgorithm::GetOrderArray(inputDataSet, 0);
-  if(!order) {
-    this->printErr("Unable to retrieve input array.");
-    return 0;
-  }
+  if(inputScalars == nullptr)
+    return !this->printErr("No input scalars");
+
+  auto inputOrderArray = ttkAlgorithm::GetOrderArray(
+    input, 0, 1, this->ForceInputOffsetScalarField);
+
+  if(inputOrderArray == nullptr)
+    return !this->printErr("No order array");
+
+  if(inputOrderArray->GetDataType() != VTK_INT
+     && inputOrderArray->GetDataType() != VTK_ID_TYPE)
+    return !this->printErr("input offset field type not supported.");
 
   this->printMsg("Launching computation on field `"
-                 + std::string(order->GetName()) + "'...");
+                 + std::string(inputScalars->GetName()) + "'...");
 
-  // morse complexes
   const SimplexId numberOfVertices = triangulation->getNumberOfVertices();
-#ifndef TTK_ENABLE_KAMIKAZE
-  if(!numberOfVertices) {
-    this->printErr("Input has no vertices.");
-    return -1;
-  }
-#endif
 
-  vtkNew<ttkSimplexIdTypeArray> ascendingManifold{};
-  vtkNew<ttkSimplexIdTypeArray> descendingManifold{};
-  vtkNew<ttkSimplexIdTypeArray> morseSmaleManifold{};
-#ifndef TTK_ENABLE_KAMIKAZE
-  if(!ascendingManifold || !descendingManifold || !morseSmaleManifold) {
-    this->printErr("Manifold vtkDataArray allocation problem.");
-    return -1;
-  }
-#endif
-  ascendingManifold->SetNumberOfComponents(1);
-  ascendingManifold->SetNumberOfTuples(numberOfVertices);
-  ascendingManifold->SetName(ttk::MorseSmaleAscendingName);
+  if(!numberOfVertices)
+    return !this->printErr("Input has no vertices.");
 
-  descendingManifold->SetNumberOfComponents(1);
-  descendingManifold->SetNumberOfTuples(numberOfVertices);
-  descendingManifold->SetName(ttk::MorseSmaleDescendingName);
+  vtkNew<ttkSimplexIdTypeArray> ascendingSegmentation{};
+  vtkNew<ttkSimplexIdTypeArray> descendingSegmentation{};
+  vtkNew<ttkSimplexIdTypeArray> morseSmaleSegmentation{};
 
-  morseSmaleManifold->SetNumberOfComponents(1);
-  morseSmaleManifold->SetNumberOfTuples(numberOfVertices);
-  morseSmaleManifold->SetName(ttk::MorseSmaleManifoldName);
+  if(!ascendingSegmentation || !descendingSegmentation
+     || !morseSmaleSegmentation)
+    return !this->printErr("Segmentation vtkDataArray allocation problem.");
 
-  this->segmentations_ = {ttkUtils::GetPointer<SimplexId>(ascendingManifold),
-                          ttkUtils::GetPointer<SimplexId>(descendingManifold),
-                          ttkUtils::GetPointer<SimplexId>(morseSmaleManifold)};
+  ascendingSegmentation->SetNumberOfComponents(1);
+  ascendingSegmentation->SetNumberOfTuples(numberOfVertices);
+  ascendingSegmentation->SetName((std::string(inputScalars->GetName()) + "_"
+                                  + std::string(ttk::MorseSmaleAscendingName))
+                                   .data());
+
+  descendingSegmentation->SetNumberOfComponents(1);
+  descendingSegmentation->SetNumberOfTuples(numberOfVertices);
+  descendingSegmentation->SetName((std::string(inputScalars->GetName()) + "_"
+                                   + std::string(ttk::MorseSmaleDescendingName))
+                                    .data());
+
+  morseSmaleSegmentation->SetNumberOfComponents(1);
+  morseSmaleSegmentation->SetNumberOfTuples(numberOfVertices);
+  morseSmaleSegmentation->SetName((std::string(inputScalars->GetName()) + "_"
+                                   + std::string(ttk::MorseSmaleManifoldName))
+                                    .data());
+
+  this->segmentations_
+    = {ttkUtils::GetPointer<SimplexId>(ascendingSegmentation),
+       ttkUtils::GetPointer<SimplexId>(descendingSegmentation),
+       ttkUtils::GetPointer<SimplexId>(morseSmaleSegmentation)};
 
   int ret{};
-#ifdef TTK_ENABLE_MPI
-  if(ttk::isRunningWithMPI()) {
-    this->printMsg("Running with MPI in vtk layer");
-    auto pointData = inputDataSet->GetPointData();
-    auto globalIds = pointData->GetArray("GlobalPointIds");
 
-    ttkTypeMacroT(triangulation->getType(),
-                  (ret = this->execute<T0>(
-                     segmentations_, ttkUtils::GetPointer<SimplexId>(order),
-                     *(T0 *)triangulation->getData(),
-                     ttkUtils::GetPointer<ttk::SimplexId>(globalIds))));
-  } else {
-    ttkTypeMacroT(triangulation->getType(),
-                  (ret = this->execute<T0>(
-                     segmentations_, ttkUtils::GetPointer<SimplexId>(order),
-                     *(T0 *)triangulation->getData())));
-  }
-#else
-  ttkTypeMacroT(triangulation->getType(),
-                (ret = this->execute<T0>(segmentations_,
-                                         ttkUtils::GetPointer<SimplexId>(order),
-                                         *(T0 *)triangulation->getData())));
-#endif // TTK_ENABLE_MPI
+  ttkTemplateMacro(
+    triangulation->getType(),
+    (ret = dispatch<TTK_TT>(ttkUtils::GetPointer<SimplexId>(inputOrderArray),
+                            *static_cast<TTK_TT *>(triangulation->getData()))));
 
-  if(ret != 0) {
+  if(ret != 0)
     return -1;
-  }
 
   outputMorseComplexes->ShallowCopy(input);
-  // morse complexes
-  if(ComputeAscendingSegmentation || ComputeDescendingSegmentation) {
-    vtkPointData *pointData = outputMorseComplexes->GetPointData();
-#ifndef TTK_ENABLE_KAMIKAZE
-    if(!pointData) {
-      this->printErr("outputMorseComplexes has no point data.");
-      return -1;
-    }
-#endif
 
-    if(ComputeDescendingSegmentation || ComputeFinalSegmentation)
-      pointData->AddArray(descendingManifold);
-    if(ComputeAscendingSegmentation || ComputeFinalSegmentation)
-      pointData->AddArray(ascendingManifold);
-    if(ComputeFinalSegmentation)
-      pointData->AddArray(morseSmaleManifold);
+  if(ComputeAscendingSegmentation || ComputeDescendingSegmentation
+     || ComputeMSSegmentationHash) {
+    vtkPointData *pointData = outputMorseComplexes->GetPointData();
+
+    if(!pointData)
+      return !this->printErr("outputMorseComplexes has no point data.");
+
+    if(ComputeDescendingSegmentation || ComputeMSSegmentationHash)
+      pointData->AddArray(descendingSegmentation);
+    if(ComputeAscendingSegmentation || ComputeMSSegmentationHash)
+      pointData->AddArray(ascendingSegmentation);
+    if(ComputeMSSegmentationHash)
+      pointData->AddArray(morseSmaleSegmentation);
   }
 
-  return !ret;
+  return 1;
 }
