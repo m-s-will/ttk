@@ -1,0 +1,82 @@
+<ServerManagerConfiguration>
+  <ProxyGroup name="filters">
+    <SourceProxy
+      name="ttkConnectedComponentsPC"
+      class="ttkConnectedComponentsPC"
+      label="TTK ConnectedComponentsPC">
+      <Documentation
+        long_help="TTK plugin for the computation of Morse-Smale segmentation."
+        short_help="TTK plugin for the computation of Morse-Smale segmentation.">
+        TTK plugin for the computation of Morse-Smale segmentation. It allows to extract the ascending, descending, and Morse-Smale segmentation hash as point data arrays.
+        Each array represents the minimum/maximum/minimum-maximum combination a vertex is reaching when following the gradient direction. By using path compression, the computational cost was minimized.
+
+        Related publication:
+        "Parallel Computation of Piecewise Linear Morse-Smale Segmentations"
+        Robin G. C. Maack, Jonas Lukasczyk, Julien Tierny, Hans Hagen, Ross Maciejewski, Christoph Garth
+        IEEE Transactions on Visualization and Computer Graphics, 2023
+
+        Online examples:
+
+        - https://topology-tool-kit.github.io/examples/morseSmaleSegmentation_at/
+
+      </Documentation>
+      <InputProperty
+        name="Input"
+        command="SetInputConnection">
+        <ProxyGroupDomain name="groups">
+          <Group name="sources"/>
+          <Group name="filters"/>
+        </ProxyGroupDomain>
+        <DataTypeDomain name="input_type">
+          <DataType value="vtkDataSet"/>
+        </DataTypeDomain>
+        <InputArrayDomain name="input_scalars" number_of_components="1">
+          <Property name="Input" function="FieldDataSelection" />
+        </InputArrayDomain>
+        <Documentation>
+          Data-set to process.
+          TTK assumes that the input dataset is made of only one connected component.
+          If it's not the case, you can use the filter "Connectivity" (and select "Extract Largest Region").
+        </Documentation>
+      </InputProperty>
+
+      <StringVectorProperty
+        name="Scalar Field"
+        command="SetInputArrayToProcess"
+        element_types="0 0 0 0 2"
+        default_values="0"
+        number_of_elements="5"
+        animateable="0"
+        >
+        <ArrayListDomain
+          name="array_list"
+          default_values="0">
+          <RequiredProperties>
+            <Property name="Input" function="Input" />
+          </RequiredProperties>
+        </ArrayListDomain>
+        <Documentation>
+          Select the scalar field to process.
+        </Documentation>
+      </StringVectorProperty>
+
+      <DoubleVectorProperty name="IsoValue" command="SetIsoValue" number_of_elements="1" default_values="0">
+        <Documentation>The IsoValue for which we want to compute the connected components.</Documentation>
+      </DoubleVectorProperty>
+
+      <PropertyGroup panel_widget="Line" label="Input options">
+        <Property name="Scalar Field" />
+        <Property name="IsoValue" />
+      </PropertyGroup>
+
+
+      <OutputPort name="Segmentation" index="0" id="port0"/>
+
+      ${DEBUG_WIDGETS}
+
+      <Hints>
+        <ShowInMenu category="TTK - Scalar Data" />
+      </Hints>
+    </SourceProxy>
+  </ProxyGroup>
+</ServerManagerConfiguration>
