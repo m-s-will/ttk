@@ -81,10 +81,10 @@ namespace ttk {
      *
      * @return 0 on success
      */
-    template <typename triangulationType>
+    template <typename dataType, typename triangulationType>
     inline int execute(SimplexId *segmentation_,
                        const double isoVal,
-                       const SimplexId *const scalarArray,
+                       const dataType *const scalarArray,
                        const triangulationType &triangulation, const ttk::SimplexId *globalIds = nullptr);
 
 
@@ -103,20 +103,20 @@ namespace ttk {
      * @param[in] triangulation triangulation
      * @return 0 on success
      */
-    template <typename triangulationType>
+    template <typename dataType, typename triangulationType>
     int computeConnectedComponentsPC(
       SimplexId *const segmentation,
       const double isoVal,
-      const SimplexId *const scalarArray,
+      const dataType *const scalarArray,
       const triangulationType &triangulation, const ttk::SimplexId *globalIds) const;
 
   };
 } // namespace ttk
 
-template <typename triangulationType>
+template <typename dataType, typename triangulationType>
 int ttk::ConnectedComponentsPC::execute(SimplexId *segmentation_,
                                   const double isoVal,
-                                  const SimplexId *const scalarArray,
+                                  const dataType *const scalarArray,
                                   const triangulationType &triangulation,
                                   const ttk::SimplexId *globalIds) {
   if(scalarArray == nullptr)
@@ -139,12 +139,13 @@ int ttk::ConnectedComponentsPC::execute(SimplexId *segmentation_,
 }
 
 
-template <typename triangulationType>
+template <typename dataType, typename triangulationType>
 int ttk::ConnectedComponentsPC::computeConnectedComponentsPC(
   SimplexId *const segmentation,
   const double isoVal,
-  const SimplexId *const scalarArray,
-  const triangulationType &triangulation,const ttk::SimplexId *globalIds) const {
+  const dataType *const scalarArray,
+  const triangulationType &triangulation,
+  const ttk::SimplexId *globalIds) const {
 
   ttk::Timer localTimer;
   bool useMPI = false;
@@ -160,12 +161,25 @@ int ttk::ConnectedComponentsPC::computeConnectedComponentsPC(
 #endif
 
   const SimplexId nVertices = triangulation.getNumberOfVertices();
-
-  // first build up the feature mask
+  std::vector<int> featureMask(nVertices, 0);
+  this->printMsg("Building Feature mask for isoval " + std::to_string(isoVal));
+     // first build up the feature mask
+  #pragma omp parallel num_threads(threadNumber_)
+  {
+    int nFeatures = 0;
+    #pragma omp for schedule(static)
+    for(SimplexId i = 0; i < nVertices; i++) {
+      if(abs(scalarArray[i]-isoVal)<0.1) {
+        featureMask[i] = 1;
+        nFeatures++;
+      }
+    }
+    this->printMsg("Finished building Feature mask, #Features: " + std::to_string(nFeatures));
+  }
 
 
   std::vector<SimplexId> lActiveVertices;
-
+  this->printMsg("Starting to compute active vertices");
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel num_threads(threadNumber_)
   {
@@ -185,13 +199,15 @@ int ttk::ConnectedComponentsPC::computeConnectedComponentsPC(
       mi = i;
 
       // check all neighbors
+      if(featureMask[i] == 0) {
+        mi = -1;
+      } else {
 #ifdef TTK_ENABLE_MPI
     if(useMPI) {
       if(triangulation.getVertexRank(i) == ttk::MPIrank_) {
         for(SimplexId n = 0; n < numNeighbors; n++) {
           triangulation.getVertexNeighbor(i, n, neighborId);
-
-          if(scalarArray[neighborId] > scalarArray[mi]) {
+          if(featureMask[neighborId] == 1 && globalIds[neighborId] > globalIds[mi]) {
             mi = neighborId;
             hasLargerNeighbor = true;
           }
@@ -203,32 +219,31 @@ int ttk::ConnectedComponentsPC::computeConnectedComponentsPC(
     } else {
       for(SimplexId n = 0; n < numNeighbors; n++) {
           triangulation.getVertexNeighbor(i, n, neighborId);
-
-          if(scalarArray[neighborId] > scalarArray[mi]) {
+          if(featureMask[neighborId] == 1 && neighborId > mi) {
             mi = neighborId;
             hasLargerNeighbor = true;
           }
-
         }
     }
 #else
       for(SimplexId n = 0; n < numNeighbors; n++) {
           triangulation.getVertexNeighbor(i, n, neighborId);
-
-          if(scalarArray[neighborId] > scalarArray[mi]) {
+          if(featureMask[neighborId] == 1 && neighborId > mi) {
             mi = neighborId;
             hasLargerNeighbor = true;
           }
         }
 #endif
+      }
       if(hasLargerNeighbor) {
         lActiveVertices.push_back(i);
       }
     }
 
+    //this->printMsg("Finished computing active vertices");
     size_t lnActiveVertices = lActiveVertices.size();
     size_t currentIndex = 0;
-
+    //this->printMsg("Starting compressing paths for thread");
     // compress paths until no changes occur
     while(lnActiveVertices > 0) {
       for(size_t i = 0; i < lnActiveVertices; i++) {
@@ -250,6 +265,7 @@ int ttk::ConnectedComponentsPC::computeConnectedComponentsPC(
       lnActiveVertices = currentIndex;
       currentIndex = 0;
     }
+    //this->printMsg("Finished compressing paths for thread");
 #ifdef TTK_ENABLE_OPENMP
   }
 #endif // TTK_ENABLE_OPENMP

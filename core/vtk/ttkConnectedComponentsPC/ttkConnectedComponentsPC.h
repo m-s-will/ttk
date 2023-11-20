@@ -83,10 +83,6 @@ public:
   vtkGetMacro(IsoValue, double);
 
 protected:
-  template <typename triangulationType>
-  int dispatch(const SimplexId *const inputOffsets,
-               const triangulationType &triangulation);
-
   ttkConnectedComponentsPC();
 
   int FillInputPortInformation(int port, vtkInformation *info) override;

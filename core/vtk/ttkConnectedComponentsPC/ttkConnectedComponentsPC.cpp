@@ -100,23 +100,22 @@ int ttkConnectedComponentsPC::RequestData(vtkInformation *ttkNotUsed(request),
     auto pointData = input->GetPointData();
     auto globalIds = pointData->GetArray("GlobalPointIds");
 
-ttkTemplateMacro(
-    triangulation->getType(),
-    (ret = this->execute<TTK_TT>(ttkUtils::GetPointer<SimplexId>(segmentation),this->IsoValue, ttkUtils::GetPointer<SimplexId>(inputScalars),
+ttkVtkTemplateMacro(
+    inputScalars->GetDataType(),triangulation->getType(),
+    (ret = this->execute<VTK_TT, TTK_TT>(ttkUtils::GetPointer<SimplexId>(segmentation),this->IsoValue, ttkUtils::GetPointer<VTK_TT>(inputScalars),
                             *static_cast<TTK_TT *>(triangulation->getData()), ttkUtils::GetPointer<ttk::SimplexId>(globalIds))));
   } else {
-ttkTemplateMacro(
-    triangulation->getType(),
-    (ret = this->execute<TTK_TT>(ttkUtils::GetPointer<SimplexId>(segmentation),this->IsoValue, ttkUtils::GetPointer<SimplexId>(inputScalars),
+ttkVtkTemplateMacro(
+    inputScalars->GetDataType(),triangulation->getType(),
+    (ret = this->execute<VTK_TT, TTK_TT>(ttkUtils::GetPointer<SimplexId>(segmentation),this->IsoValue, ttkUtils::GetPointer<VTK_TT>(inputScalars),
                             *static_cast<TTK_TT *>(triangulation->getData()))));  }
 #else
-ttkTemplateMacro(
-    triangulation->getType(),
-    (ret = this->execute<TTK_TT>(ttkUtils::GetPointer<SimplexId>(segmentation),this->IsoValue, ttkUtils::GetPointer<SimplexId>(inputScalars),
-                            *static_cast<TTK_TT *>(triangulation->getData()))));#endif // TTK_ENABLE_MPI
+ttkVtkTemplateMacro(
+    inputScalars->GetDataType(),triangulation->getType(),
+    (ret = this->execute<VTK_TT, TTK_TT>(ttkUtils::GetPointer<SimplexId>(segmentation),this->IsoValue, ttkUtils::GetPointer<VTK_TT>(inputScalars),
+                            *static_cast<TTK_TT *>(triangulation->getData()))));
+#endif // TTK_ENABLE_MPI
 
-
-#endif
   if(ret != 0)
     return -1;
 
