@@ -210,6 +210,7 @@ int ttk::ConnectedComponentsPC::computeConnectedComponentsPC(
           if(featureMask[neighborId] == 1 && globalIds[neighborId] > globalIds[mi]) {
             mi = neighborId;
             hasLargerNeighbor = true;
+            continue;
           }
         }
       } else {
@@ -222,6 +223,7 @@ int ttk::ConnectedComponentsPC::computeConnectedComponentsPC(
           if(featureMask[neighborId] == 1 && neighborId > mi) {
             mi = neighborId;
             hasLargerNeighbor = true;
+            continue;
           }
         }
     }
@@ -231,6 +233,8 @@ int ttk::ConnectedComponentsPC::computeConnectedComponentsPC(
           if(featureMask[neighborId] == 1 && neighborId > mi) {
             mi = neighborId;
             hasLargerNeighbor = true;
+            // we only care about ANY neighbor belonging to the feature
+            continue;
           }
         }
 #endif
