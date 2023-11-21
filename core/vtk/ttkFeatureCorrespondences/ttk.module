@@ -1,0 +1,9 @@
+NAME
+  ttkFeatureCorrespondences
+SOURCES
+  ttkFeatureCorrespondences.cpp
+HEADERS
+  ttkFeatureCorrespondences.h
+DEPENDS
+  featureCorrespondences
+  ttkAlgorithm

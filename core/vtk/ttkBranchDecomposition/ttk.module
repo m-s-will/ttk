@@ -1,0 +1,9 @@
+NAME
+  ttkBranchDecomposition
+SOURCES
+  ttkBranchDecomposition.cpp
+HEADERS
+  ttkBranchDecomposition.h
+DEPENDS
+  branchDecomposition
+  ttkAlgorithm

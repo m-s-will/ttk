@@ -1,0 +1,10 @@
+NAME
+  ttkSimilarityByGradientV3
+SOURCES
+  ttkSimilarityByGradientV3.cpp
+HEADERS
+  ttkSimilarityByGradientV3.h
+DEPENDS
+  similarityByGradientV3
+  pathCompression
+  ttkSimilarityAlgorithm

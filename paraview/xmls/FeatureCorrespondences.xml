@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ServerManagerConfiguration>
+  <ProxyGroup name="filters">
+    <SourceProxy name="ttkFeatureCorrespondences" class="ttkFeatureCorrespondences" label="TTK FeatureCorrespondences">
+      <Documentation long_help="FeatureCorrespondences Long" short_help="FeatureCorrespondences Short">TODO</Documentation>
+
+      <InputProperty name="Input" command="SetInputConnection">
+        <ProxyGroupDomain name="groups">
+          <Group name="sources" />
+          <Group name="filters" />
+        </ProxyGroupDomain>
+        <DataTypeDomain name="input_type">
+          <DataType value="vtkImageData" />
+        </DataTypeDomain>
+        <InputArrayDomain name="input_array" attribute_type="point" number_of_components="1" />
+        <Documentation>TODO.</Documentation>
+      </InputProperty>
+
+      <StringVectorProperty name="Matrix" command="SetInputArrayToProcess" element_types="0 0 0 0 2" number_of_elements="5">
+        <ArrayListDomain attribute_type="Scalars" name="array_list">
+          <RequiredProperties>
+            <Property function="Input" name="Input" />
+          </RequiredProperties>
+        </ArrayListDomain>
+        <Documentation>TODO</Documentation>
+      </StringVectorProperty>
+
+      <IntVectorProperty name="OptimizationMethod" command="SetOptimizationMethod" number_of_elements="1" default_values="1">
+        <EnumerationDomain name="enum">
+          <!--<Entry value="0" text="N Smallest Correspondences" />-->
+          <Entry value="1" text="N Largest Correspondences" />
+          <!--<Entry value="10" text="Threshold Below" />-->
+          <Entry value="11" text="Threshold Above" />
+        </EnumerationDomain>
+        <Documentation>Optimization Method.</Documentation>
+      </IntVectorProperty>
+
+      <IntVectorProperty name="NLargestCorrespondences" command="SetNumberOfLargestCorrespondencesPerFeature" number_of_elements="1" default_values="1">
+        <Hints>
+          <PropertyWidgetDecorator type="CompositeDecorator">
+            <Expression type="or">
+              <PropertyWidgetDecorator type="GenericDecorator" mode="visibility" property="OptimizationMethod" value="0" />
+              <PropertyWidgetDecorator type="GenericDecorator" mode="visibility" property="OptimizationMethod" value="1" />
+            </Expression>
+          </PropertyWidgetDecorator>
+        </Hints>
+        <Documentation>Controls the number of largest correspondences identified per feature (Backward and Forward).</Documentation>
+      </IntVectorProperty>
+
+      <DoubleVectorProperty name="Threshold" command="SetThreshold" number_of_elements="1" default_values="0">
+        <Hints>
+          <PropertyWidgetDecorator type="CompositeDecorator">
+            <Expression type="or">
+              <PropertyWidgetDecorator type="GenericDecorator" mode="visibility" property="OptimizationMethod" value="10" />
+              <PropertyWidgetDecorator type="GenericDecorator" mode="visibility" property="OptimizationMethod" value="11" />
+            </Expression>
+          </PropertyWidgetDecorator>
+        </Hints>
+        <Documentation>TODO.</Documentation>
+      </DoubleVectorProperty>
+
+      ${DEBUG_WIDGETS}
+
+      <Hints>
+        <ShowInMenu category="TTK - Time-Varying Scalar Data" />
+      </Hints>
+    </SourceProxy>
+  </ProxyGroup>
+</ServerManagerConfiguration>

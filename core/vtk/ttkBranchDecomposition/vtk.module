@@ -1,0 +1,5 @@
+NAME
+  ttkBranchDecomposition
+DEPENDS
+  ttkTrackingGraph
+  ttkAlgorithm

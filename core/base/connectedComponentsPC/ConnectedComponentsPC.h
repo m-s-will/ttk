@@ -166,15 +166,12 @@ int ttk::ConnectedComponentsPC::computeConnectedComponentsPC(
      // first build up the feature mask
   #pragma omp parallel num_threads(threadNumber_)
   {
-    int nFeatures = 0;
     #pragma omp for schedule(static)
     for(SimplexId i = 0; i < nVertices; i++) {
-      if(abs(scalarArray[i]-isoVal)<0.1) {
+      if(abs(scalarArray[i]-isoVal)<10) {
         featureMask[i] = 1;
-        nFeatures++;
       }
     }
-    this->printMsg("Finished building Feature mask, #Features: " + std::to_string(nFeatures));
   }
 
 

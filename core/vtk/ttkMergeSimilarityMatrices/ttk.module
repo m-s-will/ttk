@@ -1,0 +1,9 @@
+NAME
+  ttkMergeSimilarityMatrices
+SOURCES
+  ttkMergeSimilarityMatrices.cpp
+HEADERS
+  ttkMergeSimilarityMatrices.h
+DEPENDS
+  mergeSimilarityMatrices
+  ttkAlgorithm

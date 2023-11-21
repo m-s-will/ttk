@@ -1,0 +1,5 @@
+NAME
+  ttkMergeSimilarityMatrices
+DEPENDS
+  ttkAlgorithm
+  ttkSimilarityAlgorithm

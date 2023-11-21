@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ServerManagerConfiguration>
+  <ProxyGroup name="filters">
+    <SourceProxy name="ttkTrackingGraph" class="ttkTrackingGraph" label="TTK TrackingGraph">
+      <Documentation long_help="TrackingGraph Long" short_help="TrackingGraph Short">
+        TODO
+      </Documentation>
+
+      <InputProperty name="Correspondences" port_index="0" command="SetInputConnection">
+        <ProxyGroupDomain name="groups">
+          <Group name="sources" />
+          <Group name="filters" />
+        </ProxyGroupDomain>
+        <DataTypeDomain name="input_type">
+          <DataType value="vtkMultiBlockDataSet" />
+        </DataTypeDomain>
+        <InputArrayDomain attribute_type="point" name="matrix_point_arrays" number_of_components="1" />
+        <Documentation>TODO.</Documentation>
+      </InputProperty>
+
+      <InputProperty name="Features" port_index="1" command="SetInputConnection">
+        <ProxyGroupDomain name="groups">
+          <Group name="sources" />
+          <Group name="filters" />
+        </ProxyGroupDomain>
+        <DataTypeDomain name="input_type">
+          <DataType value="vtkMultiBlockDataSet" />
+        </DataTypeDomain>
+        <InputArrayDomain attribute_type="point" name="feature_point_arrays" number_of_components="1" optional="1" />
+        <Hints>
+          <Optional />
+        </Hints>
+        <Documentation>TODO.</Documentation>
+      </InputProperty>
+
+      <StringVectorProperty name="Matrix" command="SetInputArrayToProcess" element_types="0 0 0 0 2" number_of_elements="5" default_values="0">
+        <ArrayListDomain name="array_list" input_domain_name="matrix_point_arrays">
+          <RequiredProperties>
+            <Property function="Input" name="Correspondences" />
+          </RequiredProperties>
+        </ArrayListDomain>
+        <Documentation>TODO.</Documentation>
+      </StringVectorProperty>
+
+      ${DEBUG_WIDGETS}
+
+      <Hints>
+        <ShowInMenu category="TTK - Misc" />
+      </Hints>
+    </SourceProxy>
+  </ProxyGroup>
+</ServerManagerConfiguration>

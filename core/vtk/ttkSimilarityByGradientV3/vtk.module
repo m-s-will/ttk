@@ -1,0 +1,4 @@
+NAME
+  ttkSimilarityByGradientV3
+DEPENDS
+  ttkSimilarityAlgorithm

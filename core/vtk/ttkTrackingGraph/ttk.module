@@ -1,0 +1,9 @@
+NAME
+  ttkTrackingGraph
+SOURCES
+  ttkTrackingGraph.cpp
+HEADERS
+  ttkTrackingGraph.h
+DEPENDS
+  trackingGraph
+  ttkAlgorithm
