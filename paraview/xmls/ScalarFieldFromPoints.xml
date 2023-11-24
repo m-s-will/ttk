@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<ServerManagerConfiguration>
+  <ProxyGroup name="filters">
+    <SourceProxy name="ScalarFieldFromPoints" class="ttkScalarFieldFromPoints" label="TTK ScalarFieldFromPoints">
+      <Documentation long_help="ScalarFieldFromPoints Long" short_help="ScalarFieldFromPoints Short">
+        The filter takes as input points and generates scalar fields based on Gaussian functions applied on the points, where the functions takes as input two scalar values that represents amplitude and variance. Two field types are generated: one where the maximum of the Gaussians and that point is yields the field value, and one where the sum of all Gaussians at that point yields the field value.
+      </Documentation>
+
+      <!-- INPUT -->
+      <InputProperty name="Input" command="SetInputConnection">
+        <ProxyGroupDomain name="groups">
+          <Group name="sources" />
+          <Group name="filters" />
+        </ProxyGroupDomain>
+        <DataTypeDomain name="input_type">
+          <DataType value="vtkMultiBlockDataSet" />
+        </DataTypeDomain>
+        <InputArrayDomain name="point_array" number_of_components="1" />
+        <Documentation>A vtkPointSet.</Documentation>
+      </InputProperty>
+
+      <!-- INPUT PARAMETER WIDGETS -->
+
+      <StringVectorProperty
+        name="AmpArray"
+        label="Amplitude"
+        command="SetInputArrayToProcess"
+        element_types="0 0 0 0 2"
+        number_of_elements="5"
+        default_values="2 0 0 0 Amps">
+        <ArrayListDomain
+          name="pws"
+          input_domain_name="point_array"
+          >
+          <RequiredProperties>
+            <Property function="Input" name="Input" />
+          </RequiredProperties>
+        </ArrayListDomain>
+        <Documentation>The array that contains the point amplitudes.</Documentation>
+      </StringVectorProperty>
+
+      <StringVectorProperty
+        name="VarArray"
+        label="Variance"
+        command="SetInputArrayToProcess"
+        element_types="0 0 0 0 2"
+        number_of_elements="5"
+        default_values="3 0 0 0 Varis">
+        <ArrayListDomain
+          name="pcs"
+          input_domain_name="point_array"
+          >
+          <RequiredProperties>
+            <Property function="Input" name="Input" />
+          </RequiredProperties>
+        </ArrayListDomain>
+        <Documentation>The array that contains the point variance.</Documentation>
+      </StringVectorProperty>
+
+      <StringVectorProperty
+        name="IdArray"
+        label="Point Id"
+        command="SetInputArrayToProcess"
+        element_types="0 0 0 0 2"
+        number_of_elements="5"
+        default_values="4 0 0 0 PointId">
+        <ArrayListDomain
+          name="ids"
+          input_domain_name="point_array"
+          >
+          <RequiredProperties>
+            <Property function="Input" name="Input" />
+          </RequiredProperties>
+        </ArrayListDomain>
+        <Documentation>The array that contains the point ids.</Documentation>
+      </StringVectorProperty>
+
+      <!-- Create a UI group that contains all input parameter widgets-->
+      <PropertyGroup panel_widget="Line" label="Input Options">
+        <Property name="IdArray" />
+        <Property name="AmpArray" />
+        <Property name="VarArray" />
+      </PropertyGroup>
+
+      <!-- OUTPUT PARAMETER WIDGETS -->
+
+      <DoubleVectorProperty name="ImageBounds" command="SetImageBounds" default_values="0 1 0 1 0 1" number_of_elements="6" panel_visibility="default">
+        <BoundsDomain name="bounds">
+          <RequiredProperties>
+            <Property function="Input" name="Input" />
+          </RequiredProperties>
+        </BoundsDomain>
+        <Documentation>The bounds for the output scalar field.</Documentation>
+      </DoubleVectorProperty>
+
+      <IntVectorProperty name="Resolution" command="SetResolution" default_values="8 8 8" number_of_elements="3">
+        <Documentation>TODO.</Documentation>
+      </IntVectorProperty>
+
+      <IntVectorProperty name="Kernel" command="SetKernel" number_of_elements="1" default_values="0">
+        <EnumerationDomain name="enum">
+          <Entry value="0" text="Gaussian" />
+        </EnumerationDomain>
+        <Documentation>The possible kernels used to generate features. Currently only Gaussians.</Documentation>
+      </IntVectorProperty>
+
+      <!-- Create a UI group that contains all output parameter widgets-->
+      <PropertyGroup panel_widget="Line" label="Output Options">
+        <Property name="ImageBounds" />
+        <Property name="Resolution" />
+        <Property name="Kernel" />
+      </PropertyGroup>
+
+      <!-- DEBUG -->
+      ${DEBUG_WIDGETS}
+
+      <!-- MENU CATEGORY -->
+      <Hints>
+        <ShowInMenu category="TTK - Misc" />
+      </Hints>
+    </SourceProxy>
+  </ProxyGroup>
+</ServerManagerConfiguration>

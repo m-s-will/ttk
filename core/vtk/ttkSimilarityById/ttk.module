@@ -1,0 +1,9 @@
+NAME
+  ttkSimilarityById
+SOURCES
+  ttkSimilarityById.cpp
+HEADERS
+  ttkSimilarityById.h
+DEPENDS
+  similarityById
+  ttkSimilarityAlgorithm

@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ServerManagerConfiguration>
+  <ProxyGroup name="filters">
+    <SourceProxy name="ttkGaussianModeClustering" class="ttkGaussianModeClustering" label="TTK GaussianModeClustering">
+      <Documentation long_help="GaussianModeClustering" short_help="GaussianModeClustering">
+        This filters clusters a set of points based on Gaussian functions, where each point should have amplitude and variance values. The points can be clusteres based on the maximum of the Gaussian functions or the sum of Gaussian functions. We also generate feature similarities between time steps for the points, and output the corresponding cluster representatives (The point with the highest amplitude).
+      </Documentation>
+
+      <InputProperty name="Points" port_index="0" command="SetInputConnection">
+        <ProxyGroupDomain name="groups">
+          <Group name="sources" />
+          <Group name="filters" />
+        </ProxyGroupDomain>
+        <DataTypeDomain name="input_type">
+          <DataType value="vtkPointSet" />
+          <DataType value="vtkMultiBlockDataSet" />
+        </DataTypeDomain>
+        <InputArrayDomain name="input_arrays" attribute_type="point" />
+        <Documentation>Points.</Documentation>
+      </InputProperty>
+
+      <!-- INPUT PARAMETER WIDGETS -->
+
+      <StringVectorProperty name="PointIds" command="SetInputArrayToProcess" element_types="0 0 0 0 2" number_of_elements="5" default_values="ttkVertexScalarField">
+        <ArrayListDomain name="array_list" input_domain_name="input_arrays">
+          <RequiredProperties>
+            <Property function="Input" name="Points" />
+          </RequiredProperties>
+        </ArrayListDomain>
+        <Documentation>The array that contains the ids of points.</Documentation>
+      </StringVectorProperty>
+
+      <StringVectorProperty
+        name="AmpArray"
+        label="Amplitude"
+        command="SetInputArrayToProcess"
+        element_types="0 0 0 0 2"
+        number_of_elements="5"
+        default_values="2 0 0 0 Amps">
+        <ArrayListDomain
+          name="amps"
+          input_domain_name="input_arrays"
+          >
+          <RequiredProperties>
+            <Property function="Input" name="Points" />
+          </RequiredProperties>
+        </ArrayListDomain>
+        <Documentation>The array that contains the point amplitudes.</Documentation>
+      </StringVectorProperty>
+
+      <StringVectorProperty
+        name="VarArray"
+        label="Variance"
+        command="SetInputArrayToProcess"
+        element_types="0 0 0 0 2"
+        number_of_elements="5"
+        default_values="3 0 0 0 Varis">
+        <ArrayListDomain
+          name="varis"
+          input_domain_name="input_arrays"
+          >
+          <RequiredProperties>
+            <Property function="Input" name="Points" />
+          </RequiredProperties>
+        </ArrayListDomain>
+        <Documentation>The array that contains the point variances.</Documentation>
+      </StringVectorProperty>
+
+      <!-- Create a UI group that contains all input parameter widgets-->
+      <PropertyGroup panel_widget="Line" label="Input Options">
+        <Property name="PointIds" />
+        <Property name="AmpArray" />
+        <Property name="VarArray" />
+      </PropertyGroup>
+
+      <!-- OUTPUT PARAMETER WIDGETS -->
+
+      <OutputPort index="0" id="port0" name="Matrix" />
+      <OutputPort index="1" id="port1" name="Points" />
+      <OutputPort index="2" id="port2" name="Clusters" />
+
+
+      <IntVectorProperty name="ClusteringType" command="SetClusteringType" number_of_elements="1" default_values="0">
+        <EnumerationDomain name="enum">
+          <Entry value="0" text="Umbrella" />
+          <Entry value="1" text="Thresholded Umbrella"/>
+          <Entry value="2" text="Unimodality"/>
+        </EnumerationDomain>
+        <Documentation>There are three possible ways to cluster gaussians: 1. Umbrella (Max Field), where we check if the maximum of one Gaussian is within the umbrella of the other, 2. Thresholded Umbrella (Max Field), we apply a minimum threshold value that the intersections have to be over, 3. Unimodality (Sum Field), we check whether two adjacent Gaussians when added together are unimodal or bimodal.</Documentation>
+      </IntVectorProperty>
+
+      <DoubleVectorProperty name="ScalarThreshold" command="SetScalarThreshold" number_of_elements="1" default_values="0.5">
+        <Documentation>Threshold used to create an optional umbrella clustering where only points with values above the threshold are considered.</Documentation>
+        <Hints>
+            <PropertyWidgetDecorator type="GenericDecorator"
+            mode="visibility"
+            property="ClusteringType"
+            value="1" />
+        </Hints>
+      </DoubleVectorProperty>
+
+      <!-- Create a UI group that contains all output parameter widgets-->
+      <PropertyGroup panel_widget="Line" label="Output Options">
+        <Property name="ClusteringType" />
+        <Property name="ScalarThreshold" />
+      </PropertyGroup>
+
+      ${DEBUG_WIDGETS}
+
+      <Hints>
+        <ShowInMenu category="TTK - Time-Varying Scalar Data" />
+      </Hints>
+    </SourceProxy>
+  </ProxyGroup>
+</ServerManagerConfiguration>

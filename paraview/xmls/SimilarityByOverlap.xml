@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ServerManagerConfiguration>
+  <ProxyGroup name="filters">
+    <SourceProxy name="ttkSimilarityByOverlap" class="ttkSimilarityByOverlap" label="TTK SimilarityByOverlap">
+      <Documentation long_help="SimilarityByOverlap" short_help="SimilarityByOverlap">
+        TODO
+      </Documentation>
+
+      <InputProperty name="Segmentations" port_index="0" command="SetInputConnection">
+        <ProxyGroupDomain name="groups">
+          <Group name="sources" />
+          <Group name="filters" />
+        </ProxyGroupDomain>
+        <DataTypeDomain name="input_type">
+          <DataType value="vtkDataSet" />
+          <DataType value="vtkMultiBlockDataSet" />
+        </DataTypeDomain>
+        <InputArrayDomain name="input_arrays" attribute_type="point" />
+        <Documentation>Segmentations.</Documentation>
+      </InputProperty>
+
+      <OutputPort index="0" id="port0" name="Matrix" />
+
+      <StringVectorProperty name="FeatureIds" command="SetInputArrayToProcess" element_types="0 0 0 0 2" number_of_elements="5">
+        <ArrayListDomain name="array_list" input_domain_name="input_arrays">
+          <RequiredProperties>
+            <Property function="Input" name="Segmentations" />
+          </RequiredProperties>
+        </ArrayListDomain>
+        <Documentation>Feature Ids.</Documentation>
+      </StringVectorProperty>
+
+      ${DEBUG_WIDGETS}
+
+      <Hints>
+        <ShowInMenu category="TTK - Time-Varying Scalar Data" />
+      </Hints>
+    </SourceProxy>
+  </ProxyGroup>
+</ServerManagerConfiguration>

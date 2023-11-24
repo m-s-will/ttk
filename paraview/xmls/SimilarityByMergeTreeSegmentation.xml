@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ServerManagerConfiguration>
+  <ProxyGroup name="filters">
+    <SourceProxy name="ttkSimilarityByMergeTreeSegmentation" class="ttkSimilarityByMergeTreeSegmentation" label="TTK SimilarityByMergeTreeSegmentation">
+      <Documentation long_help="SimilarityByMergeTreeSegmentation" short_help="SimilarityByMergeTreeSegmentation">
+        TODO
+      </Documentation>
+
+      <InputProperty name="Segmentations" port_index="0" command="SetInputConnection">
+        <ProxyGroupDomain name="groups">
+          <Group name="sources" />
+          <Group name="filters" />
+        </ProxyGroupDomain>
+        <DataTypeDomain name="input_type">
+          <DataType value="vtkDataSet" />
+          <DataType value="vtkMultiBlockDataSet" />
+        </DataTypeDomain>
+        <Documentation>TODO</Documentation>
+      </InputProperty>
+
+      <InputProperty name="MergeTrees" port_index="1" command="SetInputConnection">
+        <ProxyGroupDomain name="groups">
+          <Group name="sources" />
+          <Group name="filters" />
+        </ProxyGroupDomain>
+        <DataTypeDomain name="input_type">
+          <DataType value="vtkDataSet" />
+          <DataType value="vtkMultiBlockDataSet" />
+        </DataTypeDomain>
+        <Documentation>TODO</Documentation>
+      </InputProperty>
+
+      <OutputPort index="0" id="port0" name="Matrix" />
+
+      <StringVectorProperty name="Scalars" command="SetInputArrayToProcess" element_types="0 0 0 0 2" number_of_elements="5" default_values="0">
+        <ArrayListDomain attribute_type="Scalars" name="array_list">
+          <RequiredProperties>
+            <Property function="Input" name="Segmentations" />
+          </RequiredProperties>
+        </ArrayListDomain>
+        <Documentation>TODO.</Documentation>
+      </StringVectorProperty>
+
+      <StringVectorProperty name="FeatureIds" command="SetInputArrayToProcess" element_types="0 0 0 0 2" number_of_elements="5" default_values="1">
+        <ArrayListDomain name="array_list" input_domain_name="input_arrays">
+          <RequiredProperties>
+            <Property function="Input" name="MergeTrees" />
+          </RequiredProperties>
+        </ArrayListDomain>
+        <Documentation>Feature Ids.</Documentation>
+      </StringVectorProperty>
+
+      ${DEBUG_WIDGETS}
+
+      <Hints>
+        <ShowInMenu category="TTK - Time-Varying Scalar Data" />
+      </Hints>
+    </SourceProxy>
+  </ProxyGroup>
+</ServerManagerConfiguration>

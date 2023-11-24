@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<ServerManagerConfiguration>
+    <ProxyGroup name="sources">
+        <SourceProxy name="ttkPerlinNoise" class="ttkPerlinNoise" label="TTK PerlinNoise">
+           <Documentation long_help="TTK Perlin noise creates a perlin noise scalar field" short_help="TK Perlin noise creates a perlin noise scalar field">
+                This filter creates a perlin noise scalar field with the given data dimension.
+           </Documentation>
+
+           <IntVectorProperty name="Resolution" command="SetResolution" default_values="10 10 10"       number_of_elements="3">
+                <Documentation>The Resolution dimensions of the generated noise data.</Documentation>
+            </IntVectorProperty>
+
+            <DoubleVectorProperty name="Scale" label="Scale" command="SetScale" number_of_elements="1" default_values="10">
+                <Documentation>The scale of the noise.</Documentation>
+            </DoubleVectorProperty>
+            <IntVectorProperty name="Frequency" label="Frequency" command="SetFrequency" number_of_elements="1" default_values="1">
+                <Documentation>The frequency of the noise.</Documentation>
+            </IntVectorProperty>
+            
+            <IntVectorProperty name="nOctaves" command="SetnOctaves" number_of_elements="1" default_values="1">
+                <IntRangeDomain name="range" min="1" max="6" />
+                <Documentation>The number of noise octaves that are mixed together for the noise.</Documentation>
+            </IntVectorProperty>
+
+            <DoubleVectorProperty name="Persistence" command="SetPersistence" number_of_elements="1" default_values="0.5">
+                <DoubleRangeDomain name="range" min="0.0" max="1.0" />
+                <Documentation>The persistence of each subsequent octave. If there is only one octave, then the persistence is automatically set to zero.</Documentation>
+            </DoubleVectorProperty>
+
+            <IntVectorProperty 
+                name="TimeProp" 
+                label="Time" 
+                command="SetTimeProp" 
+                number_of_elements="1" 
+                default_values="0">
+                <EnumerationDomain name="enum">
+                    <Entry value="0" text="No time"/>
+                    <Entry value="1" text="Time-step"/>
+                    <Entry value="2" text="Time series"/>
+                </EnumerationDomain>
+                <Documentation>Used to define whether the perlin noise should be time-dependent or not.</Documentation>
+            </IntVectorProperty>
+
+            <DoubleVectorProperty name="TimeStep" command="SetTimeStep" default_values="0.0" number_of_elements="1">
+            <Hints>
+                <PropertyWidgetDecorator type="GenericDecorator"
+                mode="visibility"
+                property="TimeProp"
+                value="1" />
+            </Hints>
+            </DoubleVectorProperty>
+
+            <IntVectorProperty name="TimeSeries" command="SetTimeSeries" default_values="2" number_of_elements="1">
+            <Documentation>How many time steps the timer series contains.</Documentation>
+                <Hints>
+                    <PropertyWidgetDecorator type="GenericDecorator"
+                    mode="visibility"
+                    property="TimeProp"
+                    value="2" />
+                </Hints>
+            </IntVectorProperty>
+
+            <DoubleVectorProperty name="Interval" command="SetInterval" number_of_elements="1" default_values="1.0">
+                <Documentation> The time interval between time steps.</Documentation>
+                <Hints>
+                    <PropertyWidgetDecorator type="GenericDecorator"
+                    mode="visibility"
+                    property="TimeProp"
+                    value="2" />
+                </Hints>
+            </DoubleVectorProperty>
+
+             <!-- Create a UI group that contains all output parameter widgets -->
+            <PropertyGroup panel_widget="Line" label="Output Options">
+                <Property name="Resolution" />
+                <Property name="Scale" />
+                <Property name="Frequency" />
+                <Property name="nOctaves" />
+                <Property name="Persistence" />
+                <Property name="TimeProp" />
+                <Property name="TimeStep" />
+                <Property name="TimeSeries" />
+                <Property name="Interval" />
+            </PropertyGroup>
+
+
+            <!-- DEBUG -->
+            ${DEBUG_WIDGETS}
+
+            <!-- MENU CATEGORY -->
+                <Hints>
+                    <ShowInMenu category="TTK" />
+                </Hints>
+        </SourceProxy>
+    </ProxyGroup>
+</ServerManagerConfiguration>

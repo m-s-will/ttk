@@ -1,0 +1,9 @@
+NAME
+  ttkSimilarityByOverlap
+SOURCES
+  ttkSimilarityByOverlap.cpp
+HEADERS
+  ttkSimilarityByOverlap.h
+DEPENDS
+  similarityByOverlap
+  ttkSimilarityAlgorithm

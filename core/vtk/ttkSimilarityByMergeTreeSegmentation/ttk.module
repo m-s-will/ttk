@@ -1,0 +1,9 @@
+NAME
+  ttkSimilarityByMergeTreeSegmentation
+SOURCES
+  ttkSimilarityByMergeTreeSegmentation.cpp
+HEADERS
+  ttkSimilarityByMergeTreeSegmentation.h
+DEPENDS
+  similarityByMergeTreeSegmentation
+  ttkSimilarityAlgorithm

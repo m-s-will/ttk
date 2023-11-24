@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ServerManagerConfiguration>
+  <ProxyGroup name="filters">
+    <SourceProxy name="ttkSimilarityMatrixTemporalDownsampling" class="ttkSimilarityMatrixTemporalDownsampling" label="TTK SimilarityMatrixTemporalDownsampling">
+      <Documentation long_help="SimilarityMatrixTemporalDownsampling Long" short_help="SimilarityMatrixTemporalDownsampling Short">
+      Downsamples a sequence of similarity matrices based on a chosen time interval.
+      </Documentation>
+
+      <!-- INPUT DATA OBJECTS -->
+      <InputProperty name="Input" command="SetInputConnection">
+        <ProxyGroupDomain name="groups">
+          <Group name="sources" />
+          <Group name="filters" />
+        </ProxyGroupDomain>
+        <DataTypeDomain name="input_type">
+          <DataType value="vtkDataSet" />
+        </DataTypeDomain>
+        <InputArrayDomain name="input_array" attribute_type="point" number_of_components="1" />
+        <InputArrayDomain name="field_array" attribute_type="field" />
+        <Documentation></Documentation>
+      </InputProperty>
+
+      <!-- INPUT PARAMETER WIDGETS -->
+
+      <StringVectorProperty name="InputArray" label="Input Array" command="SetInputArrayToProcess" element_types="0 0 0 0 2" number_of_elements="5">
+        <ArrayListDomain attribute_type="Scalars" name="array_list"  input_domain_name="input_array">
+          <RequiredProperties>
+            <Property function="Input" name="Input" />
+          </RequiredProperties>
+        </ArrayListDomain>
+        <Documentation>The scalar array that contains the matrix information.</Documentation>
+      </StringVectorProperty>
+
+      <StringVectorProperty
+        name="IdsPrev"
+        label="Ids t-1"
+        command="SetInputArrayToProcess" element_types="0 0 0 0 2" number_of_elements="5" default_values="2 0 0 0 Pws">
+        <ArrayListDomain name="array_list" input_domain_name="field_array">
+          <RequiredProperties>
+            <Property name="Input" function="Input" />
+          </RequiredProperties>
+        </ArrayListDomain>
+      </StringVectorProperty>
+
+      <StringVectorProperty
+        name="IdsCur"
+        label="Ids t"
+        command="SetInputArrayToProcess" element_types="0 0 0 0 2" number_of_elements="5" default_values="3 0 0 0 Pcs">
+        <ArrayListDomain name="array_list" input_domain_name="field_array">
+          <RequiredProperties>
+            <Property name="Input" function="Input" />
+          </RequiredProperties>
+        </ArrayListDomain>
+      </StringVectorProperty>
+
+      <!-- Create a UI group that contains all input parameter widgets (here only one) -->
+      <PropertyGroup panel_widget="Line" label="Input Options">
+        <Property name="InputArray" />
+        <Property name="IdsPrev"/>
+        <Property name="IdsCur"/>
+      </PropertyGroup>
+
+      <!-- OUTPUT PARAMETER WIDGETS -->
+
+      <IntVectorProperty name="SamplingInterval" command="SetSamplingInterval" default_values="2" number_of_elements="1">
+        <Documentation>The time interval between sampled matrices.</Documentation>
+      </IntVectorProperty>
+
+      <PropertyGroup panel_widget="Line" label="Output Options">
+        <Property name="SamplingInterval" />
+      </PropertyGroup>
+
+
+      <!-- DEBUG -->
+      ${DEBUG_WIDGETS}
+
+      <!-- MENU CATEGORY -->
+      <Hints>
+        <ShowInMenu category="TTK - Misc" />
+      </Hints>
+    </SourceProxy>
+  </ProxyGroup>
+</ServerManagerConfiguration>

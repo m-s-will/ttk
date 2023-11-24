@@ -1,0 +1,4 @@
+NAME
+  ttkSimilarityByDistance
+DEPENDS
+  ttkSimilarityAlgorithm

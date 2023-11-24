@@ -1,0 +1,9 @@
+NAME
+  ttkSimilarityByPersistencePairs
+SOURCES
+  ttkSimilarityByPersistencePairs.cpp
+HEADERS
+  ttkSimilarityByPersistencePairs.h
+DEPENDS
+  similarityByPersistencePairs
+  ttkSimilarityAlgorithm

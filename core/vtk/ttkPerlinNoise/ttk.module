@@ -1,0 +1,9 @@
+NAME
+  ttkPerlinNoise
+SOURCES
+  ttkPerlinNoise.cpp
+HEADERS
+  ttkPerlinNoise.h
+DEPENDS
+  perlinNoise
+  ttkAlgorithm

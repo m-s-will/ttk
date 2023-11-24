@@ -1,0 +1,10 @@
+NAME
+  ttkInputPointAdvection
+SOURCES
+  ttkInputPointAdvection.cpp
+HEADERS
+  ttkInputPointAdvection.h
+DEPENDS
+  inputInputPointAdvection
+  perlinNoise
+  ttkAlgorithm

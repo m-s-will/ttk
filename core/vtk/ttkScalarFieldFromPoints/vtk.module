@@ -1,0 +1,4 @@
+NAME
+  ttkScalarFieldFromPoints
+DEPENDS
+  ttkAlgorithm

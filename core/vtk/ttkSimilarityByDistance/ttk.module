@@ -1,0 +1,9 @@
+NAME
+  ttkSimilarityByDistance
+SOURCES
+  ttkSimilarityByDistance.cpp
+HEADERS
+  ttkSimilarityByDistance.h
+DEPENDS
+  similarityByDistance
+  ttkSimilarityAlgorithm

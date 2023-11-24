@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ServerManagerConfiguration>
+  <ProxyGroup name="filters">
+    <SourceProxy name="ttkSimilarityByPersistencePairs" class="ttkSimilarityByPersistencePairs" label="TTK SimilarityByPersistencePairs">
+      <Documentation long_help="SimilarityByPersistencePairs" short_help="SimilarityByPersistencePairs">
+        TODO
+      </Documentation>
+
+      <!-- Inputs -->
+      <InputProperty name="Diagrams" port_index="0" command="SetInputConnection">
+        <ProxyGroupDomain name="groups">
+          <Group name="sources" />
+          <Group name="filters" />
+        </ProxyGroupDomain>
+        <DataTypeDomain name="input_type">
+          <DataType value="vtkUnstructuredGrid" />
+          <DataType value="vtkMultiBlockDataSet" />
+        </DataTypeDomain>
+        <InputArrayDomain name="input_arrays" attribute_type="cell" />
+        <Documentation>Persistence Diagrams.</Documentation>
+      </InputProperty>
+
+      <OutputPort index="0" id="port0" name="Matrix" />
+
+      <StringVectorProperty
+      name="n"
+      label="p parameter"
+      command="SetWassersteinMetric"
+      number_of_elements="1"
+      default_values="2" >
+        <Documentation>
+          Value of the parameter p for the Wp (p-th Wasserstein) distance
+          computation (type "inf" for the Bottleneck distance).
+        </Documentation>
+      </StringVectorProperty>
+
+    <IntVectorProperty
+      name="Assignment method"
+      label="Assignment method"
+      command="SetPVAlgorithm"
+      number_of_elements="1"
+      default_values="0" >
+        <EnumerationDomain name="enum">
+          <Entry value="0" text="Sparse Munkres (Wasserstein), Gabow-Tarjan (Bottleneck)"/>
+          <Entry value="1" text="Auction (Wasserstein), Gabow-Tarjan (Bottleneck)"/>
+          <!-- <Entry value="1" text="legacy: doubleMunkres (Wasserstein, Bottleneck)"/> -->
+        </EnumerationDomain>
+        <Documentation>
+          Value of the parameter p for the Wp (p-th Wasserstein) distance
+          computation (type "inf" for the Bottleneck distance).
+        </Documentation>
+      </IntVectorProperty>
+
+      <DoubleVectorProperty
+      name="Lifting"
+      command="SetLifting"
+      label="Geometrical lifting for Wasserstein matching."
+      number_of_elements="1"
+      default_values="0">
+        <Documentation>
+          0 = pure persistance, 100 = pure geometry.
+        </Documentation>
+        <DoubleRangeDomain name="range" min="0" max="100" />
+      </DoubleVectorProperty>
+
+      <DoubleVectorProperty
+      name="Max Jump"
+      command="SetMaxJump"
+      label="Maximum geometrical jump allowed (% of domain)."
+      number_of_elements="1"
+      default_values="10">
+        <Documentation>
+          Prevent “jumps” coming from the geometrical term in the lifted Wasserstein metric.
+          When pure geometry is selected (and p = 2),
+          there will be no matchings between extrema that are
+          more than J% apart geometrically. J is expressed as a percentage of the extent of the
+          geometrical domain (diagonal).
+        </Documentation>
+        <DoubleRangeDomain name="range" min="0" max="100" />
+      </DoubleVectorProperty>
+
+    <!-- Advanced settings. -->
+
+      <StringVectorProperty
+      name="n"
+      label="p parameter"
+      command="SetWassersteinMetric"
+      number_of_elements="1"
+      default_values="2"
+      panel_visibility="advanced">
+        <Documentation>
+          Value of the parameter p for the Wp (p-th Wasserstein) distance
+          computation (type "inf" for the Bottleneck distance).
+        </Documentation>
+      </StringVectorProperty>
+
+      <DoubleVectorProperty
+      name="spe"
+      label="Extremum weight"
+      command="SetPE"
+      number_of_elements="1"
+      default_values="1"
+      panel_visibility="advanced">
+        <DoubleRangeDomain name="spe" min="0.0" max="1.0"/>
+        <Documentation>Importance weight for extrema</Documentation>
+      </DoubleVectorProperty>
+
+      <DoubleVectorProperty
+      name="sps"
+      label="Saddle weight"
+      command="SetPS"
+      number_of_elements="1"
+      default_values="1"
+      panel_visibility="advanced">
+        <DoubleRangeDomain name="sps" min="0.0" max="1.0"/>
+        <Documentation>Importance weight for saddles</Documentation>
+      </DoubleVectorProperty>
+
+      <DoubleVectorProperty
+      name="spx"
+      label="X weight"
+      command="SetPX"
+      number_of_elements="1"
+      default_values="0"
+      panel_visibility="advanced">
+        <DoubleRangeDomain name="spx" min="0.0" max="1.0"/>
+        <Documentation>Importance weight for the X component of
+the extremum</Documentation>
+      </DoubleVectorProperty>
+
+      <DoubleVectorProperty
+      name="spy"
+      label="Y weight"
+      command="SetPY"
+      number_of_elements="1"
+      default_values="0"
+      panel_visibility="advanced"
+      >
+        <DoubleRangeDomain name="spy" min="0.0" max="1.0"/>
+        <Documentation>Importance weight for the Y component of
+the extremum</Documentation>
+      </DoubleVectorProperty>
+
+      <DoubleVectorProperty
+      name="spz"
+      label="Z weight"
+      command="SetPZ"
+      number_of_elements="1"
+      default_values="0"
+      panel_visibility="advanced">
+        <DoubleRangeDomain name="spz" min="0.0" max="1.0"/>
+        <Documentation>Importance weight for the Z component of
+the extremum</Documentation>
+      </DoubleVectorProperty>
+
+      <StringVectorProperty name="FeatureIds" command="SetInputArrayToProcess" element_types="0 0 0 0 2" number_of_elements="5">
+        <ArrayListDomain name="array_list" input_domain_name="input_arrays">
+          <RequiredProperties>
+            <Property function="Input" name="Diagrams" />
+          </RequiredProperties>
+        </ArrayListDomain>
+        <Documentation>Feature Ids.</Documentation>
+      </StringVectorProperty>
+
+      ${DEBUG_WIDGETS}
+
+      <Hints>
+        <ShowInMenu category="TTK - Time-Varying Scalar Data" />
+      </Hints>
+    </SourceProxy>
+  </ProxyGroup>
+</ServerManagerConfiguration>

@@ -1,0 +1,4 @@
+NAME
+  ttkSimilarityByMergeTreeSegmentation
+DEPENDS
+  ttkSimilarityAlgorithm

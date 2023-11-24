@@ -168,7 +168,7 @@ int ttk::ConnectedComponentsPC::computeConnectedComponentsPC(
   {
     #pragma omp for schedule(static)
     for(SimplexId i = 0; i < nVertices; i++) {
-      if(abs(scalarArray[i]-isoVal)<10) {
+      if(isoVal < scalarArray[i]) {
         featureMask[i] = 1;
       }
     }

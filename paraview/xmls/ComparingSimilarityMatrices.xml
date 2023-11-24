@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ServerManagerConfiguration>
+  <ProxyGroup name="filters">
+    <SourceProxy name="ttkComparingSimilarityMatrices" class="ttkComparingSimilarityMatrices" label="TTK ComparingSimilarityMatrices">
+      <Documentation long_help="ComparingSimilarityMatrices Long" short_help="ComparingSimilarityMatrices Short">
+        This filter compares two sequences of similarity matrices. First, the number of continuations, splits, merges, births and deaths are counted for each matrix, then the matrices are compared based on correctness using the IndexIdMaps provided by the similarity matrices. Note that the features need to have the same ids for both ground truth and algorithm to compare correctness of the tracking.
+      .</Documentation>
+
+      <!-- INPUT DATA OBJECTS -->
+      <InputProperty name="AlgorithmMatrices" port_index="0" command="SetInputConnection">
+        <ProxyGroupDomain name="groups">
+          <Group name="sources" />
+          <Group name="filters" />
+        </ProxyGroupDomain>
+        <DataTypeDomain name="input_type">
+          <DataType value="vtkMultiBlockDataSet" />
+        </DataTypeDomain>
+        <Documentation>The similarity matrices of the algorithm being tested.</Documentation>
+      </InputProperty>
+
+      <InputProperty name="GroundTruth" port_index="1" command="SetInputConnection">
+        <ProxyGroupDomain name="groups">
+          <Group name="sources" />
+          <Group name="filters" />
+        </ProxyGroupDomain>
+        <DataTypeDomain name="input_type">
+          <DataType value="vtkMultiBlockDataSet" />
+        </DataTypeDomain>
+        <Documentation>The ground truth similarity matrices</Documentation>
+      </InputProperty>
+
+      <StringVectorProperty name="MatrixAlgorithm" command="SetInputArrayToProcess" element_types="0 0 0 0 2" number_of_elements="5" default_values="0">
+        <ArrayListDomain attribute_type="Scalars" name="array_list">
+          <RequiredProperties>
+            <Property function="Input" name="AlgorithmMatrices" />
+          </RequiredProperties>
+        </ArrayListDomain>
+        <Documentation>Array with matrix values.</Documentation>
+      </StringVectorProperty>
+
+      <StringVectorProperty name="MatrixGroundTruth" command="SetInputArrayToProcess" element_types="0 0 0 0 2" number_of_elements="5" default_values="1">
+        <ArrayListDomain attribute_type="Scalars" name="array_list">
+          <RequiredProperties>
+            <Property function="Input" name="GroundTruth" />
+          </RequiredProperties>
+        </ArrayListDomain>
+        <Documentation>Array with matrix values.</Documentation>
+      </StringVectorProperty>
+
+      <!-- Create a UI group that contains all algorithm parameter widgets-->
+      <PropertyGroup panel_widget="Line" label="Algorithm Options">
+        <Property name="MatrixAlgorithm" />
+      </PropertyGroup>
+
+      <!-- Create a UI group that contains all ground truth parameter widgets-->
+      <PropertyGroup panel_widget="Line" label="Ground Truth Options">
+        <Property name="MatrixGroundTruth" />
+      </PropertyGroup>
+
+      <!-- DEBUG -->
+      ${DEBUG_WIDGETS}
+
+      <!-- MENU CATEGORY -->
+      <Hints>
+        <ShowInMenu category="TTK - Misc" />
+      </Hints>
+    </SourceProxy>
+  </ProxyGroup>
+</ServerManagerConfiguration>

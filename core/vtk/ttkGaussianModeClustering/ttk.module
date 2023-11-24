@@ -1,0 +1,9 @@
+NAME
+  ttkGaussianModeClustering
+SOURCES
+  ttkGaussianModeClustering.cpp
+HEADERS
+  ttkGaussianModeClustering.h
+DEPENDS
+  gaussianModeClustering
+  ttkSimilarityAlgorithm

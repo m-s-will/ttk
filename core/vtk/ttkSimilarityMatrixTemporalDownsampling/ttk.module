@@ -1,0 +1,9 @@
+NAME
+  ttkSimilarityMatrixTemporalDownsampling
+SOURCES
+  ttkSimilarityMatrixTemporalDownsampling.cpp
+HEADERS
+  ttkSimilarityMatrixTemporalDownsampling.h
+DEPENDS
+  similarityMatrixTemporalDownsampling
+  ttkAlgorithm

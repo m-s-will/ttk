@@ -1,0 +1,9 @@
+NAME
+  ttkScalarFieldFromPoints
+SOURCES
+  ttkScalarFieldFromPoints.cpp
+HEADERS
+  ttkScalarFieldFromPoints.h
+DEPENDS
+  scalarFieldFromPoints
+  ttkAlgorithm
