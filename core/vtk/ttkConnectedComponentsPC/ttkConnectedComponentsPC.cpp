@@ -72,6 +72,15 @@ int ttkConnectedComponentsPC::RequestData(vtkInformation *ttkNotUsed(request),
   if(inputScalars == nullptr)
     return !this->printErr("No input scalars");
 
+  auto inputOrderArray = ttkAlgorithm::GetOrderArray(
+    input, 0, 1);
+
+  if(inputOrderArray == nullptr)
+    return !this->printErr("No order array");
+
+  if(inputOrderArray->GetDataType() != VTK_INT
+     && inputOrderArray->GetDataType() != VTK_ID_TYPE)
+    return !this->printErr("input offset field type not supported.");
 
   this->printMsg("Launching computation on field `"
                  + std::string(inputScalars->GetName()) + "'...");
@@ -102,17 +111,17 @@ int ttkConnectedComponentsPC::RequestData(vtkInformation *ttkNotUsed(request),
 
 ttkVtkTemplateMacro(
     inputScalars->GetDataType(),triangulation->getType(),
-    (ret = this->execute<VTK_TT, TTK_TT>(ttkUtils::GetPointer<SimplexId>(segmentation),this->IsoValue, ttkUtils::GetPointer<VTK_TT>(inputScalars),
+    (ret = this->execute<VTK_TT, TTK_TT>(ttkUtils::GetPointer<SimplexId>(segmentation),this->IsoValue, ttkUtils::GetPointer<VTK_TT>(inputScalars),ttkUtils::GetPointer<SimplexId>(inputOrderArray),
                             *static_cast<TTK_TT *>(triangulation->getData()), ttkUtils::GetPointer<ttk::SimplexId>(globalIds))));
   } else {
 ttkVtkTemplateMacro(
     inputScalars->GetDataType(),triangulation->getType(),
-    (ret = this->execute<VTK_TT, TTK_TT>(ttkUtils::GetPointer<SimplexId>(segmentation),this->IsoValue, ttkUtils::GetPointer<VTK_TT>(inputScalars),
+    (ret = this->execute<VTK_TT, TTK_TT>(ttkUtils::GetPointer<SimplexId>(segmentation),this->IsoValue, ttkUtils::GetPointer<VTK_TT>(inputScalars),ttkUtils::GetPointer<SimplexId>(inputOrderArray),
                             *static_cast<TTK_TT *>(triangulation->getData()))));  }
 #else
 ttkVtkTemplateMacro(
     inputScalars->GetDataType(),triangulation->getType(),
-    (ret = this->execute<VTK_TT, TTK_TT>(ttkUtils::GetPointer<SimplexId>(segmentation),this->IsoValue, ttkUtils::GetPointer<VTK_TT>(inputScalars),
+    (ret = this->execute<VTK_TT, TTK_TT>(ttkUtils::GetPointer<SimplexId>(segmentation),this->IsoValue, ttkUtils::GetPointer<VTK_TT>(inputScalars),ttkUtils::GetPointer<SimplexId>(inputOrderArray),
                             *static_cast<TTK_TT *>(triangulation->getData()))));
 #endif // TTK_ENABLE_MPI
 

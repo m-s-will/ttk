@@ -85,6 +85,7 @@ namespace ttk {
     inline int execute(SimplexId *segmentation_,
                        const double isoVal,
                        const dataType *const scalarArray,
+                       const SimplexId *const orderArray,
                        const triangulationType &triangulation, const ttk::SimplexId *globalIds = nullptr);
 
 
@@ -108,6 +109,7 @@ namespace ttk {
       SimplexId *const segmentation,
       const double isoVal,
       const dataType *const scalarArray,
+      const SimplexId *const orderArray,
       const triangulationType &triangulation, const ttk::SimplexId *globalIds) const;
 
   };
@@ -117,6 +119,7 @@ template <typename dataType, typename triangulationType>
 int ttk::ConnectedComponentsPC::execute(SimplexId *segmentation_,
                                   const double isoVal,
                                   const dataType *const scalarArray,
+                                  const SimplexId *const orderArray,
                                   const triangulationType &triangulation,
                                   const ttk::SimplexId *globalIds) {
   if(scalarArray == nullptr)
@@ -128,7 +131,7 @@ int ttk::ConnectedComponentsPC::execute(SimplexId *segmentation_,
                  this->threadNumber_);
 
   computeConnectedComponentsPC(
-    segmentation_, isoVal, scalarArray, triangulation, globalIds);
+    segmentation_, isoVal, scalarArray, orderArray, triangulation, globalIds);
 
   this->printMsg("Data-set ("
                    + std::to_string(triangulation.getNumberOfVertices())
@@ -144,6 +147,7 @@ int ttk::ConnectedComponentsPC::computeConnectedComponentsPC(
   SimplexId *const segmentation,
   const double isoVal,
   const dataType *const scalarArray,
+  const SimplexId *const orderArray,
   const triangulationType &triangulation,
   const ttk::SimplexId *globalIds) const {
 
@@ -163,16 +167,14 @@ int ttk::ConnectedComponentsPC::computeConnectedComponentsPC(
   const SimplexId nVertices = triangulation.getNumberOfVertices();
   std::vector<int> featureMask(nVertices, 0);
   this->printMsg("Building Feature mask for isoval " + std::to_string(isoVal));
-     // first build up the feature mask
-  #pragma omp parallel num_threads(threadNumber_)
-  {
-    #pragma omp for schedule(static)
-    for(SimplexId i = 0; i < nVertices; i++) {
-      if(isoVal < scalarArray[i]) {
-        featureMask[i] = 1;
-      }
+  // first build up the feature mask
+  #pragma omp parallel for num_threads(threadNumber_)
+  for(SimplexId i = 0; i < nVertices; i++) {
+    if(isoVal < scalarArray[i]) {
+      featureMask[i] = 1;
     }
   }
+
 
 
   std::vector<SimplexId> lActiveVertices;
@@ -204,10 +206,9 @@ int ttk::ConnectedComponentsPC::computeConnectedComponentsPC(
       if(triangulation.getVertexRank(i) == ttk::MPIrank_) {
         for(SimplexId n = 0; n < numNeighbors; n++) {
           triangulation.getVertexNeighbor(i, n, neighborId);
-          if(featureMask[neighborId] == 1 && globalIds[neighborId] > globalIds[mi]) {
+          if(featureMask[neighborId] == 1 && orderArray[neighborId] > orderArray[mi]) {
             mi = neighborId;
             hasLargerNeighbor = true;
-            continue;
           }
         }
       } else {
@@ -217,21 +218,21 @@ int ttk::ConnectedComponentsPC::computeConnectedComponentsPC(
     } else {
       for(SimplexId n = 0; n < numNeighbors; n++) {
           triangulation.getVertexNeighbor(i, n, neighborId);
-          if(featureMask[neighborId] == 1 && neighborId > mi) {
+          if(featureMask[neighborId] == 1 && orderArray[neighborId] > orderArray[mi]) {
             mi = neighborId;
             hasLargerNeighbor = true;
-            continue;
           }
         }
     }
 #else
       for(SimplexId n = 0; n < numNeighbors; n++) {
           triangulation.getVertexNeighbor(i, n, neighborId);
+          // using orderArray here, leads to it just calculating the descending manifold in the featuremask
+          // leaving it, leads to it sometimes being wrong on vertical lines
+          // we need a way to uniquely identify _something_ to the segmentation to get the correct connected components
           if(featureMask[neighborId] == 1 && neighborId > mi) {
             mi = neighborId;
             hasLargerNeighbor = true;
-            // we only care about ANY neighbor belonging to the feature
-            continue;
           }
         }
 #endif
