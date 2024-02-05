@@ -85,7 +85,6 @@ namespace ttk {
     inline int execute(SimplexId *segmentation_,
                        const double isoVal,
                        const dataType *const scalarArray,
-                       const SimplexId *const orderArray,
                        const triangulationType &triangulation, const ttk::SimplexId *globalIds = nullptr);
 
 
@@ -109,7 +108,6 @@ namespace ttk {
       SimplexId *const segmentation,
       const double isoVal,
       const dataType *const scalarArray,
-      const SimplexId *const orderArray,
       const triangulationType &triangulation, const ttk::SimplexId *globalIds) const;
 
   };
@@ -119,7 +117,6 @@ template <typename dataType, typename triangulationType>
 int ttk::ConnectedComponentsPC::execute(SimplexId *segmentation_,
                                   const double isoVal,
                                   const dataType *const scalarArray,
-                                  const SimplexId *const orderArray,
                                   const triangulationType &triangulation,
                                   const ttk::SimplexId *globalIds) {
   if(scalarArray == nullptr)
@@ -131,7 +128,7 @@ int ttk::ConnectedComponentsPC::execute(SimplexId *segmentation_,
                  this->threadNumber_);
 
   computeConnectedComponentsPC(
-    segmentation_, isoVal, scalarArray, orderArray, triangulation, globalIds);
+    segmentation_, isoVal, scalarArray, triangulation, globalIds);
 
   this->printMsg("Data-set ("
                    + std::to_string(triangulation.getNumberOfVertices())
@@ -147,7 +144,6 @@ int ttk::ConnectedComponentsPC::computeConnectedComponentsPC(
   SimplexId *const segmentation,
   const double isoVal,
   const dataType *const scalarArray,
-  const SimplexId *const orderArray,
   const triangulationType &triangulation,
   const ttk::SimplexId *globalIds) const {
 
@@ -175,8 +171,6 @@ int ttk::ConnectedComponentsPC::computeConnectedComponentsPC(
     }
   }
 
-
-
   std::vector<SimplexId> lActiveVertices;
   this->printMsg("Starting to compute active vertices");
 #ifdef TTK_ENABLE_OPENMP
@@ -190,23 +184,21 @@ int ttk::ConnectedComponentsPC::computeConnectedComponentsPC(
 #endif // TTK_ENABLE_OPENMP
     // find the largest neighbor for each vertex
     for(SimplexId i = 0; i < nVertices; i++) {
-      SimplexId neighborId{0};
-      SimplexId const numNeighbors = triangulation.getVertexNeighborNumber(i);
-
       bool hasLargerNeighbor = false;
-      SimplexId &mi = segmentation[i];
-      mi = i;
-
-      // check all neighbors
       if(featureMask[i] == 0) {
-        mi = -1;
+        segmentation[i] = -1;
       } else {
+        SimplexId neighborId{0};
+        SimplexId const numNeighbors = triangulation.getVertexNeighborNumber(i);
+
+        SimplexId &mi = segmentation[i];
+        mi = i;
 #ifdef TTK_ENABLE_MPI
     if(useMPI) {
       if(triangulation.getVertexRank(i) == ttk::MPIrank_) {
         for(SimplexId n = 0; n < numNeighbors; n++) {
           triangulation.getVertexNeighbor(i, n, neighborId);
-          if(featureMask[neighborId] == 1 && orderArray[neighborId] > orderArray[mi]) {
+          if(featureMask[neighborId] == 1 && neighborId > mi) {
             mi = neighborId;
             hasLargerNeighbor = true;
           }
@@ -218,13 +210,14 @@ int ttk::ConnectedComponentsPC::computeConnectedComponentsPC(
     } else {
       for(SimplexId n = 0; n < numNeighbors; n++) {
           triangulation.getVertexNeighbor(i, n, neighborId);
-          if(featureMask[neighborId] == 1 && orderArray[neighborId] > orderArray[mi]) {
+          if(featureMask[neighborId] == 1 && neighborId > mi) {
             mi = neighborId;
             hasLargerNeighbor = true;
           }
         }
     }
 #else
+      // check all neighbors
       for(SimplexId n = 0; n < numNeighbors; n++) {
           triangulation.getVertexNeighbor(i, n, neighborId);
           // using orderArray here, leads to it just calculating the descending manifold in the featuremask
@@ -242,7 +235,10 @@ int ttk::ConnectedComponentsPC::computeConnectedComponentsPC(
       }
     }
 
-    //this->printMsg("Finished computing active vertices");
+#ifdef TTK_ENABLE_OPENMP
+#pragma omp barrier
+#endif // TTK_ENABLE_OPENMP
+    this->printMsg("Finished computing active vertices, starting first PC");
     size_t lnActiveVertices = lActiveVertices.size();
     size_t currentIndex = 0;
     //this->printMsg("Starting compressing paths for thread");
@@ -267,10 +263,76 @@ int ttk::ConnectedComponentsPC::computeConnectedComponentsPC(
       lnActiveVertices = currentIndex;
       currentIndex = 0;
     }
-    //this->printMsg("Finished compressing paths for thread");
+    //this->printMsg("Finished first PC, starting second vertex calculation");
+#ifdef TTK_ENABLE_OPENMP
+#pragma omp barrier
+#endif // TTK_ENABLE_OPENMP
+    // second pathcompression to merge multiple segments in one connected component
+    for(SimplexId i = 0; i < nVertices; i++) {
+      SimplexId neighborId{0};
+      SimplexId const numNeighbors = triangulation.getVertexNeighborNumber(i);
+
+      SimplexId &mi = segmentation[i];
+
+      // check all neighbors
+      if(featureMask[i] == 0) {
+        mi = -1;
+      } else {
+        for(SimplexId n = 0; n < numNeighbors; n++) {
+          triangulation.getVertexNeighbor(i, n, neighborId);
+          // using orderArray here, leads to it just calculating the descending manifold in the featuremask
+          // leaving it, leads to it sometimes being wrong on vertical lines
+          // we need a way to uniquely identify _something_ to the segmentation to get the correct connected components
+          if(segmentation[neighborId] > mi) {
+            mi = segmentation[neighborId];
+            segmentation[mi] = segmentation[neighborId];
+          }
+        }
+      }
+    }
 #ifdef TTK_ENABLE_OPENMP
   }
 #endif // TTK_ENABLE_OPENMP
+
+    this->printMsg("Finished second vertex calculation, starting final compression");
+    std::vector<ttk::SimplexId> currentSeg(nVertices);
+    int step = 0;
+    bool same = false;
+    while(!same) {
+      same = true;
+      if(step % 2 == 0) {
+#ifdef TTK_ENABLE_OPENMP
+#pragma omp parallel for num_threads(this->threadNumber_)
+#endif
+        for(ttk::SimplexId i = 0; i < nVertices; i++) {
+          ttk::SimplexId nextSeg = segmentation[segmentation[i]];
+          if(nextSeg != currentSeg[i] && segmentation[i] != -1) {
+            currentSeg[i] = nextSeg;
+            same = false;
+          }
+        }
+      } else {
+#ifdef TTK_ENABLE_OPENMP
+#pragma omp parallel for num_threads(this->threadNumber_)
+#endif
+        for(ttk::SimplexId i = 0; i < nVertices; i++) {
+          int nextSeg = currentSeg[currentSeg[i]];
+          if(nextSeg != segmentation[i] && currentSeg[i] != -1) {
+            segmentation[i] = nextSeg;
+            same = false;
+          }
+        }
+      }
+      step++;
+    }
+    this->printMsg("Finished final compression");
+
+
+    // we need to compress everything pointing to mi to the new segmentation
+    //this->printMsg("Starting compressing paths for thread");
+    // compress paths until no changes occur
+
+    //this->printMsg("Finished compressing paths for thread");
 #ifdef TTK_ENABLE_MPI
 // now we need to transform local ids into global ids to correctly work
 // over all ranks
