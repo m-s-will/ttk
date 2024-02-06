@@ -45,6 +45,9 @@ if (TTK_ENABLE_MPI)
   find_package(MPI REQUIRED)
   option(TTK_ENABLE_MPI_TIME "Enable time measuring for MPI computation" FALSE)
   mark_as_advanced(TTK_ENABLE_MPI_TIME)
+  option(TTK_ENABLE_MPI_RANK_ID_INT "Enable rank ids of type int (default char) for distributed sort" FALSE)
+  mark_as_advanced(TTK_ENABLE_MPI_RANK_ID_TIME)
+
 endif()
 
 if(TTK_BUILD_PARAVIEW_PLUGINS OR TTK_BUILD_VTK_WRAPPERS)
@@ -293,6 +296,20 @@ if(WEBSOCKETPP_FOUND)
 else()
   option(TTK_ENABLE_WEBSOCKETPP "Enable WebSocketIO module" OFF)
   message(STATUS "WebSocketPP not found, disabling WebSocketIO module in TTK.")
+endif()
+
+
+option(TTK_ENABLE_QHULL "Use Qhull instead of Boost for convex hulls" ON)
+if (TTK_ENABLE_QHULL)
+  find_package(Qhull QUIET)
+  if(Qhull_FOUND AND TARGET Qhull::qhullcpp)
+    message(STATUS "Found Qhull::qhullcpp ${Qhull_VERSION} (${Qhull_DIR})")
+  else()
+    set(Qhull_FOUND FALSE)
+  endif()
+  if(NOT Qhull_FOUND)
+    message(STATUS "Qhull::qhullcpp not found, disabling Qhull support in TTK.")
+  endif()
 endif()
 
 # --- Install path

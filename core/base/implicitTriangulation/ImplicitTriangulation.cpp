@@ -2969,11 +2969,9 @@ int ttk::ImplicitTriangulation::preconditionDistributedCells() {
     localBBox_z_max{this->localGridOffset_[2]};
 
 #ifdef TTK_ENABLE_OPENMP
-#pragma omp parallel for reduction(                    \
-  min                                                  \
-  : localBBox_x_min, localBBox_y_min, localBBox_z_min) \
-  reduction(max                                        \
-            : localBBox_x_max, localBBox_y_max, localBBox_z_max)
+#pragma omp parallel for reduction(                          \
+    min : localBBox_x_min, localBBox_y_min, localBBox_z_min) \
+  reduction(max : localBBox_x_max, localBBox_y_max, localBBox_z_max)
 #endif
   for(SimplexId lcid = 0; lcid < nLocCells; ++lcid) {
     // only keep non-ghost cells

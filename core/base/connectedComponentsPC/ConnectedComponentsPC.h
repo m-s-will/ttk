@@ -280,9 +280,6 @@ int ttk::ConnectedComponentsPC::computeConnectedComponentsPC(
       } else {
         for(SimplexId n = 0; n < numNeighbors; n++) {
           triangulation.getVertexNeighbor(i, n, neighborId);
-          // using orderArray here, leads to it just calculating the descending manifold in the featuremask
-          // leaving it, leads to it sometimes being wrong on vertical lines
-          // we need a way to uniquely identify _something_ to the segmentation to get the correct connected components
           if(segmentation[neighborId] > mi) {
             mi = segmentation[neighborId];
             segmentation[mi] = segmentation[neighborId];

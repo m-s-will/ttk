@@ -9,6 +9,7 @@
 #include <vtkInformationVector.h>
 #include <vtkPolyData.h>
 #include <vtkThreshold.h>
+#include <vtkVersionMacros.h>
 
 vtkStandardNewMacro(ttkContourTree);
 
@@ -214,8 +215,9 @@ int ttkContourTree::getOffsets() {
 
   offsets_.resize(nbCC_);
   for(int cc = 0; cc < nbCC_; cc++) {
-    const auto offsets = this->GetOrderArray(
-      connected_components_[cc], 0, 1, ForceInputOffsetScalarField);
+    const auto offsets
+      = this->GetOrderArray(connected_components_[cc], 0, triangulation_[cc],
+                            false, 1, ForceInputOffsetScalarField);
 
     offsets_[cc].resize(connected_components_[cc]->GetNumberOfPoints());
 

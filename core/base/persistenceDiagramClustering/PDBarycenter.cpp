@@ -38,7 +38,8 @@ void ttk::PDBarycenter::runMatching(
 
   double local_cost = *total_cost;
 #ifdef TTK_ENABLE_OPENMP
-#pragma omp parallel for num_threads(threadNumber_) schedule(dynamic, 1) reduction(+:local_cost)
+#pragma omp parallel for num_threads(threadNumber_) schedule(dynamic, 1) \
+  reduction(+ : local_cost)
 #endif
   for(int i = 0; i < numberOfInputs_; i++) {
     double const delta_lim = 0.01;
@@ -88,7 +89,8 @@ void ttk::PDBarycenter::runMatchingAuction(
   bool actual_distance) {
   double local_cost = *total_cost;
 #ifdef TTK_ENABLE_OPENMP
-#pragma omp parallel for num_threads(threadNumber_) schedule(dynamic, 1) reduction(+:local_cost)
+#pragma omp parallel for num_threads(threadNumber_) schedule(dynamic, 1) \
+  reduction(+ : local_cost)
 #endif
   for(int i = 0; i < numberOfInputs_; i++) {
     PersistenceDiagramAuction auction(
