@@ -59,7 +59,7 @@ public:
   static DT *GetPointer(vtkDataArray *array, vtkIdType start = 0) {
     return static_cast<DT *>(ttkUtils::GetVoidPointer(array, start));
   }
-    template <typename DT>
+  template <typename DT>
   static const DT *GetConstPointer(const vtkDataArray *array,
                                    vtkIdType start = 0) {
     return static_cast<const DT *>(

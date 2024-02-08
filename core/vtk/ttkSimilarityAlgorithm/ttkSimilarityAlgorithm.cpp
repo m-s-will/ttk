@@ -183,7 +183,7 @@ int ttkSimilarityAlgorithm::AddIndexIdMap(vtkImageData *similarityMatrix,
   auto fd = similarityMatrix->GetFieldData();
   auto array = vtkSmartPointer<vtkDataArray>::Take(idArray->NewInstance());
   array->ShallowCopy(idArray);
-  
+
   array->SetName((std::string(idArray->GetName())
                   + (isMapForCurrentTimestep ? "_t" : "_t-1"))
                    .data());

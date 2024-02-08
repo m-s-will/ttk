@@ -69,11 +69,9 @@ class TTKPAIREXTREMA_EXPORT ttkPairExtrema
     protected ttk::PairExtrema // and we inherit from the base class
 {
 private:
-
   std::string OutputArrayName{"Pairs"};
 
 public:
-
   vtkSetMacro(OutputArrayName, const std::string &);
   vtkGetMacro(OutputArrayName, std::string);
 
@@ -85,13 +83,10 @@ public:
   vtkTypeMacro(ttkPairExtrema, ttkAlgorithm);
 
 protected:
-
   ttkPairExtrema();
   ~ttkPairExtrema() override = default;
 
-
   int FillInputPortInformation(int port, vtkInformation *info) override;
-
 
   int FillOutputPortInformation(int port, vtkInformation *info) override;
 

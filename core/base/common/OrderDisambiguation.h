@@ -26,15 +26,16 @@ namespace ttk {
                     const int nThreads) {
 
     // array of pre-sorted vertices
-    std::vector<std::tuple<scalarType,SimplexId>> sortedVertices(nVerts);
+    std::vector<std::tuple<scalarType, SimplexId>> sortedVertices(nVerts);
 
     TTK_FORCE_USE(nThreads);
+    TTK_FORCE_USE(offsets);
 
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for num_threads(nThreads)
 #endif // TTK_ENABLE_OPENMP
     for(size_t i = 0; i < nVerts; ++i) {
-      auto& t = sortedVertices[i];
+      auto &t = sortedVertices[i];
       std::get<0>(t) = scalars[i];
       std::get<1>(t) = i;
     }
@@ -47,7 +48,7 @@ namespace ttk {
     //             || (scalars[a] == scalars[b] && offsets[a] < offsets[b]);
     //     });
     // } else {
-      TTK_PSORT(nThreads, sortedVertices.begin(), sortedVertices.end());
+    TTK_PSORT(nThreads, sortedVertices.begin(), sortedVertices.end());
     // }
 
 #ifdef TTK_ENABLE_OPENMP

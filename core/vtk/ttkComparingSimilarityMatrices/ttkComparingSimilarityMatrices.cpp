@@ -110,8 +110,7 @@ int ttkComparingSimilarityMatrices::RequestData(
                       ttkUtils::GetPointer<T1>(indexIdMapAlgP),
                       ttkUtils::GetPointer<T1>(indexIdMapAlgC),
                       ttkUtils::GetPointer<T1>(indexIdMapGTP),
-                      ttkUtils::GetPointer<T1>(indexIdMapGTC),
-                      dimsGT)));
+                      ttkUtils::GetPointer<T1>(indexIdMapGTC), dimsGT)));
     if(!status)
       return 0;
   }
@@ -192,8 +191,8 @@ int ttkComparingSimilarityMatrices::RequestData(
     prepArray(mergesOk, "MergesCorrect", nMatrices + 1, 1));
   output->AddColumn(mergesOk);
 
-  //int nColumns = 15;
-  //int totals[nColumns] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+  // int nColumns = 15;
+  // int totals[nColumns] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
   int totals[15] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
   for(int i = 0; i < nMatrices; i++) {

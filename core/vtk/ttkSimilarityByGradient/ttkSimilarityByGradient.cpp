@@ -4,10 +4,10 @@
 #include <vtkInformation.h>
 #include <vtkMultiBlockDataSet.h>
 
+#include <vtkDoubleArray.h>
 #include <vtkIdTypeArray.h>
 #include <vtkImageData.h>
 #include <vtkIntArray.h>
-#include <vtkDoubleArray.h>
 
 #include <vtkPointData.h>
 
@@ -60,15 +60,14 @@ int ttkSimilarityByGradient::ComputeSimilarityMatrix(
   similarityMatrix->SetDimensions(totalFeatures0, totalFeatures1, 1);
   similarityMatrix->AllocateScalars(VTK_INT, 1);
 
-
   auto forManifold = vtkSmartPointer<vtkDoubleArray>::New();
-  forManifold->SetNumberOfTuples(totalFeatures0*totalFeatures1);
+  forManifold->SetNumberOfTuples(totalFeatures0 * totalFeatures1);
   forManifold->SetNumberOfComponents(1);
   forManifold->SetName("ForwardManifold");
   similarityMatrix->GetPointData()->AddArray(forManifold);
 
   auto backManifold = vtkSmartPointer<vtkDoubleArray>::New();
-  backManifold->SetNumberOfTuples(totalFeatures0*totalFeatures1);
+  backManifold->SetNumberOfTuples(totalFeatures0 * totalFeatures1);
   backManifold->SetNumberOfComponents(1);
   backManifold->SetName("BackwardManifold");
   similarityMatrix->GetPointData()->AddArray(backManifold);
@@ -80,20 +79,19 @@ int ttkSimilarityByGradient::ComputeSimilarityMatrix(
   int status = ttkSimilarityAlgorithm::BuildIdIndexMap(map0, vertexIds0);
   status = ttkSimilarityAlgorithm::BuildIdIndexMap(map1, vertexIds1);
 
-
   // MANIFOLDS //
   std::map<ttk::SimplexId, std::map<ttk::SimplexId, int>> forwardMapManifold;
   std::map<ttk::SimplexId, std::map<ttk::SimplexId, int>> backwardMapManifold;
   status = 0;
   status = this->computeMapManifoldOverlap<ttk::SimplexId>(
-      forwardMapManifold, ttkUtils::GetPointer<ttk::SimplexId>(manifoldSeg0), ttkUtils::GetPointer<ttk::SimplexId>(manifoldSeg1),
-      totalVertices);
+    forwardMapManifold, ttkUtils::GetPointer<ttk::SimplexId>(manifoldSeg0),
+    ttkUtils::GetPointer<ttk::SimplexId>(manifoldSeg1), totalVertices);
   if(!status)
     return 0;
   status = 0;
   status = this->computeMapManifoldOverlap<ttk::SimplexId>(
-      backwardMapManifold, ttkUtils::GetPointer<ttk::SimplexId>(manifoldSeg1), ttkUtils::GetPointer<ttk::SimplexId>(manifoldSeg0),
-      totalVertices);
+    backwardMapManifold, ttkUtils::GetPointer<ttk::SimplexId>(manifoldSeg1),
+    ttkUtils::GetPointer<ttk::SimplexId>(manifoldSeg0), totalVertices);
   if(!status)
     return 0;
 
@@ -102,38 +100,35 @@ int ttkSimilarityByGradient::ComputeSimilarityMatrix(
   std::map<ttk::SimplexId, int> manifoldSize1;
   status = 0;
   status = this->computeManifoldSize<ttk::SimplexId>(
-      manifoldSize0, ttkUtils::GetPointer<ttk::SimplexId>(manifoldSeg0),
-      totalVertices);
+    manifoldSize0, ttkUtils::GetPointer<ttk::SimplexId>(manifoldSeg0),
+    totalVertices);
   status = 0;
   status = this->computeManifoldSize<ttk::SimplexId>(
-      manifoldSize1, ttkUtils::GetPointer<ttk::SimplexId>(manifoldSeg1),
-      totalVertices);
+    manifoldSize1, ttkUtils::GetPointer<ttk::SimplexId>(manifoldSeg1),
+    totalVertices);
 
   status = 0;
   status = this->computeSimilarityManifoldMatrix<ttk::SimplexId>(
-      ttkUtils::GetPointer<double>(forManifold),
-      forwardMapManifold,
-      manifoldSize0,
-      ttkUtils::GetPointer<ttk::SimplexId>(vertexIds0),
-      totalFeatures0, totalFeatures1, map1,
-      [](ttk::SimplexId i, ttk::SimplexId j, ttk::SimplexId n,
-          ttk::SimplexId) { return j * n + i; },
-      "Computing Manifold Forward Similarity Matrix");
+    ttkUtils::GetPointer<double>(forManifold), forwardMapManifold,
+    manifoldSize0, ttkUtils::GetPointer<ttk::SimplexId>(vertexIds0),
+    totalFeatures0, totalFeatures1, map1,
+    [](ttk::SimplexId i, ttk::SimplexId j, ttk::SimplexId n, ttk::SimplexId) {
+      return j * n + i;
+    },
+    "Computing Manifold Forward Similarity Matrix");
   if(!status)
     return 0;
   status = 0;
   status = this->computeSimilarityManifoldMatrix<ttk::SimplexId>(
-      ttkUtils::GetPointer<double>(backManifold),
-      backwardMapManifold,
-      manifoldSize1,
-      ttkUtils::GetPointer<ttk::SimplexId>(vertexIds1),
-      totalFeatures1, totalFeatures0, map0,
-      [](ttk::SimplexId i, ttk::SimplexId j, ttk::SimplexId,
-          ttk::SimplexId m) { return i * m + j; },
-      "Computing Manifold Backward Similarity Matrix");
+    ttkUtils::GetPointer<double>(backManifold), backwardMapManifold,
+    manifoldSize1, ttkUtils::GetPointer<ttk::SimplexId>(vertexIds1),
+    totalFeatures1, totalFeatures0, map0,
+    [](ttk::SimplexId i, ttk::SimplexId j, ttk::SimplexId, ttk::SimplexId m) {
+      return i * m + j;
+    },
+    "Computing Manifold Backward Similarity Matrix");
   if(!status)
     return 0;
-
 
   status = 0;
   status = this->AddIndexIdMaps(similarityMatrix,

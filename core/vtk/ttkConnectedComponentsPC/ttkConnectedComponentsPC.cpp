@@ -1,5 +1,5 @@
-#include <ttkMacros.h>
 #include <ttkConnectedComponentsPC.h>
+#include <ttkMacros.h>
 #include <ttkUtils.h>
 
 #include <vtkCellData.h>
@@ -25,7 +25,7 @@ ttkConnectedComponentsPC::ttkConnectedComponentsPC() {
 }
 
 int ttkConnectedComponentsPC::FillInputPortInformation(int port,
-                                                 vtkInformation *info) {
+                                                       vtkInformation *info) {
   if(port == 0) {
     info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkDataSet");
     return 1;
@@ -34,7 +34,7 @@ int ttkConnectedComponentsPC::FillInputPortInformation(int port,
 }
 
 int ttkConnectedComponentsPC::FillOutputPortInformation(int port,
-                                                  vtkInformation *info) {
+                                                        vtkInformation *info) {
   if(port == 0) {
     info->Set(ttkAlgorithm::SAME_DATA_TYPE_AS_INPUT_PORT(), 0);
     return 1;
@@ -42,11 +42,9 @@ int ttkConnectedComponentsPC::FillOutputPortInformation(int port,
   return 0;
 }
 
-
-
 int ttkConnectedComponentsPC::RequestData(vtkInformation *ttkNotUsed(request),
-                                    vtkInformationVector **inputVector,
-                                    vtkInformationVector *outputVector) {
+                                          vtkInformationVector **inputVector,
+                                          vtkInformationVector *outputVector) {
 
   const auto input = vtkDataSet::GetData(inputVector[0]);
   auto outputSegmentation = vtkDataSet::GetData(outputVector, 0);
@@ -87,32 +85,35 @@ int ttkConnectedComponentsPC::RequestData(vtkInformation *ttkNotUsed(request),
 
   segmentation->SetNumberOfComponents(1);
   segmentation->SetNumberOfTuples(numberOfVertices);
-  //segmentation->SetName(inputScalars->GetName() + "_Segmentation");
+  // segmentation->SetName(inputScalars->GetName() + "_Segmentation");
   segmentation->SetName("Segmentation");
-
-
 
   int ret{};
 #ifdef TTK_ENABLE_MPI
   if(ttk::isRunningWithMPI()) {
     this->printMsg("Running with MPI in vtk layer");
-    auto pointData = input->GetPointData();
-    auto globalIds = pointData->GetArray("GlobalPointIds");
 
-ttkVtkTemplateMacro(
-    inputScalars->GetDataType(),triangulation->getType(),
-    (ret = this->execute<VTK_TT, TTK_TT>(ttkUtils::GetPointer<SimplexId>(segmentation),this->IsoValue, ttkUtils::GetPointer<VTK_TT>(inputScalars),
-                            *static_cast<TTK_TT *>(triangulation->getData()), ttkUtils::GetPointer<ttk::SimplexId>(globalIds))));
+    ttkVtkTemplateMacro(
+      inputScalars->GetDataType(), triangulation->getType(),
+      (ret = this->execute<VTK_TT, TTK_TT>(
+         ttkUtils::GetPointer<SimplexId>(segmentation), this->IsoValue,
+         ttkUtils::GetPointer<VTK_TT>(inputScalars),
+         *static_cast<TTK_TT *>(triangulation->getData()))));
   } else {
-ttkVtkTemplateMacro(
-    inputScalars->GetDataType(),triangulation->getType(),
-    (ret = this->execute<VTK_TT, TTK_TT>(ttkUtils::GetPointer<SimplexId>(segmentation),this->IsoValue, ttkUtils::GetPointer<VTK_TT>(inputScalars),
-                            *static_cast<TTK_TT *>(triangulation->getData()))));  }
+    ttkVtkTemplateMacro(
+      inputScalars->GetDataType(), triangulation->getType(),
+      (ret = this->execute<VTK_TT, TTK_TT>(
+         ttkUtils::GetPointer<SimplexId>(segmentation), this->IsoValue,
+         ttkUtils::GetPointer<VTK_TT>(inputScalars),
+         *static_cast<TTK_TT *>(triangulation->getData()))));
+  }
 #else
-ttkVtkTemplateMacro(
-    inputScalars->GetDataType(),triangulation->getType(),
-    (ret = this->execute<VTK_TT, TTK_TT>(ttkUtils::GetPointer<SimplexId>(segmentation),this->IsoValue, ttkUtils::GetPointer<VTK_TT>(inputScalars),
-                            *static_cast<TTK_TT *>(triangulation->getData()))));
+  ttkVtkTemplateMacro(
+    inputScalars->GetDataType(), triangulation->getType(),
+    (ret = this->execute<VTK_TT, TTK_TT>(
+       ttkUtils::GetPointer<SimplexId>(segmentation), this->IsoValue,
+       ttkUtils::GetPointer<VTK_TT>(inputScalars),
+       *static_cast<TTK_TT *>(triangulation->getData()))));
 #endif // TTK_ENABLE_MPI
 
   if(ret != 0)
@@ -126,7 +127,6 @@ ttkVtkTemplateMacro(
     return !this->printErr("outputSegmentation has no point data.");
 
   pointData->AddArray(segmentation);
-
 
   return 1;
 }

@@ -44,12 +44,9 @@
 #include <vector>
 
 class TTKMERGESIMILARITYMATRICES_EXPORT ttkMergeSimilarityMatrices
-  : public ttkAlgorithm
-  ,
-    protected ttk::MergeSimilarityMatrices
-{
+  : public ttkAlgorithm,
+    protected ttk::MergeSimilarityMatrices {
 private:
-
 public:
   static ttkMergeSimilarityMatrices *New();
   vtkTypeMacro(ttkMergeSimilarityMatrices, ttkAlgorithm);

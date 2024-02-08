@@ -10,9 +10,9 @@
 #include <SimilarityByGradientV3.h>
 
 // stl
-#include <vector>
-#include <set>
 #include <numeric>
+#include <set>
+#include <vector>
 
 class TTKSIMILARITYBYGRADIENTV3_EXPORT ttkSimilarityByGradientV3
   : public ttkSimilarityAlgorithm,
@@ -24,7 +24,6 @@ private:
   float NeighbourhoodDistance{0.0};
 
 public:
-
   static ttkSimilarityByGradientV3 *New();
   vtkTypeMacro(ttkSimilarityByGradientV3, ttkSimilarityAlgorithm);
 

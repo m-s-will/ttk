@@ -84,7 +84,8 @@ namespace ttk {
 
       const int n = nPoints0 * nPoints1;
 
-      DT maxValue = (maxDistance < 0 && n > 0) ? distanceMatrix[0] : maxDistance;
+      DT maxValue
+        = (maxDistance < 0 && n > 0) ? distanceMatrix[0] : maxDistance;
 
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel num_threads(this->threadNumber_)

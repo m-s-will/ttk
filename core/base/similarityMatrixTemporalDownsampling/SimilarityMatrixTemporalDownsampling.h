@@ -38,18 +38,22 @@ namespace ttk {
         }
       }
 
-// multiply matrices, remembering that t-1 is on the columns and t on the rows
-//#ifdef TTK_ENABLE_OPENMP
-//#pragma omp parallel for num_threads(this->threadNumber_)
-//#endif
+      // multiply matrices, remembering that t-1 is on the columns and t on the
+      // rows
+      // #ifdef TTK_ENABLE_OPENMP
+      // #pragma omp parallel for num_threads(this->threadNumber_)
+      // #endif
       for(int i = 0; i < curDims[1]; i++) { // row
         for(int j = 0; j < prevDims[0]; j++) { // column
           for(int k = 0; k < curDims[0]; k++) { // column
 
-//#ifdef TTK_ENABLE_OPENMP
-//#pragma omp atomic update
-//#endif
-            resMatrix[i * prevDims[0] + j] = resMatrix[i * prevDims[0] + j]+ curMatrix[i * curDims[0] + k]* prevMatrix[k * prevDims[0] + j];
+            // #ifdef TTK_ENABLE_OPENMP
+            // #pragma omp atomic update
+            // #endif
+            resMatrix[i * prevDims[0] + j]
+              = resMatrix[i * prevDims[0] + j]
+                + curMatrix[i * curDims[0] + k]
+                    * prevMatrix[k * prevDims[0] + j];
           }
         }
       }

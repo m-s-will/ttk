@@ -250,10 +250,10 @@ int ttkSimilarityByPersistencePairs::getDiagram(
                         : (dataType)deathScalars->GetValue(2 * i + 1);
 
     if(pairIdentifier != -1 && pairIdentifier < pairingsSize)
-      diagram.at(pairIdentifier)
-        = std::make_tuple(vertexId1, (ttk::CriticalType)nodeType1, vertexId2,
-                          (ttk::CriticalType)nodeType2, (dataType)persistence, pairType,
-                          value1, x1, y1, z1 + s, value2, x2, y2, z2 + s);
+      diagram.at(pairIdentifier) = std::make_tuple(
+        vertexId1, (ttk::CriticalType)nodeType1, vertexId2,
+        (ttk::CriticalType)nodeType2, (dataType)persistence, pairType, value1,
+        x1, y1, z1 + s, value2, x2, y2, z2 + s);
 
     if(pairIdentifier >= pairingsSize) {
       nbNonCompact++;

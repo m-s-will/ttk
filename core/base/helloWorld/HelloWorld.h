@@ -98,7 +98,8 @@ namespace ttk {
           for(size_t j = 0; j < nNeighbors; j++) {
             ttk::SimplexId neighborId{-1};
             triangulation->getVertexNeighbor(i, j, neighborId);
-            // ttk::SimplexId neighborId = std::min(j * nNeighbors + i, nVertices);
+            // ttk::SimplexId neighborId = std::min(j * nNeighbors + i,
+            // nVertices);
             outputData[i] += inputData[neighborId];
           }
           // divide by neighbor number
