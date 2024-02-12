@@ -150,7 +150,9 @@ int ttk::ConnectedComponentsPC::computeConnectedComponentsPC(
   std::vector<int> featureMask(nVertices, 0);
   this->printMsg("Building Feature mask for isoval " + std::to_string(isoVal));
 // first build up the feature mask
+#ifdef TTK_ENABLE_OPENMP
 #pragma omp parallel for num_threads(threadNumber_)
+#endif // TTK_ENABLE_OPENMP
   for(SimplexId i = 0; i < nVertices; i++) {
     if(isoVal < scalarArray[i]) {
       featureMask[i] = 1;
@@ -196,6 +198,9 @@ int ttk::ConnectedComponentsPC::computeConnectedComponentsPC(
           } else {
             globalIdOwner GIO = {triangulation.getVertexGlobalId(i),
                                  triangulation.getVertexRank(i)};
+#ifdef TTK_ENABLE_OPENMP
+#pragma omp critical
+#endif // TTK_ENABLE_OPENMP
             foreignVertices.push_back(GIO);
           }
         } else {
@@ -257,8 +262,11 @@ int ttk::ConnectedComponentsPC::computeConnectedComponentsPC(
 #endif // TTK_ENABLE_OPENMP
 
 this->printMsg("Finished first PC, starting second vertex calculation");
+
 //  second pathcompression to merge multiple segments in one connected component
+#ifdef TTK_ENABLE_OPENMP
 #pragma omp for schedule(static)
+#endif // TTK_ENABLE_OPENMP
   for(SimplexId i = 0; i < nVertices; i++) {
     SimplexId neighborId{0};
     SimplexId const numNeighbors = triangulation.getVertexNeighborNumber(i);
@@ -280,6 +288,9 @@ this->printMsg("Finished first PC, starting second vertex calculation");
       } else {
         globalIdOwner GIO = {
           triangulation.getVertexGlobalId(i), triangulation.getVertexRank(i)};
+#ifdef TTK_ENABLE_OPENMP
+#pragma omp critical
+#endif // TTK_ENABLE_OPENMP
         foreignVertices.push_back(GIO);
       }
     } else {
