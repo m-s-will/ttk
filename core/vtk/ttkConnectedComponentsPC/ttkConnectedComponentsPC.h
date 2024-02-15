@@ -82,6 +82,9 @@ public:
   vtkSetMacro(IsoValue, double);
   vtkGetMacro(IsoValue, double);
 
+  vtkSetMacro(MinSize, int);
+  vtkGetMacro(MinSize, int);
+
 protected:
   ttkConnectedComponentsPC();
 
@@ -93,4 +96,5 @@ protected:
 
 private:
   double IsoValue{};
+  int MinSize{};
 };

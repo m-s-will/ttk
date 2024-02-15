@@ -96,14 +96,14 @@ int ttkConnectedComponentsPC::RequestData(vtkInformation *ttkNotUsed(request),
     ttkVtkTemplateMacro(
       inputScalars->GetDataType(), triangulation->getType(),
       (ret = this->execute<VTK_TT, TTK_TT>(
-         ttkUtils::GetPointer<SimplexId>(segmentation), this->IsoValue,
+         ttkUtils::GetPointer<SimplexId>(segmentation), this->IsoValue, this->MinSize,
          ttkUtils::GetPointer<VTK_TT>(inputScalars),
          *static_cast<TTK_TT *>(triangulation->getData()))));
   } else {
     ttkVtkTemplateMacro(
       inputScalars->GetDataType(), triangulation->getType(),
       (ret = this->execute<VTK_TT, TTK_TT>(
-         ttkUtils::GetPointer<SimplexId>(segmentation), this->IsoValue,
+         ttkUtils::GetPointer<SimplexId>(segmentation), this->IsoValue, this->MinSize,
          ttkUtils::GetPointer<VTK_TT>(inputScalars),
          *static_cast<TTK_TT *>(triangulation->getData()))));
   }
@@ -111,7 +111,7 @@ int ttkConnectedComponentsPC::RequestData(vtkInformation *ttkNotUsed(request),
   ttkVtkTemplateMacro(
     inputScalars->GetDataType(), triangulation->getType(),
     (ret = this->execute<VTK_TT, TTK_TT>(
-       ttkUtils::GetPointer<SimplexId>(segmentation), this->IsoValue,
+       ttkUtils::GetPointer<SimplexId>(segmentation), this->IsoValue, this->MinSize,
        ttkUtils::GetPointer<VTK_TT>(inputScalars),
        *static_cast<TTK_TT *>(triangulation->getData()))));
 #endif // TTK_ENABLE_MPI

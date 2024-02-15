@@ -82,6 +82,7 @@ namespace ttk {
     template <typename dataType, typename triangulationType>
     inline int execute(SimplexId *segmentation_,
                        const double isoVal,
+                       const SimplexId minSize,
                        const dataType *const scalarArray,
                        const triangulationType &triangulation);
 
@@ -104,6 +105,7 @@ namespace ttk {
     int computeConnectedComponentsPC(
       SimplexId *const segmentation,
       const double isoVal,
+      const SimplexId minSize,
       const dataType *const scalarArray,
       const triangulationType &triangulation) const;
   };
@@ -113,6 +115,7 @@ template <typename dataType, typename triangulationType>
 int ttk::ConnectedComponentsPC::execute(
   SimplexId *segmentation_,
   const double isoVal,
+  const SimplexId minSize,
   const dataType *const scalarArray,
   const triangulationType &triangulation) {
   if(scalarArray == nullptr)
@@ -124,7 +127,7 @@ int ttk::ConnectedComponentsPC::execute(
                  this->threadNumber_);
 
   computeConnectedComponentsPC(
-    segmentation_, isoVal, scalarArray, triangulation);
+    segmentation_, isoVal, minSize, scalarArray, triangulation);
 
   this->printMsg("Data-set ("
                    + std::to_string(triangulation.getNumberOfVertices())
@@ -138,6 +141,7 @@ template <typename dataType, typename triangulationType>
 int ttk::ConnectedComponentsPC::computeConnectedComponentsPC(
   SimplexId *const segmentation,
   const double isoVal,
+  const SimplexId minSize,
   const dataType *const scalarArray,
   const triangulationType &triangulation) const {
 
@@ -358,6 +362,38 @@ this->printMsg("Finished first PC, starting second vertex calculation");
   // we need to compress everything pointing to mi to the new segmentation
   // this->printMsg("Starting compressing paths for thread");
   // compress paths until no changes occur
+
+  // remove all the components with less than x vertices
+  this->printMsg("Starting to remove small components");
+  std::vector<ttk::SimplexId> componentSizes(nVertices, 0);
+
+  #pragma omp parallel
+  {
+    std::vector<ttk::SimplexId> componentSizes_priv(nVertices, 0);
+    for(ttk::SimplexId i = 0; i < nVertices; i++) {
+      if(featureMask[i] == 1) {
+        componentSizes_priv[segmentation[i]]++;
+      }
+    }
+    #pragma omp critical
+    for (ttk::SimplexId i = 0; i < nVertices; i++)
+    {
+      componentSizes[i] += componentSizes_priv[i];
+    }
+  }
+
+  #ifdef TTK_ENABLE_OPENMP
+  #pragma omp parallel for  num_threads(this->threadNumber_)
+  #endif
+  for(ttk::SimplexId i = 0; i < nVertices; i++) {
+    if(featureMask[i] == 1) {
+      if(componentSizes[segmentation[i]] < minSize) {
+        segmentation[i] = -1;
+      }
+    }
+  }
+  this->printMsg("Finished removing small components");
+
 
   // this->printMsg("Finished compressing paths for thread");
 #ifdef TTK_ENABLE_MPI

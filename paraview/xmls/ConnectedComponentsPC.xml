@@ -64,9 +64,14 @@
         <Documentation>The IsoValue for which we want to compute the connected components.</Documentation>
       </DoubleVectorProperty>
 
+      <IntVectorProperty name="MinSize" command="SetMinSize" number_of_elements="1" default_values="0">
+        <Documentation>The minimum size of the connected components.</Documentation>
+      </IntVectorProperty>
+
       <PropertyGroup panel_widget="Line" label="Input options">
         <Property name="Scalar Field" />
         <Property name="IsoValue" />
+        <Property name="MinSize" />
       </PropertyGroup>
 
 
