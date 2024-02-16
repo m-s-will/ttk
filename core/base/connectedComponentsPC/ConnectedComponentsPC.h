@@ -81,7 +81,6 @@ namespace ttk {
      */
     template <typename dataType, typename triangulationType>
     inline int execute(SimplexId *segmentation_,
-                       const double isoVal,
                        const SimplexId minSize,
                        const dataType *const scalarArray,
                        const triangulationType &triangulation);
@@ -104,7 +103,6 @@ namespace ttk {
     template <typename dataType, typename triangulationType>
     int computeConnectedComponentsPC(
       SimplexId *const segmentation,
-      const double isoVal,
       const SimplexId minSize,
       const dataType *const scalarArray,
       const triangulationType &triangulation) const;
@@ -114,12 +112,11 @@ namespace ttk {
 template <typename dataType, typename triangulationType>
 int ttk::ConnectedComponentsPC::execute(
   SimplexId *segmentation_,
-  const double isoVal,
   const SimplexId minSize,
   const dataType *const scalarArray,
   const triangulationType &triangulation) {
   if(scalarArray == nullptr)
-    return this->printErr("Input offset field pointer is null.");
+    return this->printWrn("FeatureMask is null, taking everthing as foreground.");
 
   Timer t;
 
@@ -127,7 +124,7 @@ int ttk::ConnectedComponentsPC::execute(
                  this->threadNumber_);
 
   computeConnectedComponentsPC(
-    segmentation_, isoVal, minSize, scalarArray, triangulation);
+    segmentation_, minSize, scalarArray, triangulation);
 
   this->printMsg("Data-set ("
                    + std::to_string(triangulation.getNumberOfVertices())
@@ -140,7 +137,6 @@ int ttk::ConnectedComponentsPC::execute(
 template <typename dataType, typename triangulationType>
 int ttk::ConnectedComponentsPC::computeConnectedComponentsPC(
   SimplexId *const segmentation,
-  const double isoVal,
   const SimplexId minSize,
   const dataType *const scalarArray,
   const triangulationType &triangulation) const {
@@ -151,15 +147,11 @@ int ttk::ConnectedComponentsPC::computeConnectedComponentsPC(
   TTK_FORCE_USE(foreignVertices);
 
   const SimplexId nVertices = triangulation.getNumberOfVertices();
-  std::vector<int> featureMask(nVertices, 0);
-  this->printMsg("Building Feature mask for isoval " + std::to_string(isoVal));
-// first build up the feature mask
-#ifdef TTK_ENABLE_OPENMP
-#pragma omp parallel for num_threads(threadNumber_)
-#endif // TTK_ENABLE_OPENMP
-  for(SimplexId i = 0; i < nVertices; i++) {
-    if(isoVal < scalarArray[i]) {
-      featureMask[i] = 1;
+  std::vector<int> featureMask(nVertices, 1);
+
+  if (scalarArray != nullptr){
+    for (SimplexId i = 0; i < nVertices; i++){
+      featureMask[i] = scalarArray[i] != 0;
     }
   }
 

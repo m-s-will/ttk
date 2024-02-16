@@ -65,14 +65,6 @@ int ttkConnectedComponentsPC::RequestData(vtkInformation *ttkNotUsed(request),
 
   this->preconditionTriangulation(triangulation);
 
-  const auto inputScalars = this->GetInputArrayToProcess(0, inputVector);
-
-  if(inputScalars == nullptr)
-    return !this->printErr("No input scalars");
-
-  this->printMsg("Launching computation on field `"
-                 + std::string(inputScalars->GetName()) + "'...");
-
   const SimplexId numberOfVertices = triangulation->getNumberOfVertices();
 
   if(!numberOfVertices)
@@ -89,33 +81,23 @@ int ttkConnectedComponentsPC::RequestData(vtkInformation *ttkNotUsed(request),
   segmentation->SetName("Segmentation");
 
   int ret{};
-#ifdef TTK_ENABLE_MPI
-  if(ttk::isRunningWithMPI()) {
-    this->printMsg("Running with MPI in vtk layer");
-
-    ttkVtkTemplateMacro(
-      inputScalars->GetDataType(), triangulation->getType(),
+  if (!ForceFeatureScalarField) {
+    this->printMsg("FeatureMask is null, taking everthing as foreground");
+    ttkVtkTemplateMacro(0, triangulation->getType(),
       (ret = this->execute<VTK_TT, TTK_TT>(
-         ttkUtils::GetPointer<SimplexId>(segmentation), this->IsoValue, this->MinSize,
-         ttkUtils::GetPointer<VTK_TT>(inputScalars),
-         *static_cast<TTK_TT *>(triangulation->getData()))));
+          ttkUtils::GetPointer<SimplexId>(segmentation), this->MinSize,
+          nullptr,
+          *static_cast<TTK_TT *>(triangulation->getData()))));
   } else {
-    ttkVtkTemplateMacro(
-      inputScalars->GetDataType(), triangulation->getType(),
+    const auto inputScalars = this->GetInputArrayToProcess(0, inputVector);
+    if(!inputScalars)
+      return !this->printErr("Input scalar field pointer is NULL.");
+    ttkVtkTemplateMacro(inputScalars->GetDataType(), triangulation->getType(),
       (ret = this->execute<VTK_TT, TTK_TT>(
-         ttkUtils::GetPointer<SimplexId>(segmentation), this->IsoValue, this->MinSize,
-         ttkUtils::GetPointer<VTK_TT>(inputScalars),
-         *static_cast<TTK_TT *>(triangulation->getData()))));
+          ttkUtils::GetPointer<SimplexId>(segmentation), this->MinSize,
+          ttkUtils::GetPointer<VTK_TT>(inputScalars),
+          *static_cast<TTK_TT *>(triangulation->getData()))));
   }
-#else
-  ttkVtkTemplateMacro(
-    inputScalars->GetDataType(), triangulation->getType(),
-    (ret = this->execute<VTK_TT, TTK_TT>(
-       ttkUtils::GetPointer<SimplexId>(segmentation), this->IsoValue, this->MinSize,
-       ttkUtils::GetPointer<VTK_TT>(inputScalars),
-       *static_cast<TTK_TT *>(triangulation->getData()))));
-#endif // TTK_ENABLE_MPI
-
   if(ret != 0)
     return -1;
 

@@ -79,11 +79,13 @@ public:
 
   vtkTypeMacro(ttkConnectedComponentsPC, ttkAlgorithm);
 
-  vtkSetMacro(IsoValue, double);
-  vtkGetMacro(IsoValue, double);
 
   vtkSetMacro(MinSize, int);
   vtkGetMacro(MinSize, int);
+
+  vtkSetMacro(ForceFeatureScalarField, bool);
+  vtkGetMacro(ForceFeatureScalarField, bool);
+
 
 protected:
   ttkConnectedComponentsPC();
@@ -95,6 +97,7 @@ protected:
                   vtkInformationVector *outputVector) override;
 
 private:
-  double IsoValue{};
   int MinSize{};
+  bool ForceFeatureScalarField{false};
+
 };
