@@ -169,9 +169,6 @@ int ttk::ConnectedComponentsPC::computeConnectedComponentsPC(
     // find the largest neighbor for each vertex
     for(SimplexId i = 0; i < nVertices; i++) {
       bool hasLargerNeighbor = false;
-      //this->printMsg("Working on vertex " + std::to_string(i) + " of "
-      //                 + std::to_string(nVertices) + " vertices",
-      //               1, localTimer.getElapsedTime());
       if(featureMask[i] == 0) {
         segmentation[i] = -1;
       } else {
@@ -225,9 +222,6 @@ int ttk::ConnectedComponentsPC::computeConnectedComponentsPC(
         lActiveVertices.push_back(i);
       }
     }
-#ifdef TTK_ENABLE_OPENMP
-#pragma omp barrier
-#endif // TTK_ENABLE_OPENMP
     this->printMsg("Finished computing active vertices, starting first PC");
     size_t lnActiveVertices = lActiveVertices.size();
     size_t currentIndex = 0;
