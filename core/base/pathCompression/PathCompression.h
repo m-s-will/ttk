@@ -170,7 +170,7 @@ namespace ttk {
 
     /**
      * Enable/Disable computation of the geometrical embedding of the
-     * manifolds of the critical points.
+     * Segmentations of the critical points.
      */
     inline void setComputeSegmentation(const bool doAscending,
                                        const bool doDescending,
@@ -384,8 +384,8 @@ int ttk::PathCompression::computePathCompression(
 #pragma omp parallel for num_threads(this->threadNumber_)
 #endif
     for(ttk::SimplexId i = 0; i < nVertices; i++) {
-        dscManifold[i] = triangulation.getVertexGlobalId(dscManifold[i]);
-        ascManifold[i] = triangulation.getVertexGlobalId(ascManifold[i]);
+        dscSegmentation[i] = triangulation.getVertexGlobalId(dscSegmentation[i]);
+        ascSegmentation[i] = triangulation.getVertexGlobalId(ascSegmentation[i]);
     }
     this->printMsg(
       "Rank " + std::to_string(ttk::MPIrank_) + ", finished own values", 1,
@@ -496,8 +496,8 @@ int ttk::PathCompression::computePathCompression(
     for(ttk::SimplexId i = 0; i < receivedSize; i++) {
       globalIdOwner currentVal = receivedIds[i];
       ttk::SimplexId lId = triangulation.getVertexLocalId(currentVal.globalId);
-      currentVal.ascendingTarget = ascManifold[lId];
-      currentVal.descendingTarget = dscManifold[lId];
+      currentVal.ascendingTarget = ascSegmentation[lId];
+      currentVal.descendingTarget = dscSegmentation[lId];
       sendValues[i] = currentVal;
     }
     this->printMsg("R" + std::to_string(ttk::MPIrank_)
@@ -510,7 +510,7 @@ int ttk::PathCompression::computePathCompression(
 
     // now each rank has a vector consisting of gIds, the ranks to which
     // they belong and the ascending / descending target we have all the
-    // information on R0 which we need to resolve any manifolds stretching
+    // information on R0 which we need to resolve any Segmentations stretching
     // over multiple ranks
     std::unordered_map<ttk::SimplexId, ttk::SimplexId> gIdToAscendingMap;
     std::unordered_map<ttk::SimplexId, ttk::SimplexId> gIdToDescendingMap;
@@ -551,17 +551,17 @@ int ttk::PathCompression::computePathCompression(
 #endif
     for(ttk::SimplexId i = 0; i < nVertices; i++) {
       ttk::SimplexId gid = triangulation.getVertexGlobalId(i);
-      ttk::SimplexId descVal = dscManifold[i];
-      ttk::SimplexId ascVal = ascManifold[i];
+      ttk::SimplexId descVal = dscSegmentation[i];
+      ttk::SimplexId ascVal = ascSegmentation[i];
       if(gIdToDescendingMap.count(descVal)) {
-        dscManifold[i] = gIdToDescendingMap[descVal];
+        dscSegmentation[i] = gIdToDescendingMap[descVal];
       } else if(gIdToDescendingMap.count(gid)) {
-        dscManifold[i] = gIdToDescendingMap[gid];
+        dscSegmentation[i] = gIdToDescendingMap[gid];
       }
       if(gIdToAscendingMap.count(ascVal)) {
-        ascManifold[i] = gIdToAscendingMap[ascVal];
+        ascSegmentation[i] = gIdToAscendingMap[ascVal];
       } else if(gIdToAscendingMap.count(gid)) {
-        ascManifold[i] = gIdToAscendingMap[gid];
+        ascSegmentation[i] = gIdToAscendingMap[gid];
       }
     }
   } else {
@@ -716,7 +716,7 @@ if(ttk::isRunningWithMPI()) {
 #pragma omp parallel for num_threads(this->threadNumber_)
 #endif
   for(ttk::SimplexId i = 0; i < nVertices; i++) {
-    manifold[i] = triangulation.getVertexGlobalId(manifold[i]);
+    segmentation[i] = triangulation.getVertexGlobalId(segmentation[i]);
   }
   this->printMsg(
     "Rank " + std::to_string(ttk::MPIrank_) + ", finished own values", 1,
@@ -829,9 +829,9 @@ if(ttk::isRunningWithMPI()) {
     globalIdOwner currentVal = receivedIds[i];
     ttk::SimplexId lId = triangulation.getVertexLocalId(currentVal.globalId);
     if(computeAscending) {
-      currentVal.ascendingTarget = manifold[lId];
+      currentVal.ascendingTarget = segmentation[lId];
     } else {
-      currentVal.descendingTarget = manifold[lId];
+      currentVal.descendingTarget = segmentation[lId];
     }
     sendValues[i] = currentVal;
   }
@@ -845,17 +845,17 @@ if(ttk::isRunningWithMPI()) {
 
   // now each rank has a vector consisting of gIds, the ranks to which
   // they belong and the ascending / descending target we have all the
-  // information on R0 which we need to resolve any manifolds stretching
+  // information on R0 which we need to resolve any segmentations stretching
   // over multiple ranks
-  std::unordered_map<ttk::SimplexId, ttk::SimplexId> gIdToManifoldMap;
+  std::unordered_map<ttk::SimplexId, ttk::SimplexId> gIdToSegmentationMap;
 
   for(size_t i = 0; i < edgesWithTargets.size(); i++) {
     globalIdOwner currentVal = edgesWithTargets[i];
     if(computeAscending) {
-      gIdToManifoldMap.insert(
+      gIdToSegmentationMap.insert(
         std::make_pair(currentVal.globalId, currentVal.ascendingTarget));
     } else {
-      gIdToManifoldMap.insert(
+      gIdToSegmentationMap.insert(
         std::make_pair(currentVal.globalId, currentVal.descendingTarget));
     }
   }
@@ -865,10 +865,10 @@ if(ttk::isRunningWithMPI()) {
   bool changed = true;
   while(changed) {
     changed = false;
-    for(auto &it : gIdToManifoldMap) {
-      if(gIdToManifoldMap.count(it.second) && (it.first != it.second)
-         && (gIdToManifoldMap[it.first] != gIdToManifoldMap[it.second])) {
-        gIdToManifoldMap[it.first] = gIdToManifoldMap[it.second];
+    for(auto &it : gIdToSegmentationMap) {
+      if(gIdToSegmentationMap.count(it.second) && (it.first != it.second)
+         && (gIdToSegmentationMap[it.first] != gIdToSegmentationMap[it.second])) {
+        gIdToSegmentationMap[it.first] = gIdToSegmentationMap[it.second];
         changed = true;
       }
     }
@@ -880,11 +880,11 @@ if(ttk::isRunningWithMPI()) {
 #endif
   for(ttk::SimplexId i = 0; i < nVertices; i++) {
     ttk::SimplexId gid = triangulation.getVertexGlobalId(i);
-    ttk::SimplexId val = manifold[i];
-    if(gIdToManifoldMap.count(val)) {
-      manifold[i] = gIdToManifoldMap[val];
-    } else if(gIdToManifoldMap.count(gid)) {
-      manifold[i] = gIdToManifoldMap[gid];
+    ttk::SimplexId val = segmentation[i];
+    if(gIdToSegmentationMap.count(val)) {
+      segmentation[i] = gIdToSegmentationMap[val];
+    } else if(gIdToSegmentationMap.count(gid)) {
+      segmentation[i] = gIdToSegmentationMap[gid];
     }
   }
 }
