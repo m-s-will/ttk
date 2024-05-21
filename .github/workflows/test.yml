@@ -22,7 +22,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  PV_TAG: v5.11.1-headless
+  PV_TAG: v5.12.0-headless
   PV_REPO: topology-tool-kit/ttk-paraview
 
 
@@ -282,7 +282,7 @@ jobs:
         brew install --cask xquartz
         brew install wget llvm libomp ninja open-mpi
         # TTK dependencies
-        brew install boost eigen graphviz numpy qhull websocketpp ccache
+        brew install boost eigen graphviz numpy qhull ccache
         # prepend ccache to system path
         echo "$(brew --prefix)/opt/ccache/libexec" >> $GITHUB_PATH
 
@@ -309,7 +309,7 @@ jobs:
       run: |
         tar xzf ttk-paraview-headless.tar.gz
         sudo cp -r ttk-paraview/* /usr/local
-        pvpython -m pip install scikit-learn
+        pvpython -m pip install --break-system-packages scikit-learn
 
     - name: Set compilers as environment variables
       run: |
@@ -347,7 +347,7 @@ jobs:
     - name: Set PYTHONPATH for macOS pvpython
       run: |
         # pvpython does not embed the correct PYTHONPATH
-        echo "PYTHONPATH=/usr/local/lib/python3.11/site-packages:$PYTHONPATH" >> $GITHUB_ENV
+        echo "PYTHONPATH=/usr/local/lib/python3.12/site-packages:$PYTHONPATH" >> $GITHUB_ENV
 
     - name: Run TTK tests
       uses: ./.github/actions/test-ttk-unix
@@ -428,13 +428,14 @@ jobs:
     - name: Install dependencies with conda
       shell: bash
       run: |
-        conda install -c conda-forge boost glew eigen spectralib zfp \
+        conda install -c conda-forge boost glew eigen spectralib zfp  \
           scikit-learn openmp graphviz ninja websocketpp sccache=0.4.2 python=3.10 zlib qhull
         # add sccache to PATH
         echo "$CONDA_ROOT/bin" >> $GITHUB_PATH
         # add TTK & ParaView install folders to PATH
         echo "$PV_DIR/bin" >> $GITHUB_PATH
         echo "$TTK_DIR/bin" >> $GITHUB_PATH
+        conda info --all
 
     - name: Remove hosted Python
       shell: bash
@@ -477,6 +478,7 @@ jobs:
         cmake ^
           -DCMAKE_BUILD_TYPE=Release ^
           -DCMAKE_POLICY_DEFAULT_CMP0092=NEW ^
+          -DCMAKE_POLICY_DEFAULT_CMP0074=NEW ^
           -DBUILD_SHARED_LIBS:BOOL=TRUE ^
           -DCMAKE_C_COMPILER_LAUNCHER=sccache ^
           -DCMAKE_CXX_COMPILER_LAUNCHER=sccache ^
@@ -486,6 +488,8 @@ jobs:
           -DGraphviz_GVC_LIBRARY="%CONDA_ROOT%\Library\lib\gvc.lib" ^
           -DGraphviz_CGRAPH_LIBRARY="%CONDA_ROOT%\Library\lib\cgraph.lib" ^
           -DGraphviz_PATHPLAN_LIBRARY="%CONDA_ROOT%\Library\lib\pathplan.lib" ^
+          -DZLIB_ROOT="%CONDA_ROOT%\Library" ^
+          -DSQLite3_ROOT="%CONDA_ROOT%\Library" ^
           -DTTK_BUILD_PARAVIEW_PLUGINS=TRUE ^
           -DTTK_BUILD_VTK_WRAPPERS=TRUE ^
           -DTTK_BUILD_STANDALONE_APPS=TRUE ^

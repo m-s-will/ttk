@@ -93,7 +93,13 @@ static const size_t num_coefficient_bits = 8;
 
 // 1L on windows is ALWAYS 32 bits, when on unix systems is pointer size
 static const index_t max_simplex_index
-  = (uintptr_t(1) << (8 * sizeof(index_t) - 1 - num_coefficient_bits)) - 1;
+  = (__int128(1) << (8 * sizeof(index_t) - 1 - num_coefficient_bits)) - 1;
+
+namespace std {
+  inline std::string to_string(__int128) {
+    return "";
+  }
+} // namespace std
 
 void check_overflow(index_t i) {
   if
