@@ -40,10 +40,10 @@ namespace ttk {
     struct globalIdOwner {
       ttk::SimplexId globalId;
       int ownerRank;
-      ttk::SimplexId target = -1;
+      ttk::SimplexId target;
 
-      globalIdOwner(ttk::SimplexId _globalId = -1, int _owner = -1)
-        : globalId(_globalId), ownerRank(_owner) {
+      globalIdOwner(ttk::SimplexId _globalId = -1, int _owner = -1, ttk::SimplexId _target = -1)
+        : globalId(_globalId), ownerRank(_owner), target(_target) {
       }
 
       bool operator<(const globalIdOwner &other) const {
@@ -116,7 +116,7 @@ int ttk::ConnectedComponentsPC::execute(
   const dataType *const scalarArray,
   const triangulationType &triangulation) {
   if(scalarArray == nullptr)
-    return this->printWrn("FeatureMask is null, taking everthing as foreground.");
+    this->printWrn("FeatureMask is null, taking everything as foreground.");
 
   Timer t;
 
@@ -180,21 +180,12 @@ int ttk::ConnectedComponentsPC::computeConnectedComponentsPC(
         mi = i;
 #ifdef TTK_ENABLE_MPI
         if(ttk::isRunningWithMPI()) {
-          if(triangulation.getVertexRank(i) == ttk::MPIrank_) {
-            for(SimplexId n = 0; n < numNeighbors; n++) {
-              triangulation.getVertexNeighbor(i, n, neighborId);
-              if(featureMask[neighborId] == 1 && neighborId > mi) {
-                mi = neighborId;
-                hasLargerNeighbor = true;
-              }
+          for(SimplexId n = 0; n < numNeighbors; n++) {
+            triangulation.getVertexNeighbor(i, n, neighborId);
+            if(featureMask[neighborId] == 1 && triangulation.getVertexGlobalId(neighborId) > triangulation.getVertexGlobalId(mi)) {
+              mi = neighborId;
+              hasLargerNeighbor = true;
             }
-          } else {
-            globalIdOwner GIO = {triangulation.getVertexGlobalId(i),
-                                 triangulation.getVertexRank(i)};
-#ifdef TTK_ENABLE_OPENMP
-#pragma omp critical
-#endif // TTK_ENABLE_OPENMP
-            foreignVertices.push_back(GIO);
           }
         } else {
           for(SimplexId n = 0; n < numNeighbors; n++) {
@@ -262,51 +253,15 @@ this->printMsg("Finished first PC, starting second vertex calculation");
     SimplexId const numNeighbors = triangulation.getVertexNeighborNumber(i);
 
     SimplexId &mi = segmentation[i];
-
-#ifdef TTK_ENABLE_MPI
-    if(ttk::isRunningWithMPI()) {
-      if(triangulation.getVertexRank(i) == ttk::MPIrank_) {
-        // check all neighbors
-        if(mi != -1) {
-          for(SimplexId n = 0; n < numNeighbors; n++) {
-            triangulation.getVertexNeighbor(i, n, neighborId);
-            if(segmentation[neighborId] > mi) {
-              mi = segmentation[neighborId];
-            }
-          }
-        }
-      } else {
-        globalIdOwner GIO = {
-          triangulation.getVertexGlobalId(i), triangulation.getVertexRank(i)};
-#ifdef TTK_ENABLE_OPENMP
-#pragma omp critical
-#endif // TTK_ENABLE_OPENMP
-        foreignVertices.push_back(GIO);
-      }
-    } else {
-      // check all neighbors
-      if(mi != -1) {
-        for(SimplexId n = 0; n < numNeighbors; n++) {
-          triangulation.getVertexNeighbor(i, n, neighborId);
-          if(segmentation[neighborId] > mi) {
-            mi = segmentation[neighborId];
-          }
-        }
-      }
-    }
-#else
-    // check all neighbors
-    if(mi != -1) {
+    if (mi != -1){
       for(SimplexId n = 0; n < numNeighbors; n++) {
         triangulation.getVertexNeighbor(i, n, neighborId);
-        if(segmentation[neighborId] > mi) {
+        if(triangulation.getVertexGlobalId(segmentation[neighborId]) > triangulation.getVertexGlobalId(mi)) {
           mi = segmentation[neighborId];
         }
       }
     }
-#endif
   }
-
   this->printMsg(
     "Finished second vertex calculation, starting final compression");
   std::vector<ttk::SimplexId> currentSeg(nVertices);
@@ -343,45 +298,60 @@ this->printMsg("Finished first PC, starting second vertex calculation");
     }
     step++;
   }
-  this->printMsg("Finished final compression");
+  this->printMsg("Finished final compression after " + std::to_string(step) + " steps");
+
+  // now we need to check where the ghost cells point to, to change it later
+#ifdef TTK_ENABLE_OPENMP
+#pragma omp for schedule(static)
+#endif // TTK_ENABLE_OPENMP
+  for(SimplexId i = 0; i < nVertices; i++) {
+    if(triangulation.getVertexRank(i) != ttk::MPIrank_) {
+      globalIdOwner GIO = {triangulation.getVertexGlobalId(i),
+        triangulation.getVertexRank(i), triangulation.getVertexGlobalId(segmentation[i])};
+#ifdef TTK_ENABLE_OPENMP
+#pragma omp critical
+#endif // TTK_ENABLE_OPENMP
+      foreignVertices.push_back(GIO);
+    }
+  }
 
   // we need to compress everything pointing to mi to the new segmentation
   // this->printMsg("Starting compressing paths for thread");
   // compress paths until no changes occur
 
-  // remove all the components with less than x vertices
-  this->printMsg("Starting to remove small components");
-  std::vector<ttk::SimplexId> componentSizes(nVertices, 0);
+if(minSize != 0) {
+    this->printMsg("Starting to remove small components");
+    std::vector<ttk::SimplexId> componentSizes(nVertices, 0);
 
-  #pragma omp parallel
-  {
-    std::vector<ttk::SimplexId> componentSizes_priv(nVertices, 0);
+    #pragma omp parallel
+    {
+      std::vector<ttk::SimplexId> componentSizes_priv(nVertices, 0);
+      for(ttk::SimplexId i = 0; i < nVertices; i++) {
+        if(featureMask[i] == 1) {
+          componentSizes_priv[segmentation[i]]++;
+        }
+      }
+      #pragma omp critical
+      for (ttk::SimplexId i = 0; i < nVertices; i++)
+      {
+        componentSizes[i] += componentSizes_priv[i];
+      }
+    }
+
+    #ifdef TTK_ENABLE_OPENMP
+    #pragma omp parallel for  num_threads(this->threadNumber_)
+    #endif
     for(ttk::SimplexId i = 0; i < nVertices; i++) {
       if(featureMask[i] == 1) {
-        componentSizes_priv[segmentation[i]]++;
+        if(componentSizes[segmentation[i]] < minSize) {
+          segmentation[i] = -1;
+        }
       }
     }
-    #pragma omp critical
-    for (ttk::SimplexId i = 0; i < nVertices; i++)
-    {
-      componentSizes[i] += componentSizes_priv[i];
-    }
+    this->printMsg("Finished removing small components");
   }
 
-  #ifdef TTK_ENABLE_OPENMP
-  #pragma omp parallel for  num_threads(this->threadNumber_)
-  #endif
-  for(ttk::SimplexId i = 0; i < nVertices; i++) {
-    if(featureMask[i] == 1) {
-      if(componentSizes[segmentation[i]] < minSize) {
-        segmentation[i] = -1;
-      }
-    }
-  }
-  this->printMsg("Finished removing small components");
-
-
-  // this->printMsg("Finished compressing paths for thread");
+  //this->printMsg("Finished compressing paths for thread");
 #ifdef TTK_ENABLE_MPI
   // now we need to transform local ids into global ids to correctly work
   // over all ranks
@@ -504,7 +474,8 @@ this->printMsg("Finished first PC, starting second vertex calculation");
     for(ttk::SimplexId i = 0; i < receivedSize; i++) {
       globalIdOwner currentVal = receivedIds[i];
       ttk::SimplexId lId = triangulation.getVertexLocalId(currentVal.globalId);
-      currentVal.target = segmentation[lId];
+      if (currentVal.target < segmentation[lId])
+        currentVal.target = segmentation[lId];
       sendValues[i] = currentVal;
     }
     this->printMsg("R" + std::to_string(ttk::MPIrank_)
@@ -552,8 +523,6 @@ this->printMsg("Finished first PC, starting second vertex calculation");
       if (target != -1){
         if(gIdToSegmentationMap.count(target)) {
           segmentation[i] = gIdToSegmentationMap[target];
-        } else if(gIdToSegmentationMap.count(gid)) {
-          segmentation[i] = gIdToSegmentationMap[gid];
         }
       }
     }
@@ -561,6 +530,10 @@ this->printMsg("Finished first PC, starting second vertex calculation");
     this->printMsg("not using mpi");
   }
 #endif // TTK_ENABLE_MPI
+
+// remove all the components with less than x vertices
+
+
 
   this->printMsg("Segmentation computed", 1.0, localTimer.getElapsedTime(),
                  this->threadNumber_, debug::LineMode::NEW,
