@@ -305,7 +305,7 @@ this->printMsg("Finished first PC, starting second vertex calculation");
 #pragma omp for schedule(static)
 #endif // TTK_ENABLE_OPENMP
   for(SimplexId i = 0; i < nVertices; i++) {
-    if(triangulation.getVertexRank(i) != ttk::MPIrank_) {
+    if(triangulation.getVertexRank(i) != ttk::MPIrank_ && featureMask[i] == 1) {
       globalIdOwner GIO = {triangulation.getVertexGlobalId(i),
         triangulation.getVertexRank(i), triangulation.getVertexGlobalId(segmentation[i])};
 #ifdef TTK_ENABLE_OPENMP
@@ -470,12 +470,21 @@ if(minSize != 0) {
 
     // now we need to find to where the gids point and send the values
     // back to R0
+    std::unordered_map<ttk::SimplexId, ttk::SimplexId> gIdToSegmentationMap;
     sendValues.resize(receivedSize);
+#ifdef TTK_ENABLE_OPENMP
+#pragma omp parallel for num_threads(this->threadNumber_)
+#endif
+
     for(ttk::SimplexId i = 0; i < receivedSize; i++) {
       globalIdOwner currentVal = receivedIds[i];
       ttk::SimplexId lId = triangulation.getVertexLocalId(currentVal.globalId);
-      if (currentVal.target < segmentation[lId])
+      if (currentVal.target < segmentation[lId]){
+        currentVal.globalId = currentVal.target;
         currentVal.target = segmentation[lId];
+      } else {
+        currentVal.globalId = segmentation[lId];
+      }
       sendValues[i] = currentVal;
     }
     this->printMsg("R" + std::to_string(ttk::MPIrank_)
@@ -490,16 +499,29 @@ if(minSize != 0) {
     // they belong and the ascending / descending target we have all the
     // information on R0 which we need to resolve any manifolds stretching
     // over multiple ranks
-    std::unordered_map<ttk::SimplexId, ttk::SimplexId> gIdToSegmentationMap;
 
     for(size_t i = 0; i < edgesWithTargets.size(); i++) {
       globalIdOwner currentVal = edgesWithTargets[i];
-      gIdToSegmentationMap.insert(
+      /*this->printMsg("R" + std::to_string(ttk::MPIrank_) + " is inserting "
+                     + std::to_string(currentVal.globalId) + " with target "
+                     + std::to_string(currentVal.target)
+                     + " and owner " + std::to_string(currentVal.ownerRank));*/
+      auto const result = gIdToSegmentationMap.insert(
         std::make_pair(currentVal.globalId, currentVal.target));
+      // if multiple ranks have pointers for the same gid, we take the largest one
+      if (not result.second) {
+        if (result.first->second != currentVal.target){
+          ttk::SimplexId smaller = std::min(result.first->second, currentVal.target);
+          ttk::SimplexId larger = std::max(result.first->second, currentVal.target);
+          result.first->second = larger;
+          gIdToSegmentationMap.insert(std::make_pair(smaller, larger));
+        }
+      }
     }
 
     // now we need to check for graphs in the map and iteratively compress
     // them
+    // TODO: apparently not 100% correct atm
     bool changed = true;
     while(changed) {
       changed = false;
@@ -518,7 +540,6 @@ if(minSize != 0) {
 #pragma omp parallel for num_threads(this->threadNumber_)
 #endif
     for(ttk::SimplexId i = 0; i < nVertices; i++) {
-      ttk::SimplexId gid = triangulation.getVertexGlobalId(i);
       ttk::SimplexId target = segmentation[i];
       if (target != -1){
         if(gIdToSegmentationMap.count(target)) {
