@@ -257,6 +257,7 @@ this->printMsg("Finished first PC, starting second vertex calculation");
       for(SimplexId n = 0; n < numNeighbors; n++) {
         triangulation.getVertexNeighbor(i, n, neighborId);
         if(triangulation.getVertexGlobalId(segmentation[neighborId]) > triangulation.getVertexGlobalId(mi)) {
+          segmentation[mi] = segmentation[neighborId];
           mi = segmentation[neighborId];
         }
       }
@@ -521,7 +522,6 @@ if(minSize != 0) {
 
     // now we need to check for graphs in the map and iteratively compress
     // them
-    // TODO: apparently not 100% correct atm
     bool changed = true;
     while(changed) {
       changed = false;
