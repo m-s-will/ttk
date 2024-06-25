@@ -155,6 +155,7 @@ int ttkPersistenceDiagramClustering::RequestData(
       pdBarycenter.setAlpha(Alpha);
       pdBarycenter.setLambda(Lambda);
       pdBarycenter.setNonMatchingWeight(NonMatchingWeight);
+      pdBarycenter.setDeltaLim(DeltaLim);
       pdBarycenter.execute(
         intermediateDiagrams_, final_centroids_[0], all_matchings_);
 
@@ -267,12 +268,14 @@ void ttkPersistenceDiagramClustering::outputClusteredDiagrams(
     vtu->GetPointData()->AddArray(pointPers);
 
     // diagonal uses two existing points
+    const auto persArray = vtu->GetCellData()->GetArray("Persistence");
     for(int j = 0; j < vtu->GetNumberOfCells() - 1; ++j) {
-      const auto persArray = vtu->GetCellData()->GetArray("Persistence");
       const auto pers = persArray->GetTuple1(j);
       pointPers->SetTuple1(2 * j + 0, pers);
       pointPers->SetTuple1(2 * j + 1, pers);
     }
+    pointPers->SetTuple1(vtu->GetNumberOfPoints() - 1,
+                         persArray->GetTuple1(vtu->GetNumberOfCells() - 1));
 
     const auto cid = inv_clustering[i];
     const auto &matchings{matchingsPerCluster[cid][i]};

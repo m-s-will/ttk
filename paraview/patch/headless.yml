@@ -27,7 +27,7 @@ jobs:
         sudo apt update
         # TTK-ParaView dependencies
         sudo apt install -y \
-          g++-11 \
+          g++ \
           libosmesa-dev \
           libopenmpi-dev \
           ninja-build \
@@ -69,14 +69,23 @@ jobs:
   # macOS #
   # ----- #
   build-macos:
-    runs-on: macos-latest
+    runs-on: macos-12
+    env:
+      CCACHE_DIR: /Users/runner/work/ttk/.ccache
+      CCACHE_MAXSIZE: 200M
     steps:
     - uses: actions/checkout@v3
       name: Checkout TTK-ParaView source code
 
+    - name: Remove hosted Python
+      run: |
+        sudo rm -rf /Library/Frameworks/Python.framework/
+        sudo rm -rf /usr/local/Frameworks/Python.framework/
+
     - name: Install macOS dependencies
       run: |
         # ParaView dependencies
+        brew reinstall python
         brew install --cask xquartz
         brew install wget libomp ninja python open-mpi
 
@@ -124,7 +133,7 @@ jobs:
     - name: Install dependencies with conda
       shell: bash
       run: |
-        conda install -c conda-forge glew
+        conda install -c conda-forge glew python=3.10
 
     - name: Remove hosted Python
       shell: bash
@@ -141,6 +150,7 @@ jobs:
           -DPARAVIEW_USE_QT=OFF ^
           -DPython3_ROOT_DIR="%CONDA_ROOT%" ^
           -DCMAKE_BUILD_TYPE=Release ^
+          -DVTKm_MODULE_ENABLE_vtkm_filter_scalar_topology=NO ^
           -G"Visual Studio 17 2022" ^
           %GITHUB_WORKSPACE%
 

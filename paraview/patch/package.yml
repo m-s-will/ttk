@@ -72,18 +72,20 @@ jobs:
   # macOS #
   # ----- #
   build-macos:
-    runs-on: macos-latest
+    runs-on: macos-12
     steps:
     - uses: actions/checkout@v3
       name: Checkout TTK-ParaView source code
 
     - name: Remove hosted Python
       run: |
+        sudo rm -rf /Library/Frameworks/Python.framework/
         sudo rm -rf /usr/local/Frameworks/Python.framework
 
     - name: Install macOS dependencies
       run: |
         # ParaView dependencies
+        brew reinstall python
         brew install --cask xquartz
         brew install wget libomp mesa glew qt@5 ninja python
 
@@ -131,7 +133,7 @@ jobs:
     - name: Install dependencies with conda
       shell: bash
       run: |
-        conda install -c conda-forge "qt>=5.12"
+        conda install -c conda-forge qt-main python=3.10
 
     - name: Remove hosted Python
       shell: bash
@@ -141,13 +143,13 @@ jobs:
     - name: Create & configure ParaView build directory
       shell: cmd
       run: |
-        # workaround for NSIS long path issue...
         cd ..
         mkdir b
         cd b
         cmake ^
           -DPython3_ROOT_DIR="%CONDA_ROOT%" ^
           -DCMAKE_BUILD_TYPE=Release ^
+          -DVTKm_MODULE_ENABLE_vtkm_filter_scalar_topology=NO ^
           -G"Visual Studio 17 2022" ^
           %GITHUB_WORKSPACE%
 

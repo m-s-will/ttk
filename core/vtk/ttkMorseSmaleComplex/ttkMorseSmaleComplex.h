@@ -157,14 +157,17 @@ public:
   vtkSetMacro(IterationThreshold, int);
   vtkGetMacro(IterationThreshold, int);
 
-  vtkSetMacro(ReturnSaddleConnectors, int);
-  vtkGetMacro(ReturnSaddleConnectors, int);
+  vtkSetMacro(ReturnSaddleConnectors, bool);
+  vtkGetMacro(ReturnSaddleConnectors, bool);
 
   vtkSetMacro(SaddleConnectorsPersistenceThreshold, double);
   vtkGetMacro(SaddleConnectorsPersistenceThreshold, double);
 
   vtkSetMacro(ThresholdIsAbsolute, bool);
   vtkGetMacro(ThresholdIsAbsolute, bool);
+
+  vtkSetMacro(ForceLoopFreeGradient, bool);
+  vtkGetMacro(ForceLoopFreeGradient, bool);
 
 protected:
   template <typename scalarType, typename triangulationType>
