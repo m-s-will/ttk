@@ -74,12 +74,8 @@ int ttkScalarFieldCriticalPoints::RequestData(
   if(!inputScalarField)
     return 0;
 
-  auto pointData = input->GetPointData();
-  auto vtkGlobalPointIds = pointData->GetGlobalIds();
-  auto vtkGhostCells = pointData->GetArray("vtkGhostType");
-
-  vtkDataArray *offsetField
-    = this->GetOrderArray(input, 0, 1, ForceInputOffsetScalarField);
+  vtkDataArray *offsetField = this->GetOrderArray(
+    input, 0, triangulation, false, 1, ForceInputOffsetScalarField);
 
   // setting up the base layer
   this->preconditionTriangulation(triangulation);
