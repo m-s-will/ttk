@@ -302,19 +302,23 @@ this->printMsg("Finished first PC, starting second vertex calculation");
   this->printMsg("Finished final compression after " + std::to_string(step) + " steps");
 
   // now we need to check where the ghost cells point to, to change it later
-#ifdef TTK_ENABLE_OPENMP
-#pragma omp for schedule(static)
-#endif // TTK_ENABLE_OPENMP
-  for(SimplexId i = 0; i < nVertices; i++) {
-    if(triangulation.getVertexRank(i) != ttk::MPIrank_ && featureMask[i] == 1) {
-      globalIdOwner GIO = {triangulation.getVertexGlobalId(i),
-        triangulation.getVertexRank(i), triangulation.getVertexGlobalId(segmentation[i])};
-#ifdef TTK_ENABLE_OPENMP
-#pragma omp critical
-#endif // TTK_ENABLE_OPENMP
-      foreignVertices.push_back(GIO);
+#ifdef TTK_ENABLE_MPI
+  if(ttk::isRunningWithMPI()) {
+  #ifdef TTK_ENABLE_OPENMP
+  #pragma omp for schedule(static)
+  #endif // TTK_ENABLE_OPENMP
+    for(SimplexId i = 0; i < nVertices; i++) {
+      if(triangulation.getVertexRank(i) != ttk::MPIrank_ && featureMask[i] == 1) {
+        globalIdOwner GIO = {triangulation.getVertexGlobalId(i),
+          triangulation.getVertexRank(i), triangulation.getVertexGlobalId(segmentation[i])};
+  #ifdef TTK_ENABLE_OPENMP
+  #pragma omp critical
+  #endif // TTK_ENABLE_OPENMP
+        foreignVertices.push_back(GIO);
+      }
     }
   }
+#endif // TTK_ENABLE_MPI
 
   // we need to compress everything pointing to mi to the new segmentation
   // this->printMsg("Starting compressing paths for thread");
@@ -376,8 +380,7 @@ if(minSize != 0) {
     int localSize = foreignVertices.size();
     this->printMsg("Localsize: " + std::to_string(localSize));
     int totalSize;
-    MPI_Reduce(&localSize, &totalSize, 1, MPI_INT, MPI_SUM, 0, ttk::MPIcomm_);
-    MPI_Bcast(&totalSize, 1, MPI_INT, 0, ttk::MPIcomm_);
+    MPI_Allreduce(&localSize, &totalSize, 1, MPI_INT, MPI_SUM, ttk::MPIcomm_);
     this->printMsg("Rank " + std::to_string(ttk::MPIrank_)
                    + " got the totalsize " + std::to_string(totalSize));
     std::vector<globalIdOwner> edgesWithTargets(totalSize);

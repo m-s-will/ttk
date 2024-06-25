@@ -85,6 +85,24 @@ namespace ttk {
       }
     };
 
+    struct globalIdOwnerSingle {
+      ttk::SimplexId globalId;
+      int ownerRank;
+      ttk::SimplexId target = -1;
+
+      globalIdOwnerSingle(ttk::SimplexId _globalId = -1, int _owner = -1)
+        : globalId(_globalId), ownerRank(_owner) {
+      }
+
+      bool operator<(const globalIdOwnerSingle &other) const {
+        return globalId < other.globalId;
+      }
+
+      bool operator==(const globalIdOwnerSingle &other) const {
+        return globalId == other.globalId;
+      }
+    };
+
 
     /** @brief Pointers to pre-allocated segmentation point data arrays */
     struct OutputSegmentation {
@@ -398,8 +416,7 @@ int ttk::PathCompression::computePathCompression(
     int localSize = foreignVertices.size();
     this->printMsg("Localsize: " + std::to_string(localSize));
     int totalSize;
-    MPI_Reduce(&localSize, &totalSize, 1, MPI_INT, MPI_SUM, 0, ttk::MPIcomm_);
-    MPI_Bcast(&totalSize, 1, MPI_INT, 0, ttk::MPIcomm_);
+    MPI_Allreduce(&localSize, &totalSize, 1, MPI_INT, MPI_SUM, ttk::MPIcomm_);
     this->printMsg("Rank " + std::to_string(ttk::MPIrank_)
                    + " got the totalsize " + std::to_string(totalSize));
     std::vector<globalIdOwner> edgesWithTargets(totalSize);
@@ -585,7 +602,7 @@ int ttk::PathCompression::computePathCompressionSingle(
   const triangulationType &triangulation) const {
 
   ttk::Timer localTimer;
-  std::vector<globalIdOwner> foreignVertices;
+  std::vector<globalIdOwnerSingle> foreignVertices;
 
   TTK_FORCE_USE(foreignVertices);
 
@@ -593,7 +610,7 @@ int ttk::PathCompression::computePathCompressionSingle(
   std::vector<SimplexId> lActiveVertices;
 
 #ifdef TTK_ENABLE_OPENMP
-#pragma omp parallel num_threads(threadNumber_)
+#pragma omp parallel num_threads(threadNumber_) private(lActiveVertices)
   {
     lActiveVertices.reserve(std::ceil(nVertices / threadNumber_));
 
@@ -630,7 +647,7 @@ int ttk::PathCompression::computePathCompressionSingle(
               }
             }
           } else {
-            globalIdOwner GIO = {triangulation.getVertexGlobalId(i),
+            globalIdOwnerSingle GIO = {triangulation.getVertexGlobalId(i),
                                  triangulation.getVertexRank(i)};
 #ifdef TTK_ENABLE_OPENMP
 #pragma omp critical
@@ -729,19 +746,18 @@ if(ttk::isRunningWithMPI()) {
   int localSize = foreignVertices.size();
   this->printMsg("Localsize: " + std::to_string(localSize));
   int totalSize;
-  MPI_Reduce(&localSize, &totalSize, 1, MPI_INT, MPI_SUM, 0, ttk::MPIcomm_);
-  MPI_Bcast(&totalSize, 1, MPI_INT, 0, ttk::MPIcomm_);
+  MPI_Allreduce(&localSize, &totalSize, 1, MPI_INT, MPI_SUM, ttk::MPIcomm_);
   this->printMsg("Rank " + std::to_string(ttk::MPIrank_) + " got the totalsize "
                  + std::to_string(totalSize));
-  std::vector<globalIdOwner> edgesWithTargets(totalSize);
+  std::vector<globalIdOwnerSingle> edgesWithTargets(totalSize);
   std::vector<int> sizes(ttk::MPIsize_);
   std::vector<int> displacements(ttk::MPIsize_);
-  std::vector<globalIdOwner> sendValues;
+  std::vector<globalIdOwnerSingle> sendValues;
   int receivedSize;
-  std::vector<globalIdOwner> receivedIds;
-  std::vector<globalIdOwner> allValuesFromRanks;
+  std::vector<globalIdOwnerSingle> receivedIds;
+  std::vector<globalIdOwnerSingle> allValuesFromRanks;
   if(ttk::MPIrank_ == 0) {
-    std::vector<globalIdOwner> edges(totalSize);
+    std::vector<globalIdOwnerSingle> edges(totalSize);
     // construct the set with the globalids not owned by R0
 
     // first we use MPI_Gather to get the size of each rank to populate
@@ -749,7 +765,7 @@ if(ttk::isRunningWithMPI()) {
     MPI_Gather(
       &localSize, 1, MPI_INT, sizes.data(), 1, MPI_INT, 0, ttk::MPIcomm_);
     for(int i = 0; i < ttk::MPIsize_; i++) {
-      sizes[i] = sizes[i] * sizeof(globalIdOwner);
+      sizes[i] = sizes[i] * sizeof(globalIdOwnerSingle);
     }
     displacements[0] = 0;
     // build our displacements
@@ -762,7 +778,7 @@ if(ttk::isRunningWithMPI()) {
     // which rank actually needs those gids doesn't matter, because in
     // the end we send the finished edges back
     MPI_Gatherv(foreignVertices.data(),
-                foreignVertices.size() * sizeof(globalIdOwner), MPI_CHAR,
+                foreignVertices.size() * sizeof(globalIdOwnerSingle), MPI_CHAR,
                 edges.data(), sizes.data(), displacements.data(), MPI_CHAR, 0,
                 ttk::MPIcomm_);
     this->printMsg("R0 received " + std::to_string(edges.size())
@@ -771,15 +787,15 @@ if(ttk::isRunningWithMPI()) {
     // we have all the gids which are needed by _some_ rank and the
     // owner of them, now we have to request from the owners to which
     // vertices these gids are pointing to build our map
-    std::vector<std::vector<globalIdOwner>> valuesFromRanks;
+    std::vector<std::vector<globalIdOwnerSingle>> valuesFromRanks;
     valuesFromRanks.resize(ttk::MPIsize_);
-    for(globalIdOwner currentId : edges) {
+    for(globalIdOwnerSingle currentId : edges) {
       valuesFromRanks[currentId.ownerRank].push_back(currentId);
     }
     this->printMsg("R0 reordered Ids");
 
     for(int i = 0; i < ttk::MPIsize_; i++) {
-      sizes[i] = valuesFromRanks[i].size() * sizeof(globalIdOwner);
+      sizes[i] = valuesFromRanks[i].size() * sizeof(globalIdOwnerSingle);
     }
     displacements[0] = 0;
     // build our displacements
@@ -797,7 +813,7 @@ if(ttk::isRunningWithMPI()) {
     // root rank
     MPI_Gather(&localSize, 1, MPI_INT, NULL, 0, MPI_INT, 0, ttk::MPIcomm_);
     MPI_Gatherv(foreignVertices.data(),
-                foreignVertices.size() * sizeof(globalIdOwner), MPI_CHAR, NULL,
+                foreignVertices.size() * sizeof(globalIdOwnerSingle), MPI_CHAR, NULL,
                 NULL, NULL, MPI_CHAR, 0, ttk::MPIcomm_);
   }
 
@@ -810,7 +826,7 @@ if(ttk::isRunningWithMPI()) {
   this->printMsg("R" + std::to_string(ttk::MPIrank_)
                  + " received sizes and displacements from R0");
 
-  receivedSize = sizes[ttk::MPIrank_] / sizeof(globalIdOwner);
+  receivedSize = sizes[ttk::MPIrank_] / sizeof(globalIdOwnerSingle);
   this->printMsg("R" + std::to_string(ttk::MPIrank_) + " owns "
                  + std::to_string(receivedSize) + " ids");
 
@@ -818,7 +834,7 @@ if(ttk::isRunningWithMPI()) {
   receivedIds.resize(receivedSize);
   MPI_Scatterv(allValuesFromRanks.data(), sizes.data(), displacements.data(),
                MPI_CHAR, receivedIds.data(),
-               receivedSize * sizeof(globalIdOwner), MPI_CHAR, 0,
+               receivedSize * sizeof(globalIdOwnerSingle), MPI_CHAR, 0,
                ttk::MPIcomm_);
   this->printMsg("R" + std::to_string(ttk::MPIrank_) + " received ids");
 
@@ -826,19 +842,15 @@ if(ttk::isRunningWithMPI()) {
   // back to R0
   sendValues.resize(receivedSize);
   for(ttk::SimplexId i = 0; i < receivedSize; i++) {
-    globalIdOwner currentVal = receivedIds[i];
+    globalIdOwnerSingle currentVal = receivedIds[i];
     ttk::SimplexId lId = triangulation.getVertexLocalId(currentVal.globalId);
-    if(computeAscending) {
-      currentVal.ascendingTarget = segmentation[lId];
-    } else {
-      currentVal.descendingTarget = segmentation[lId];
-    }
+    currentVal.target = segmentation[lId];
     sendValues[i] = currentVal;
   }
   this->printMsg("R" + std::to_string(ttk::MPIrank_)
                  + " is done with their values");
 
-  MPI_Allgatherv(sendValues.data(), sendValues.size() * sizeof(globalIdOwner),
+  MPI_Allgatherv(sendValues.data(), sendValues.size() * sizeof(globalIdOwnerSingle),
                  MPI_CHAR, edgesWithTargets.data(), sizes.data(),
                  displacements.data(), MPI_CHAR, ttk::MPIcomm_);
   this->printMsg("R" + std::to_string(ttk::MPIrank_) + " got the results");
@@ -850,14 +862,9 @@ if(ttk::isRunningWithMPI()) {
   std::unordered_map<ttk::SimplexId, ttk::SimplexId> gIdToSegmentationMap;
 
   for(size_t i = 0; i < edgesWithTargets.size(); i++) {
-    globalIdOwner currentVal = edgesWithTargets[i];
-    if(computeAscending) {
-      gIdToSegmentationMap.insert(
-        std::make_pair(currentVal.globalId, currentVal.ascendingTarget));
-    } else {
-      gIdToSegmentationMap.insert(
-        std::make_pair(currentVal.globalId, currentVal.descendingTarget));
-    }
+    globalIdOwnerSingle currentVal = edgesWithTargets[i];
+    gIdToSegmentationMap.insert(std::make_pair(currentVal.globalId, currentVal.target));
+
   }
 
   // now we need to check for graphs in the map and iteratively compress
