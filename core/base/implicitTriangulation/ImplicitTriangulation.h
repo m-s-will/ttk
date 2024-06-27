@@ -482,8 +482,6 @@ namespace ttk {
 
     bool hasPreconditionedVerticesAndCells_{false};
 
-    float origin_[3]; //
-    float spacing_[3]; //
     SimplexId nbvoxels_[3]; // nombre de voxels par axe
 
     // Vertex helper //

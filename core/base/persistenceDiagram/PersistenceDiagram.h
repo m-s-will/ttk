@@ -121,6 +121,9 @@
 ///   href="https://topology-tool-kit.github.io/examples/persistenceDiagramDistance/">Persistence
 ///   Diagram Distance example</a> \n
 ///   - <a
+///   href="https://topology-tool-kit.github.io/examples/persistenceDiagramWAE/">Persistence
+///   Diagram Wasserstein Auto-Encoder example</a> \n
+///   - <a
 ///   href="https://topology-tool-kit.github.io/examples/tectonicPuzzle/">Tectonic
 ///   Puzzle example</a> \n
 ///   - <a
