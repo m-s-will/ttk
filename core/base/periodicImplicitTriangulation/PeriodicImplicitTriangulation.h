@@ -265,8 +265,6 @@ namespace ttk {
 
   protected:
     int dimensionality_; //
-    float origin_[3]; //
-    float spacing_[3]; //
     SimplexId nbvoxels_[3]; // nombre de voxels par axe
     SimplexId wrap_[3];
 
