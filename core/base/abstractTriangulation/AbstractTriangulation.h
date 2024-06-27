@@ -2512,7 +2512,7 @@ namespace ttk {
 
       std::array<float, 3> p{};
       for(int i = 0; i < 4; ++i) {
-        SimplexId triangleId;
+        SimplexId triangleId{-1};
         getCellTriangle(tetraId, i, triangleId);
         getTriangleIncenter(triangleId, p.data());
         incenter[0] += p[0];

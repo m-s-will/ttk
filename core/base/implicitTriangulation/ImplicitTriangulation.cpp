@@ -3193,14 +3193,13 @@ int ttk::ImplicitTriangulation::getCellRankInternal(
   }
 #endif // TTK_ENABLE_KAMIKAZE
 
-  float p[3];
+  float p[3] = {0, 0, 0};
   this->metaGrid_->getCellIncenter(
     this->getCellGlobalId(lcid), this->dimensionality_, p);
   for(const auto neigh : this->neighborRanks_) {
     const auto &bbox{this->neighborCellBBoxes_[neigh]};
     if(p[0] >= bbox[0] && p[0] <= bbox[1] && p[1] >= bbox[2] && p[1] <= bbox[3]
        && p[2] >= bbox[4] && p[2] <= bbox[5]) {
-      // printMsg("Rank of cell found");
       return neigh;
     }
   }
