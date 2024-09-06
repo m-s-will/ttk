@@ -1,0 +1,9 @@
+NAME
+  ttkPathCompressionLocal
+SOURCES
+  ttkPathCompressionLocal.cpp
+HEADERS
+  ttkPathCompressionLocal.h
+DEPENDS
+  pathCompressionLocal
+  ttkAlgorithm
