@@ -823,6 +823,8 @@ int ttkMergeTreeClustering::runOutput(
           visuMaker.setIsPersistenceDiagram(IsPersistenceDiagram);
           visuMaker.setTreesNodes(treesNodes);
           visuMaker.copyPointData(treesNodes[i], trees1NodeCorrMesh[i]);
+          if(not IsPersistenceDiagram)
+            visuMaker.copyCellData(treesArcs[i], trees1NodeCorrMesh[i]);
           visuMaker.setTreesNodeCorrMesh(trees1NodeCorrMesh);
           visuMaker.setTreesSegmentation(treesSegmentation);
           visuMaker.setVtkOutputNode(vtkOutputNode);

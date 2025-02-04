@@ -10,6 +10,7 @@
 #include <FTMTree.h>
 #include <MergeTreeVisualization.h>
 
+#include <algorithm>
 #include <ttkAlgorithm.h>
 
 // VTK Includes
@@ -104,6 +105,12 @@ private:
   std::vector<std::tuple<std::string, std::vector<int>>> customIntArrays;
   std::vector<std::tuple<std::string, std::vector<std::string>>>
     customStringArrays;
+
+  // Custom cell array
+  std::vector<std::tuple<std::string, std::vector<double>>> customCellArrays;
+  std::vector<std::tuple<std::string, std::vector<int>>> customCellIntArrays;
+  std::vector<std::tuple<std::string, std::vector<std::string>>>
+    customCellStringArrays;
 
   // Filled by the algorithm
   std::vector<std::vector<SimplexId>> nodeCorr;
@@ -371,6 +378,18 @@ public:
     clearCustomStringArrays();
   }
 
+  // Custom cell array
+  void addCustomCellArray(std::string &name, std::vector<double> &vec) {
+    customCellArrays.emplace_back(name, vec);
+  }
+  void addCustomCellIntArray(std::string &name, std::vector<int> &vec) {
+    customCellIntArrays.emplace_back(name, vec);
+  }
+  void addCustomCellStringArray(std::string &name,
+                                std::vector<std::string> &vec) {
+    customCellStringArrays.emplace_back(name, vec);
+  }
+
   template <class dataType>
   void addVtkCustomArrays(
     std::vector<std::tuple<std::string, std::vector<dataType>>> &cArrays,
@@ -471,6 +490,68 @@ public:
   void copyPointData(vtkUnstructuredGrid *treeNodes) {
     std::vector<int> nodeCorrT;
     copyPointData(treeNodes, nodeCorrT);
+  }
+
+  void copyCellData(vtkUnstructuredGrid *treeArcs,
+                    std::vector<int> &nodeCorrT) {
+    if(!treeArcs)
+      return;
+
+    // TODO manage TreeNodeId?
+    /*auto treeNodeIdArray = treeArcs->GetPointData()->GetArray("TreeNodeId");
+    std::vector<int> treeNodeIdRev;
+    if(treeNodeIdArray)
+      getTreeNodeIdRev(treeNodeIdArray, treeNodeIdRev);*/
+
+    std::vector<int> nodeCorrRev(
+      *std::max_element(nodeCorrT.begin(), nodeCorrT.end()) + 1, -1);
+    for(unsigned int i = 0; i < nodeCorrT.size(); ++i)
+      if(nodeCorrT[i] >= 0)
+        nodeCorrRev[nodeCorrT[i]] = i;
+
+    auto downNodeIdArray = treeArcs->GetCellData()->GetArray("downNodeId");
+    std::vector<int> nodeToCell(nodeCorrT.size(), -1);
+    for(unsigned int i = 0; i < downNodeIdArray->GetNumberOfTuples(); ++i) {
+      if(nodeCorrRev[downNodeIdArray->GetTuple1(i)] >= 0)
+        nodeToCell[nodeCorrRev[downNodeIdArray->GetTuple1(i)]] = i;
+    }
+
+    for(int i = 0; i < treeArcs->GetCellData()->GetNumberOfArrays(); ++i) {
+      auto dataArray
+        = vtkDataArray::SafeDownCast(treeArcs->GetCellData()->GetArray(i));
+      auto stringArray
+        = vtkStringArray::SafeDownCast(treeArcs->GetCellData()->GetArray(i));
+      vtkAbstractArray *array;
+      if(dataArray)
+        array = dataArray;
+      else if(stringArray)
+        array = stringArray;
+      else
+        continue;
+      auto vecSize = (nodeCorrT.size() == 0 ? array->GetNumberOfValues()
+                                            : nodeCorrT.size());
+      std::vector<double> vec(vecSize, -1);
+      std::vector<std::string> vecString(vecSize, "");
+      for(unsigned int j = 0; j < vec.size(); ++j) {
+        // int toGet = (nodeCorrT.size() == 0 ? j : nodeCorrT[j]);
+        int toGet = nodeToCell[j];
+        if(toGet < 0)
+          continue;
+        /*if(treeNodeIdArray)
+          toGet = (nodeCorrT.size() == 0 ? treeNodeIdRev[j]
+                                         : treeNodeIdRev[nodeCorrT[j]]);*/
+        auto value = array->GetVariantValue(toGet);
+        if(dataArray)
+          vec[j] = value.ToDouble();
+        else
+          vecString[j] = value.ToString();
+      }
+      std::string name{array->GetName()};
+      if(dataArray)
+        addCustomCellArray(name, vec);
+      else
+        addCustomCellStringArray(name, vecString);
+    }
   }
 
   // Filled by the algorithm
@@ -876,12 +957,19 @@ public:
     vtkNew<vtkIntArray> isMultiPersPairArc{};
     isMultiPersPairArc->SetName("isMultiPersPairArc");
 
-    std::vector<std::vector<double>> customCellArraysValues(
+    std::vector<std::vector<double>> customPointToCellArraysValues(
       customArrays.size());
-    std::vector<std::vector<int>> customCellIntArraysValues(
+    std::vector<std::vector<int>> customPointToCellIntArraysValues(
       customIntArrays.size());
-    std::vector<std::vector<std::string>> customCellStringArraysValues(
+    std::vector<std::vector<std::string>> customPointToCellStringArraysValues(
       customStringArrays.size());
+
+    std::vector<std::vector<double>> customCellArraysValues(
+      customCellArrays.size());
+    std::vector<std::vector<int>> customCellIntArraysValues(
+      customCellIntArrays.size());
+    std::vector<std::vector<std::string>> customCellStringArraysValues(
+      customCellStringArrays.size());
 
     // Segmentation
     vtkNew<vtkAppendFilter> appendFilter{};
@@ -1586,14 +1674,25 @@ public:
 
               // Add custom point arrays to cells
               for(unsigned int ca = 0; ca < customArrays.size(); ++ca)
-                customCellArraysValues[ca].push_back(
+                customPointToCellArraysValues[ca].push_back(
                   std::get<1>(customArrays[ca])[nodeBranching]);
               for(unsigned int ca = 0; ca < customIntArrays.size(); ++ca)
-                customCellIntArraysValues[ca].push_back(
+                customPointToCellIntArraysValues[ca].push_back(
                   std::get<1>(customIntArrays[ca])[nodeBranching]);
               for(unsigned int ca = 0; ca < customStringArrays.size(); ++ca)
-                customCellStringArraysValues[ca].push_back(
+                customPointToCellStringArraysValues[ca].push_back(
                   std::get<1>(customStringArrays[ca])[nodeBranching]);
+
+              // Add custom cell arrays
+              for(unsigned int ca = 0; ca < customCellArrays.size(); ++ca)
+                customCellArraysValues[ca].emplace_back(
+                  std::get<1>(customCellArrays[ca])[node]);
+              for(unsigned int ca = 0; ca < customCellIntArrays.size(); ++ca)
+                customCellIntArraysValues[ca].emplace_back(
+                  std::get<1>(customCellIntArrays[ca])[node]);
+              for(unsigned int ca = 0; ca < customCellStringArrays.size(); ++ca)
+                customCellStringArraysValues[ca].emplace_back(
+                  std::get<1>(customStringArrays[ca])[node]);
 
               cellCount++;
             }
@@ -1823,11 +1922,11 @@ public:
           pairBirth->InsertNextTuple1(0);
 
           for(unsigned int ca = 0; ca < customArrays.size(); ++ca)
-            customCellArraysValues[ca].push_back(-1);
+            customPointToCellArraysValues[ca].push_back(-1);
           for(unsigned int ca = 0; ca < customIntArrays.size(); ++ca)
-            customCellIntArraysValues[ca].push_back(-1);
+            customPointToCellIntArraysValues[ca].push_back(-1);
           for(unsigned int ca = 0; ca < customStringArrays.size(); ++ca)
-            customCellStringArraysValues[ca].emplace_back("");
+            customPointToCellStringArraysValues[ca].emplace_back("");
 
           isMultiPersPairArc->InsertNextTuple1(0);
           clusterIDArc->InsertNextTuple1(clusteringAssignment[i]);
@@ -1940,12 +2039,20 @@ public:
     vtkOutputNode->GetPointData()->AddArray(pairBirthNode);
 
     // - Manage arc output
-    // Custom arrays
-    addVtkCustomArrays(customArrays, customCellArraysValues, vtkArcs, 0, 1);
+    // Custom point to cell arrays
     addVtkCustomArrays(
-      customIntArrays, customCellIntArraysValues, vtkArcs, 1, 1);
+      customArrays, customPointToCellArraysValues, vtkArcs, 0, 1);
     addVtkCustomArrays(
-      customStringArrays, customCellStringArraysValues, vtkArcs, 2, 1);
+      customIntArrays, customPointToCellIntArraysValues, vtkArcs, 1, 1);
+    addVtkCustomArrays(
+      customStringArrays, customPointToCellStringArraysValues, vtkArcs, 2, 1);
+
+    // Custom cell arrays
+    addVtkCustomArrays(customCellArrays, customCellArraysValues, vtkArcs, 0, 1);
+    addVtkCustomArrays(
+      customCellIntArrays, customCellIntArraysValues, vtkArcs, 1, 1);
+    addVtkCustomArrays(
+      customCellStringArrays, customCellStringArraysValues, vtkArcs, 2, 1);
 
     // Classical arrays
     vtkArcs->SetPoints(points);
