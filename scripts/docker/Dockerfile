@@ -74,7 +74,7 @@ RUN  install-helper /tmp/mpich.sh
 #RUN  install-helper /tmp/ompi.sh
 
 # install ParaView
-ARG paraview=5.10.1
+ARG paraview=5.13.0
 ENV PARAVIEW_VERSION=${paraview}
 
 COPY pkg/paraview.sh /tmp

@@ -1,41 +1,61 @@
 {
-  "version": 2,
-  "configurePresets": [
-    {
-      "name": "TTK-Default",
-      "hidden": true,
-      "binaryDir": "build",
-      "generator": "Ninja",
-      "cacheVariables": {
-        "TTK_ENABLE_DOUBLE_TEMPLATING": "ON"
-      }
-    },
-    {
-      "name": "TTK-Release",
-      "inherits": "TTK-Default",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "TTK_ENABLE_CPU_OPTIMIZATION": "OFF",
-        "TTK_ENABLE_MPI": "OFF",
-        "TTK_ENABLE_KAMIKAZE": "ON"
-      }
-    },
-    {
-      "name": "TTK-PerformanceBenchmark",
-      "inherits": "TTK-Default",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
-        "TTK_ENABLE_CPU_OPTIMIZATION": "ON",
-        "TTK_ENABLE_KAMIKAZE": "ON"
-      }
-    },
-    {
-      "name": "TTK-Debug",
-      "inherits": "TTK-Default",
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "TTK_ENABLE_KAMIKAZE": "OFF"
-      }
-    }
-  ]
+    "version": 6,
+    "configurePresets": [
+        {
+            "name": "TTK-Default",
+            "hidden": true,
+            "binaryDir": "build",
+            "generator": "Unix Makefiles",
+            "cacheVariables": {
+                "TTK_ENABLE_DOUBLE_TEMPLATING": "OFF"
+            }
+        },
+        {
+            "name": "TTK-Release",
+            "inherits": "TTK-Default",
+            "binaryDir": "build/release",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "TTK_ENABLE_CPU_OPTIMIZATION": "OFF",
+                "TTK_ENABLE_MPI": "OFF",
+                "TTK_ENABLE_KAMIKAZE": "ON",
+                "TTK_ENABLE_WEBSOCKETPP": "OFF",
+                "WEBSOCKETPP_DIR": "/home/wetzels/ttk/ttk-jonas/websocketpp/install/lib/cmake/websocketpp"
+            }
+        },
+        {
+            "name": "TTK-PerformanceBenchmark",
+            "inherits": "TTK-Default",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "TTK_ENABLE_CPU_OPTIMIZATION": "ON",
+                "TTK_ENABLE_KAMIKAZE": "ON"
+            }
+        },
+        {
+            "name": "TTK-Debug",
+            "inherits": "TTK-Default",
+            "binaryDir": "build/debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "TTK_ENABLE_KAMIKAZE": "OFF"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "TTK-Release",
+            "description": "",
+            "displayName": "",
+            "configurePreset": "TTK-Release",
+            "jobs": 4
+        },
+        {
+            "name": "TTK-Debug",
+            "description": "",
+            "displayName": "",
+            "configurePreset": "TTK-Debug",
+            "jobs": 4
+        }
+    ]
 }
