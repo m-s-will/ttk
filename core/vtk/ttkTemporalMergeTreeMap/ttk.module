@@ -1,0 +1,9 @@
+NAME
+  ttkTemporalMergeTreeMap
+SOURCES
+  ttkTemporalMergeTreeMap.cpp
+HEADERS
+  ttkTemporalMergeTreeMap.h
+DEPENDS
+  temporalMergeTreeMap
+  ttkAlgorithm
