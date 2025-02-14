@@ -5,8 +5,8 @@
 <!--       Good resources are: IcoSphere.xml, PersistenceDiagram.xml, and ArrayEditor.xml -->
 <ServerManagerConfiguration>
   <ProxyGroup name="filters">
-    <SourceProxy name="ttkTemporalMergeTreeMap" class="ttkTemporalMergeTreeMap" label="TTK TemporalMergeTreeMap">
-      <Documentation long_help="TemporalMergeTreeMap Long" short_help="TemporalMergeTreeMap Short">This filter is a well documented ttk example filter that computes for each vertex of a vtkDataSet the average scalar value of itself and its neighbors.</Documentation>
+    <SourceProxy name="ttkTemporalMergeTreeMap2" class="ttkTemporalMergeTreeMap2" label="TTK TemporalMergeTreeMap2">
+      <Documentation long_help="TemporalMergeTreeMap2 Long" short_help="TemporalMergeTreeMap2 Short">This filter is a well documented ttk example filter that computes for each vertex of a vtkDataSet the average scalar value of itself and its neighbors.</Documentation>
 
       <!-- INPUT DATA OBJECTS -->
       <InputProperty  name="Member Trees" 
@@ -52,7 +52,7 @@
       <!-- INPUT PARAMETER WIDGETS -->
 
       <!-- This is the VTK way of selecting arrays for processing by calling the SetInputArrayToProcess method -->
-      <!-- (see ttkTemporalMergeTreeMap.cpp for details) -->
+      <!-- (see ttkTemporalMergeTreeMap2.cpp for details) -->
       <StringVectorProperty name="InputArray" 
                 label="Input Array" 
                 command="SetInputArrayToProcess" 

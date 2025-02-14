@@ -1,0 +1,4 @@
+NAME
+  ttkTemporalMergeTreeMap2
+DEPENDS
+  ttkAlgorithm

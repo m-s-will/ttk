@@ -1,11 +1,11 @@
 NAME
-  ttkTemporalMergeTreeMap
+  ttkTemporalMergeTreeMap2
 SOURCES
-  ttkTemporalMergeTreeMap.cpp
+  ttkTemporalMergeTreeMap2.cpp
 HEADERS
-  ttkTemporalMergeTreeMap.h
+  ttkTemporalMergeTreeMap2.h
 DEPENDS
-  temporalMergeTreeMap
+  temporalMergeTreeMap2
   mergeTreeClustering
   ttkMergeTreeClustering
   ftmTree

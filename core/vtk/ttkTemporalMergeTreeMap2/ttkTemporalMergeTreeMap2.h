@@ -3,13 +3,13 @@
 /// specified with the standard VTK call SetInputArrayToProcess()).
 ///
 /// \ingroup vtk
-/// \class ttkTemporalMergeTreeMap
+/// \class ttkTemporalMergeTreeMap2
 /// \author Your Name Here <your.email@address.here>
 /// \date The Date Here.
 ///
-/// \brief TTK VTK-filter that wraps the ttk::TemporalMergeTreeMap module.
+/// \brief TTK VTK-filter that wraps the ttk::TemporalMergeTreeMap2 module.
 ///
-/// This VTK filter uses the ttk::TemporalMergeTreeMap module to compute an averaging of
+/// This VTK filter uses the ttk::TemporalMergeTreeMap2 module to compute an averaging of
 /// the data values of an input point data array defined on the input
 /// vtkDataSet.
 ///
@@ -28,21 +28,22 @@
 /// \param arrayName (DYNAMIC: string identifier of the input array)
 ///
 /// See the corresponding standalone program for a usage example:
-///   - standalone/TemporalMergeTreeMap/main.cpp
+///   - standalone/TemporalMergeTreeMap2/main.cpp
 ///
 /// See the related ParaView example state files for usage examples within a
 /// VTK pipeline.
 ///
-/// \sa ttk::TemporalMergeTreeMap
+/// \sa ttk::TemporalMergeTreeMap2
 /// \sa ttkAlgorithm
 
 #pragma once
 
 // VTK Module
-#include <ttkTemporalMergeTreeMapModule.h>
+#include <ttkTemporalMergeTreeMap2Module.h>
 
 // VTK Includes
 #include <ttkAlgorithm.h>
+#include <vtkMultiBlockDataSet.h>
 
 /* Note on including VTK modules
  *
@@ -60,19 +61,19 @@
  * the vtk.module file would need to be extended to
  *
  * NAME
- *   ttkTemporalMergeTreeMap
+ *   ttkTemporalMergeTreeMap2
  * DEPENDS
  *   ttkAlgorithm
  *   VTK::FiltersSources
  */
 
 // TTK Base Includes
-#include <TemporalMergeTreeMap.h>
+#include <TemporalMergeTreeMap2.h>
 
-class TTKTEMPORALMERGETREEMAP_EXPORT ttkTemporalMergeTreeMap
+class TTKTEMPORALMERGETREEMAP2_EXPORT ttkTemporalMergeTreeMap2
   : public ttkAlgorithm // we inherit from the generic ttkAlgorithm class
   ,
-    protected ttk::TemporalMergeTreeMap // and we inherit from the base class
+    protected ttk::TemporalMergeTreeMap2 // and we inherit from the base class
 {
 private:
   /**
@@ -92,6 +93,10 @@ private:
       std::vector<int> &branchNodeIDs,
       std::vector<double> &memiScalars,
       std::vector<double> &memiOrdering);
+  void computeBaryBranchOrdering(
+    vtkMultiBlockDataSet* mtmb, 
+    vtkMultiBlockDataSet* members,
+    std::vector<double> &ordering_branches);
 
 public:
   /**
@@ -105,16 +110,16 @@ public:
    * This static method and the macro below are VTK conventions on how to
    * instantiate VTK objects. You don't have to modify this.
    */
-  static ttkTemporalMergeTreeMap *New();
-  vtkTypeMacro(ttkTemporalMergeTreeMap, ttkAlgorithm);
+  static ttkTemporalMergeTreeMap2 *New();
+  vtkTypeMacro(ttkTemporalMergeTreeMap2, ttkAlgorithm);
 
 protected:
   /**
    * TODO 7: Implement the filter constructor and destructor
    *         (see cpp file)
    */
-  ttkTemporalMergeTreeMap();
-  ~ttkTemporalMergeTreeMap() override = default;
+  ttkTemporalMergeTreeMap2();
+  ~ttkTemporalMergeTreeMap2() override = default;
 
   /**
    * TODO 8: Specify the input data type of each input port
