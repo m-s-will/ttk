@@ -82,17 +82,17 @@ private:
    */
   std::string OutputArrayName{"AveragedScalarField"};
   bool useSlidingWindow = false;
-  int windowSize = 5;
+  ttk::SimplexId windowSize = 5;
   void dfs_linearization(
-      int curr_node,
+      ttk::SimplexId curr_node,
       std::vector<double> &lin,
-      std::vector<int> &seg,
-      std::vector<int> &bar,
-      std::vector<std::vector<int>> &memiChildren,
+      std::vector<ttk::SimplexId> &seg,
+      std::vector<ttk::SimplexId> &bar,
+      std::vector<std::vector<ttk::SimplexId>> &memiChildren,
       std::vector<std::vector<double>> &memiSegmentScalars,
-      std::vector<int> &memiSizes,
-      std::vector<int> &memiSegs,
-      std::vector<int> &branchNodeIDs,
+      std::vector<ttk::SimplexId> &memiSizes,
+      std::vector<ttk::SimplexId> &memiSegs,
+      std::vector<ttk::SimplexId> &branchNodeIDs,
       std::vector<double> &memiScalars,
       std::vector<double> &memiOrdering);
   void computeBaryBranchOrdering(
