@@ -236,8 +236,22 @@ void ttkTemporalMergeTreeMap2::computeBaryBranchOrdering(vtkMultiBlockDataSet* m
   //   std::cout << j << ":";
   //   std::cout << baryParents[j] << "  ";
   // }
+  // std::cout << "bary" << "-----\n  ";
+  // for(int j=0; j<bary_scalars.size(); j++){
+  //   std::cout << j << ":";
+  //   std::cout << baryParents[j] << "  ";
+  // }
   // std::cout << "\n  ";
   // for(int j=0; j<bary_scalars.size(); j++){
+  //   std::cout << bary_branches[j] << "/";
+  //   std::cout << ordering_branches[bary_branches[j]] << "  ";
+  // }
+  // // std::cout << "\n  ";
+  // // for(int j=0; j<bary_scalars.size(); j++){
+  // //   std::cout << std::setprecision(2) << bary_scalars[j] << "/";
+  // //   std::cout << memiOrdering[j] << "  ";
+  // // }
+  // std::cout << "\n-----" << std::endl;
   //   std::cout << bary_branches[j] << "/";
   //   std::cout << ordering_branches[bary_branches[j]] << "  ";
   // }
@@ -451,10 +465,15 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
     std::vector<std::vector<int>> memiChildren(memiNodes->GetNumberOfPoints());
     int root = -1;
     int maxDegree = 0;
+    int maxDegree = 0;
     for(int i=0; i<memiParents.size(); i++){
       auto parentId = memiParents[i];
       if(parentId >= 0){
+      if(parentId >= 0){
         memiChildren[parentId].push_back(i);
+        maxDegree = std::max(maxDegree,(int)memiChildren[parentId].size());
+        // std::cout << i << "/" << memiChildren[parentId].size() << " ; ";
+      }
         maxDegree = std::max(maxDegree,(int)memiChildren[parentId].size());
         // std::cout << i << "/" << memiChildren[parentId].size() << " ; ";
       }

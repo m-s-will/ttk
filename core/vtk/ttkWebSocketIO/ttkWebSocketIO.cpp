@@ -112,6 +112,7 @@ int ttkWebSocketIO::processEvent(const std::string &eventName,
     extractor->SetOutputType(VTK_IMAGE_DATA);
     extractor->SetExpressionString(block);
     extractor->Update();
+
     if(!this->SendVtkDataObject(extractor->GetOutput()))
       return 0;
     }
