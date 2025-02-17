@@ -227,22 +227,22 @@ void ttkTemporalMergeTreeMap2::computeBaryBranchOrdering(vtkMultiBlockDataSet* m
     bary_scalars[nId] = scalar;
   }
 
-  std::cout << "bary" << "-----\n  ";
-  for(int j=0; j<bary_scalars.size(); j++){
-    std::cout << j << ":";
-    std::cout << baryParents[j] << "  ";
-  }
-  std::cout << "\n  ";
-  for(int j=0; j<bary_scalars.size(); j++){
-    std::cout << bary_branches[j] << "/";
-    std::cout << ordering_branches[bary_branches[j]] << "  ";
-  }
+  // std::cout << "bary" << "-----\n  ";
+  // for(int j=0; j<bary_scalars.size(); j++){
+  //   std::cout << j << ":";
+  //   std::cout << baryParents[j] << "  ";
+  // }
   // std::cout << "\n  ";
   // for(int j=0; j<bary_scalars.size(); j++){
-  //   std::cout << std::setprecision(2) << bary_scalars[j] << "/";
-  //   std::cout << memiOrdering[j] << "  ";
+  //   std::cout << bary_branches[j] << "/";
+  //   std::cout << ordering_branches[bary_branches[j]] << "  ";
   // }
-  std::cout << "\n-----" << std::endl;
+  // // std::cout << "\n  ";
+  // // for(int j=0; j<bary_scalars.size(); j++){
+  // //   std::cout << std::setprecision(2) << bary_scalars[j] << "/";
+  // //   std::cout << memiOrdering[j] << "  ";
+  // // }
+  // std::cout << "\n-----" << std::endl;
 }
 
 /**
@@ -312,12 +312,12 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
   if(!domains)
     return 0;
 
-  bool sliding_window = true;
-  int windowSize = 5;
+  // bool sliding_window = true;
+  // int windowSize = 5;
   std::vector<double> ordering_branches;
   vtkNew<vtkMultiBlockDataSet> members;
 
-  if(!sliding_window){  
+  if(!this->useSlidingWindow){  
     vtkNew<vtkMultiBlockDataSet> mtmb;
     mtmb->SetNumberOfBlocks(2);
     mtmb->SetBlock(0,inputNodes);
@@ -356,15 +356,15 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
   for(int blockIdx=0; blockIdx < inputNodes->GetNumberOfBlocks(); blockIdx++){
 
     int memberIdx = blockIdx;
-    if(sliding_window){  
+    if(this->useSlidingWindow){  
       vtkNew<vtkMultiBlockDataSet> mtmb;
       mtmb->SetNumberOfBlocks(2);
       mtmb->SetBlock(0,vtkNew<vtkMultiBlockDataSet>());
       mtmb->SetBlock(1,vtkNew<vtkMultiBlockDataSet>());
-      int sb = std::max(blockIdx-windowSize,0);
-      memberIdx = windowSize;
-      if(blockIdx-windowSize<0) memberIdx += blockIdx-windowSize;
-      int eb = std::min(blockIdx+windowSize,(int)inputNodes->GetNumberOfBlocks()-1);
+      int sb = std::max(blockIdx-this->windowSize,0);
+      memberIdx = this->windowSize;
+      if(blockIdx-this->windowSize<0) memberIdx += blockIdx-this->windowSize;
+      int eb = std::min(blockIdx+this->windowSize,(int)inputNodes->GetNumberOfBlocks()-1);
       vtkMultiBlockDataSet::SafeDownCast(mtmb->GetBlock(0))->SetNumberOfBlocks(eb-sb+1);
       vtkMultiBlockDataSet::SafeDownCast(mtmb->GetBlock(1))->SetNumberOfBlocks(eb-sb+1);
       int bidx = 0;
@@ -427,12 +427,21 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
     //  create tree structure of member tree (children lists)
     std::vector<std::vector<int>> memiChildren(memiNodes->GetNumberOfPoints());
     int root = -1;
+    int maxDegree = 0;
     for(int i=0; i<memiParents.size(); i++){
       auto parentId = memiParents[i];
-      if(parentId >= 0)
+      if(parentId >= 0){
         memiChildren[parentId].push_back(i);
+        maxDegree = std::max(maxDegree,(int)memiChildren[parentId].size());
+        // std::cout << i << "/" << memiChildren[parentId].size() << " ; ";
+      }
       if(parentId==-1 && memiNodeIsDummy[i])
         root = i;
+    }
+
+    std::cout << blockIdx << ": " << maxDegree << std::endl;
+    if(maxDegree>2){
+      std::cout << "  !!" << maxDegree << std::endl;
     }
     
     // get barycenter branchIDs of member tree nodes

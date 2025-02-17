@@ -81,6 +81,8 @@ private:
    *         initialize them here.
    */
   std::string OutputArrayName{"AveragedScalarField"};
+  bool useSlidingWindow = false;
+  int windowSize = 5;
   void dfs_linearization(
       int curr_node,
       std::vector<double> &lin,
@@ -105,6 +107,18 @@ public:
    */
   vtkSetMacro(OutputArrayName, const std::string &);
   vtkGetMacro(OutputArrayName, std::string);
+
+  void SetWindowSize(int s) {
+    windowSize = s;
+    Modified();
+  }
+  vtkGetMacro(windowSize, bool);
+
+  void SetUseSlidingWindow(bool b) {
+    useSlidingWindow = b;
+    Modified();
+  }
+  vtkGetMacro(useSlidingWindow, bool);
 
   /**
    * This static method and the macro below are VTK conventions on how to

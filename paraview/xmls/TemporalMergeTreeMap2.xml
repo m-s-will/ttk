@@ -9,7 +9,7 @@
       <Documentation long_help="TemporalMergeTreeMap2 Long" short_help="TemporalMergeTreeMap2 Short">This filter is a well documented ttk example filter that computes for each vertex of a vtkDataSet the average scalar value of itself and its neighbors.</Documentation>
 
       <!-- INPUT DATA OBJECTS -->
-      <InputProperty  name="Member Trees" 
+      <InputProperty  name="Member Nodes" 
                       command="SetInputConnection"
                       port_index="0">
         <ProxyGroupDomain name="groups">
@@ -22,7 +22,7 @@
         <InputArrayDomain name="input_array" attribute_type="point" number_of_components="1" />
         <Documentation>A vtkDataSet that has at least one point data scalar array that can be used to compute averages.</Documentation>
       </InputProperty>
-      <InputProperty name="Barycenter" 
+      <InputProperty name="Member Arcs" 
                       command="SetInputConnection"
                       port_index="1">
         <ProxyGroupDomain name="groups">
@@ -35,7 +35,7 @@
         <InputArrayDomain name="input_array" attribute_type="point" number_of_components="1" />
         <Documentation>A vtkDataSet that has at least one point data scalar array that can be used to compute averages.</Documentation>
       </InputProperty>
-      <InputProperty  name="Segmented Domains" 
+      <InputProperty  name="Member Segmentations" 
                       command="SetInputConnection"
                       port_index="2">
         <ProxyGroupDomain name="groups">
@@ -61,11 +61,44 @@
                 default_values="0 2 0 0 Scalar">
         <ArrayListDomain attribute_type="Scalars" name="array_list">
           <RequiredProperties>
-            <Property function="Input" name="Segmented Domains" />
+            <Property function="Input" name="Member Segmentations" />
           </RequiredProperties>
         </ArrayListDomain>
         <Documentation>The scalar array that will be used to compute averages.</Documentation>
       </StringVectorProperty>
+                
+      <IntVectorProperty
+      name="UseSlidingWindow"
+      command="SetUseSlidingWindow"
+      label="Use sliding window"
+      number_of_elements="1"
+      default_values="0">
+        <!-- <Hints>
+        <PropertyWidgetDecorator type="GenericDecorator"
+                                  mode="visibility"
+                                  property="OutputTrees"
+                                  value="1" />
+        </Hints> -->
+        <Documentation>
+          ToDo.
+        </Documentation>
+        <BooleanDomain name="bool"/>
+      </IntVectorProperty>
+
+      <IntVectorProperty
+      name="SlidingWindowSize"
+      command="SetWindowSize"
+      label="Slidng window size"
+      number_of_elements="1"
+      default_values="5">
+        <!-- <Hints>
+        
+        </Hints> -->
+        <Documentation>
+          ToDo.
+        </Documentation>
+      </IntVectorProperty>
+
 
       <!-- Create a UI group that contains all input parameter widgets (here only one) -->
       <PropertyGroup panel_widget="Line" label="Input options">
