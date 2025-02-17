@@ -1,4 +1,4 @@
-#include <ttkTemporalMergeTreeMap.h>
+#include <ttkTemporalMergeTreeMap2.h>
 
 #include <vtkInformation.h>
 
@@ -22,7 +22,7 @@
 
 // A VTK macro that enables the instantiation of this class via ::New()
 // You do not have to modify this
-vtkStandardNewMacro(ttkTemporalMergeTreeMap);
+vtkStandardNewMacro(ttkTemporalMergeTreeMap2);
 
 /**
  * TODO 7: Implement the filter constructor and destructor in the cpp file.
@@ -36,7 +36,7 @@ vtkStandardNewMacro(ttkTemporalMergeTreeMap);
  * explicitly, by for example allocating memory on the heap that needs
  * to be freed when the filter is destroyed.
  */
-ttkTemporalMergeTreeMap::ttkTemporalMergeTreeMap() {
+ttkTemporalMergeTreeMap2::ttkTemporalMergeTreeMap2() {
   this->SetNumberOfInputPorts(3);
   this->SetNumberOfOutputPorts(1);
 }
@@ -48,7 +48,7 @@ ttkTemporalMergeTreeMap::ttkTemporalMergeTreeMap() {
  * filter by adding the vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE() key to
  * the port information.
  */
-int ttkTemporalMergeTreeMap::FillInputPortInformation(int port, vtkInformation *info) {
+int ttkTemporalMergeTreeMap2::FillInputPortInformation(int port, vtkInformation *info) {
   if(port == 0) {
     info->Set(vtkAlgorithm::INPUT_REQUIRED_DATA_TYPE(), "vtkMultiBlockDataSet");
     return 1;
@@ -79,7 +79,7 @@ int ttkTemporalMergeTreeMap::FillInputPortInformation(int port, vtkInformation *
  * Note: prior to the execution of the RequestData method the pipeline will
  * initialize empty output data objects based on this information.
  */
-int ttkTemporalMergeTreeMap::FillOutputPortInformation(int port, vtkInformation *info) {
+int ttkTemporalMergeTreeMap2::FillOutputPortInformation(int port, vtkInformation *info) {
   if(port == 0) {
     info->Set(vtkDataObject::DATA_TYPE_NAME(), "vtkMultiBlockDataSet");
     return 1;
@@ -87,7 +87,7 @@ int ttkTemporalMergeTreeMap::FillOutputPortInformation(int port, vtkInformation 
   return 0;
 }
 
-void ttkTemporalMergeTreeMap::dfs_linearization(
+void ttkTemporalMergeTreeMap2::dfs_linearization(
   int curr_node,
   std::vector<double> &lin,
   std::vector<int> &seg,
@@ -148,112 +148,22 @@ void ttkTemporalMergeTreeMap::dfs_linearization(
       }
 }
 
-/**
- * TODO 10: Pass VTK data to the base code and convert base code output to VTK
- *
- * This method is called during the pipeline execution to update the
- * already initialized output data objects based on the given input
- * data objects and filter parameters.
- *
- * Note:
- *     1) The passed input data objects are validated based on the information
- *        provided by the FillInputPortInformation method.
- *     2) The output objects are already initialized based on the information
- *        provided by the FillOutputPortInformation method.
- */
-int ttkTemporalMergeTreeMap::RequestData(vtkInformation *ttkNotUsed(request),
-                               vtkInformationVector **inputVector,
-                               vtkInformationVector *outputVector) {
+void ttkTemporalMergeTreeMap2::computeBaryBranchOrdering(vtkMultiBlockDataSet* mtmb, vtkMultiBlockDataSet* members,std::vector<double> &ordering_branches){
+  vtkNew<ttkMergeTreeClustering> c;
+  c->SetInputDataObject(0,mtmb);
+  c->SetComputeBarycenter(true);
+  c->SetImportantPairs(0);
+  c->SetEpsilonTree1(0);
+  c->SetEpsilon2Tree1(1);
+  c->SetEpsilon3Tree1(1);
+  c->SetDeterministic(true);
+  c->SetUseFixedInit(true);
+  c->SetPlanarLayout(true);
+  c->Update();
 
+  members->DeepCopy(vtkMultiBlockDataSet::SafeDownCast(c->GetOutputDataObject(0)));
+  auto barycenter = vtkMultiBlockDataSet::SafeDownCast(c->GetOutputDataObject(1));
 
-  //---------------------------------------------------------------
-  // internal base layer filter approach
-
-  // auto inputNodes = vtkMultiBlockDataSet::GetData(inputVector[0]);
-  // if(!inputNodes)
-  //   return 0;
-  // auto inputArcs = vtkMultiBlockDataSet::GetData(inputVector[1]);
-  // if(!inputArcs)
-  //   return 0;
-  // auto domains = vtkMultiBlockDataSet::GetData(inputVector[2]);
-  // if(!domains)
-  //   return 0;
-  
-  // std::vector<ttk::ftm::MergeTree<double>> trees(inputNodes->GetNumberOfBlocks());
-  // for(int i = 0; i < inputNodes->GetNumberOfBlocks(); i++) {
-  //   auto treeNodes = vtkUnstructuredGrid::SafeDownCast(inputNodes->GetBlock(i));
-  //   auto treeArcs = vtkUnstructuredGrid::SafeDownCast(inputArcs->GetBlock(i));
-  //   trees[i] = ttk::ftm::makeTree<double>(treeNodes, treeArcs);
-  //   std::cout << trees[i].tree.getNumberOfNodes() << std::endl;
-  // }
-
-  // ttk::MergeTreeBarycenter mergeTreeBarycenter;
-  // mergeTreeBarycenter.setThreadNumber(this->threadNumber_);
-  // mergeTreeBarycenter.setDebugLevel(this->debugLevel_);
-
-  // std::vector<std::vector<std::tuple<ttk::ftm::idNode, ttk::ftm::idNode, double>>> matchingBary;
-  // std::vector<std::vector<std::pair<std::pair<ttk::ftm::idNode, ttk::ftm::idNode>, std::pair<ttk::ftm::idNode, ttk::ftm::idNode>>>> matchingPath;
-  // ttk::ftm::MergeTree<double> baryMT;
-
-  // mergeTreeBarycenter.execute<double>(
-  //   trees, matchingBary, matchingPath, baryMT);
-  // // trees1NodeCorrMesh = mergeTreeBarycenter.getTreesNodeCorr();
-  // // finalDistances = mergeTreeBarycenter.getFinalDistances();
-
-  // std::cout << trees.size() << baryMT.tree.getNumberOfNodes() << std::endl;
-
-  //------------------------------------------------------------
-  // internal vtk filter approach
-
-  // auto inputNodes = vtkMultiBlockDataSet::GetData(inputVector[0]);
-  // if(!inputNodes)
-  //   return 0;
-  // auto inputArcs = vtkMultiBlockDataSet::GetData(inputVector[1]);
-  // if(!inputArcs)
-  //   return 0;
-  // auto domains = vtkMultiBlockDataSet::GetData(inputVector[2]);
-  // if(!domains)
-  //   return 0;
-
-  // vtkNew<vtkMultiBlockDataSet> mtmb;
-  // mtmb->SetNumberOfBlocks(2);
-  // mtmb->SetBlock(0,inputNodes);
-  // mtmb->SetBlock(1,inputArcs);
-
-  // vtkNew<ttkMergeTreeClustering> c;
-  // c->SetInputDataObject(0,mtmb.GetPointer());
-  // c->SetComputeBarycenter(true);
-  // c->SetImportantPairs(0);
-  // c->SetEpsilonTree1(0);
-  // c->SetEpsilon2Tree1(1);
-  // c->SetEpsilon3Tree1(1);
-  // c->SetDeterministic(true);
-  // c->SetUseFixedInit(true);
-  // c->Update();
-  // auto members = vtkMultiBlockDataSet::SafeDownCast(c->GetOutputDataObject(0));
-  // auto barycenter = vtkMultiBlockDataSet::SafeDownCast(c->GetOutputDataObject(1));
-
-  // std::cout << members->GetNumberOfBlocks() << " " << barycenter->GetNumberOfBlocks() << std::endl;
-
-  // return 1;
-
-  //---------------------------------------------------------
-  // barycenter input approach
-
-  // Get input object from input vector
-  // Note: has to be a vtkDataSet as required by FillInputPortInformation
-  auto members = vtkMultiBlockDataSet::GetData(inputVector[0]);
-  if(!members)
-    return 0;
-  auto barycenter = vtkMultiBlockDataSet::GetData(inputVector[1]);
-  if(!barycenter)
-    return 0;
-  auto domains = vtkMultiBlockDataSet::GetData(inputVector[2]);
-  if(!domains)
-    return 0;
-
-  auto memberNodes = vtkMultiBlockDataSet::SafeDownCast(members->GetBlock(0));
-  auto memberArcs = vtkMultiBlockDataSet::SafeDownCast(members->GetBlock(1));
   auto baryNodes_ = vtkMultiBlockDataSet::SafeDownCast(barycenter->GetBlock(0));
   auto baryArcs_ = vtkMultiBlockDataSet::SafeDownCast(barycenter->GetBlock(1));
   auto baryNodes = vtkUnstructuredGrid::SafeDownCast(baryNodes_->GetBlock(0));
@@ -302,7 +212,7 @@ int ttkTemporalMergeTreeMap::RequestData(vtkInformation *ttkNotUsed(request),
   }
 
   // compute ordering of barycenter branchIDs
-  auto ordering_branches = std::vector<double>(baryNodes->GetNumberOfPoints(),-1);
+  ordering_branches = std::vector<double>(baryNodes->GetNumberOfPoints(),-1);
   auto bary_branches = std::vector<double>(baryNodes->GetNumberOfPoints(),-1);
   auto bary_scalars = std::vector<double>(baryNodes->GetNumberOfPoints(),-1);
   for(int i=0; i<baryNodes->GetNumberOfPoints(); i++){
@@ -317,33 +227,162 @@ int ttkTemporalMergeTreeMap::RequestData(vtkInformation *ttkNotUsed(request),
     bary_scalars[nId] = scalar;
   }
 
-  std::cout << "bary" << "-----\n  ";
-  for(int j=0; j<bary_scalars.size(); j++){
-    std::cout << j << ":";
-    std::cout << baryParents[j] << "  ";
-  }
-  std::cout << "\n  ";
-  for(int j=0; j<bary_scalars.size(); j++){
-    std::cout << bary_branches[j] << "/";
-    std::cout << ordering_branches[bary_branches[j]] << "  ";
-  }
+  // std::cout << "bary" << "-----\n  ";
+  // for(int j=0; j<bary_scalars.size(); j++){
+  //   std::cout << j << ":";
+  //   std::cout << baryParents[j] << "  ";
+  // }
   // std::cout << "\n  ";
   // for(int j=0; j<bary_scalars.size(); j++){
-  //   std::cout << std::setprecision(2) << bary_scalars[j] << "/";
-  //   std::cout << memiOrdering[j] << "  ";
+  //   std::cout << bary_branches[j] << "/";
+  //   std::cout << ordering_branches[bary_branches[j]] << "  ";
   // }
-  std::cout << "\n-----" << std::endl;
+  // // std::cout << "\n  ";
+  // // for(int j=0; j<bary_scalars.size(); j++){
+  // //   std::cout << std::setprecision(2) << bary_scalars[j] << "/";
+  // //   std::cout << memiOrdering[j] << "  ";
+  // // }
+  // std::cout << "\n-----" << std::endl;
+}
+
+/**
+ * TODO 10: Pass VTK data to the base code and convert base code output to VTK
+ *
+ * This method is called during the pipeline execution to update the
+ * already initialized output data objects based on the given input
+ * data objects and filter parameters.
+ *
+ * Note:
+ *     1) The passed input data objects are validated based on the information
+ *        provided by the FillInputPortInformation method.
+ *     2) The output objects are already initialized based on the information
+ *        provided by the FillOutputPortInformation method.
+ */
+int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
+                               vtkInformationVector **inputVector,
+                               vtkInformationVector *outputVector) {
+
+
+  //---------------------------------------------------------------
+  // internal base layer filter approach
+
+  // auto inputNodes = vtkMultiBlockDataSet::GetData(inputVector[0]);
+  // if(!inputNodes)
+  //   return 0;
+  // auto inputArcs = vtkMultiBlockDataSet::GetData(inputVector[1]);
+  // if(!inputArcs)
+  //   return 0;
+  // auto domains = vtkMultiBlockDataSet::GetData(inputVector[2]);
+  // if(!domains)
+  //   return 0;
+  
+  // std::vector<ttk::ftm::MergeTree<double>> trees(inputNodes->GetNumberOfBlocks());
+  // for(int i = 0; i < inputNodes->GetNumberOfBlocks(); i++) {
+  //   auto treeNodes = vtkUnstructuredGrid::SafeDownCast(inputNodes->GetBlock(i));
+  //   auto treeArcs = vtkUnstructuredGrid::SafeDownCast(inputArcs->GetBlock(i));
+  //   trees[i] = ttk::ftm::makeTree<double>(treeNodes, treeArcs);
+  //   std::cout << trees[i].tree.getNumberOfNodes() << std::endl;
+  // }
+
+  // ttk::MergeTreeBarycenter mergeTreeBarycenter;
+  // mergeTreeBarycenter.setThreadNumber(this->threadNumber_);
+  // mergeTreeBarycenter.setDebugLevel(this->debugLevel_);
+
+  // std::vector<std::vector<std::tuple<ttk::ftm::idNode, ttk::ftm::idNode, double>>> matchingBary;
+  // std::vector<std::vector<std::pair<std::pair<ttk::ftm::idNode, ttk::ftm::idNode>, std::pair<ttk::ftm::idNode, ttk::ftm::idNode>>>> matchingPath;
+  // ttk::ftm::MergeTree<double> baryMT;
+
+  // mergeTreeBarycenter.execute<double>(
+  //   trees, matchingBary, matchingPath, baryMT);
+  // // trees1NodeCorrMesh = mergeTreeBarycenter.getTreesNodeCorr();
+  // // finalDistances = mergeTreeBarycenter.getFinalDistances();
+
+  // std::cout << trees.size() << baryMT.tree.getNumberOfNodes() << std::endl;
+
+  //------------------------------------------------------------
+  // internal vtk filter approach
+
+  auto inputNodes = vtkMultiBlockDataSet::GetData(inputVector[0]);
+  if(!inputNodes)
+    return 0;
+  auto inputArcs = vtkMultiBlockDataSet::GetData(inputVector[1]);
+  if(!inputArcs)
+    return 0;
+  auto domains = vtkMultiBlockDataSet::GetData(inputVector[2]);
+  if(!domains)
+    return 0;
+
+  // bool sliding_window = true;
+  // int windowSize = 5;
+  std::vector<double> ordering_branches;
+  vtkNew<vtkMultiBlockDataSet> members;
+
+  if(!this->useSlidingWindow){  
+    vtkNew<vtkMultiBlockDataSet> mtmb;
+    mtmb->SetNumberOfBlocks(2);
+    mtmb->SetBlock(0,inputNodes);
+    mtmb->SetBlock(1,inputArcs);
+
+    computeBaryBranchOrdering(mtmb.GetPointer(),members.GetPointer(),ordering_branches);
+  }
+
+  auto memberNodes = vtkMultiBlockDataSet::SafeDownCast(members->GetBlock(0));
+  auto memberArcs = vtkMultiBlockDataSet::SafeDownCast(members->GetBlock(1));
+
+  // std::cout << members->GetNumberOfBlocks() << " " << barycenter->GetNumberOfBlocks() << std::endl;
+
+  // return 1;
+
+  //---------------------------------------------------------
+  // barycenter input approach
+
+  // Get input object from input vector
+  // Note: has to be a vtkDataSet as required by FillInputPortInformation
+  // auto members = vtkMultiBlockDataSet::GetData(inputVector[0]);
+  // if(!members)
+  //   return 0;
+  // auto barycenter = vtkMultiBlockDataSet::GetData(inputVector[1]);
+  // if(!barycenter)
+  //   return 0;
+  // auto domains = vtkMultiBlockDataSet::GetData(inputVector[2]);
+  // if(!domains)
+  //   return 0;
 
   std::vector<std::vector<double>> linearizations;
   std::vector<std::vector<int>> segmentations;
   std::vector<std::vector<int>> barycenterRefs;
   int maxlen = 0;
 
-  for(int blockIdx=0; blockIdx < memberNodes->GetNumberOfBlocks(); blockIdx++){
+  for(int blockIdx=0; blockIdx < inputNodes->GetNumberOfBlocks(); blockIdx++){
+
+    int memberIdx = blockIdx;
+    if(this->useSlidingWindow){  
+      vtkNew<vtkMultiBlockDataSet> mtmb;
+      mtmb->SetNumberOfBlocks(2);
+      mtmb->SetBlock(0,vtkNew<vtkMultiBlockDataSet>());
+      mtmb->SetBlock(1,vtkNew<vtkMultiBlockDataSet>());
+      int sb = std::max(blockIdx-this->windowSize,0);
+      memberIdx = this->windowSize;
+      if(blockIdx-this->windowSize<0) memberIdx += blockIdx-this->windowSize;
+      int eb = std::min(blockIdx+this->windowSize,(int)inputNodes->GetNumberOfBlocks()-1);
+      vtkMultiBlockDataSet::SafeDownCast(mtmb->GetBlock(0))->SetNumberOfBlocks(eb-sb+1);
+      vtkMultiBlockDataSet::SafeDownCast(mtmb->GetBlock(1))->SetNumberOfBlocks(eb-sb+1);
+      int bidx = 0;
+      for(int b=sb; b<=eb; b++){
+        vtkMultiBlockDataSet::SafeDownCast(mtmb->GetBlock(0))->SetBlock(bidx,inputNodes->GetBlock(b));
+        vtkMultiBlockDataSet::SafeDownCast(mtmb->GetBlock(1))->SetBlock(bidx,inputArcs->GetBlock(b));
+        bidx++;
+      }
+      computeBaryBranchOrdering(mtmb.GetPointer(),members.GetPointer(),ordering_branches);
+
+      memberNodes = vtkMultiBlockDataSet::SafeDownCast(members->GetBlock(0));
+      memberArcs = vtkMultiBlockDataSet::SafeDownCast(members->GetBlock(1));
+    }
+
     int totalSize = 0;
     std::vector<int> arcRegions;
-    auto memiNodes = vtkUnstructuredGrid::SafeDownCast(memberNodes->GetBlock(blockIdx));
-    auto memiArcs = vtkUnstructuredGrid::SafeDownCast(memberArcs->GetBlock(blockIdx));
+    auto memiNodes = vtkUnstructuredGrid::SafeDownCast(memberNodes->GetBlock(memberIdx));
+    auto memiArcs = vtkUnstructuredGrid::SafeDownCast(memberArcs->GetBlock(memberIdx));
     auto memiDomain = vtkDataSet::SafeDownCast(domains->GetBlock(blockIdx));
 
     auto scalarArrayDomain = this->GetInputArrayToProcess(0, memiDomain);
@@ -363,6 +402,7 @@ int ttkTemporalMergeTreeMap::RequestData(vtkInformation *ttkNotUsed(request),
 
     // get node properties of member tree
     int numNodesi = 0;
+    int nnmti = vtkUnstructuredGrid::SafeDownCast(inputArcs->GetBlock(blockIdx))->GetNumberOfPoints();
     std::vector<int> memiNodeIsDummy(memiNodes->GetNumberOfPoints());
     std::vector<double> memiScalars(memiNodes->GetNumberOfPoints());
     for(int i=0; i<memiNodes->GetNumberOfPoints(); i++){
@@ -387,12 +427,21 @@ int ttkTemporalMergeTreeMap::RequestData(vtkInformation *ttkNotUsed(request),
     //  create tree structure of member tree (children lists)
     std::vector<std::vector<int>> memiChildren(memiNodes->GetNumberOfPoints());
     int root = -1;
+    int maxDegree = 0;
     for(int i=0; i<memiParents.size(); i++){
       auto parentId = memiParents[i];
-      if(parentId >= 0)
+      if(parentId >= 0){
         memiChildren[parentId].push_back(i);
+        maxDegree = std::max(maxDegree,(int)memiChildren[parentId].size());
+        // std::cout << i << "/" << memiChildren[parentId].size() << " ; ";
+      }
       if(parentId==-1 && memiNodeIsDummy[i])
         root = i;
+    }
+
+    std::cout << blockIdx << ": " << maxDegree << std::endl;
+    if(maxDegree>2){
+      std::cout << "  !!" << maxDegree << std::endl;
     }
     
     // get barycenter branchIDs of member tree nodes
