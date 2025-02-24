@@ -1,0 +1,9 @@
+ttk_add_base_library(mergeTreeFeatureTracking
+  SOURCES
+    MergeTreeFeatureTracking.cpp
+  HEADERS
+    MergeTreeFeatureTracking.h
+  DEPENDS
+    mergeTreeClustering
+    ftmTree
+    )

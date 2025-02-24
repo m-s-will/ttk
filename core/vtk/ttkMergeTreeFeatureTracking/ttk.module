@@ -1,0 +1,12 @@
+NAME
+  ttkMergeTreeFeatureTracking
+SOURCES
+  ttkMergeTreeFeatureTracking.cpp
+HEADERS
+  ttkMergeTreeFeatureTracking.h
+DEPENDS
+  mergeTreeFeatureTracking
+  ttkMergeTree
+  ttkAlgorithm
+  ttkPlanarGraphLayout
+  ttkMergeTreeClustering
