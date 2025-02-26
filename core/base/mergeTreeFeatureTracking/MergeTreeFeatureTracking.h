@@ -12,10 +12,12 @@
 // ttk common includes
 #include <Debug.h>
 
+#include <BranchMappingDistance.h>
 #include <FTMTree.h>
 #include <FTMTreeUtils.h>
 #include <MergeTreeBase.h>
 #include <MergeTreeDistance.h>
+#include <PathMappingDistance.h>
 
 namespace ttk {
 
@@ -59,7 +61,7 @@ namespace ttk {
         preprocessingPipeline<dataType>(
           trees[i], epsilonTree2_, epsilon2Tree2_, epsilon3Tree2_,
           baseModule_ == 0 ? branchDecomposition_ : false, useMinMaxPair_, true,
-          treesNodeCorr_[i]);
+          treesNodeCorr_[i], true, baseModule_ == 2);
       }
       printTreesStats(trees);
       if(trees2.size() != 0) {
@@ -71,7 +73,7 @@ namespace ttk {
           preprocessingPipeline<dataType>(
             trees2[i], epsilonTree2_, epsilon2Tree2_, epsilon3Tree2_,
             baseModule_ == 0 ? branchDecomposition_ : false, useMinMaxPair_,
-            true, trees2NodeCorr[i]);
+            true, trees2NodeCorr[i], true, baseModule_ == 2);
         }
         printTreesStats(trees2);
       }
@@ -89,8 +91,9 @@ namespace ttk {
       }*/
 
       for(unsigned int i = 0; i < trees.size(); ++i)
-        postprocessingPipeline<dataType>(&(trees[i].tree));
-      if(branchDecomposition_)
+        postprocessingPipeline<dataType>(
+          &(trees[i].tree), baseModule_ == 0 ? branchDecomposition_ : false);
+      if(branchDecomposition_ and baseModule_ == 0)
         for(unsigned int i = 0; i < outputMatchings.size(); ++i)
           convertBranchDecompositionMatching<dataType>(
             &(trees[i].tree), &(trees[i + 1].tree), outputMatchings[i]);
@@ -169,6 +172,41 @@ namespace ttk {
             }
             distances[ind] = mergeTreeDistance.execute<dataType>(
               trees[i], trees[j], outputMatchings[ind]);
+          } else if(baseModule_ == 1) {
+            BranchMappingDistance branchDist;
+            branchDist.setBaseMetric(branchMetric_);
+            branchDist.setAssignmentSolver(assignmentSolverID_);
+            branchDist.setSquared(distanceSquaredRoot_);
+            branchDist.setEpsilonTree1(epsilonTree1_);
+            branchDist.setEpsilonTree2(epsilonTree2_);
+            branchDist.setEpsilon2Tree1(epsilon2Tree1_);
+            branchDist.setEpsilon2Tree2(epsilon2Tree2_);
+            branchDist.setEpsilon3Tree1(epsilon3Tree1_);
+            branchDist.setEpsilon3Tree2(epsilon3Tree2_);
+            branchDist.setPersistenceThreshold(persistenceThreshold_);
+            branchDist.setPreprocess(false);
+            // branchDist.setSaveTree(true);
+            branchDist.setSaveTree(false);
+            dataType dist = branchDist.execute<dataType>(trees[i], trees[j]);
+            distances[ind] = static_cast<double>(dist);
+          } else if(baseModule_ == 2) {
+            PathMappingDistance pathDist;
+            pathDist.setBaseMetric(pathMetric_);
+            pathDist.setAssignmentSolver(assignmentSolverID_);
+            pathDist.setSquared(distanceSquaredRoot_);
+            pathDist.setComputeMapping(true);
+            pathDist.setEpsilonTree1(epsilonTree1_);
+            pathDist.setEpsilonTree2(epsilonTree2_);
+            pathDist.setEpsilon2Tree1(epsilon2Tree1_);
+            pathDist.setEpsilon2Tree2(epsilon2Tree2_);
+            pathDist.setEpsilon3Tree1(epsilon3Tree1_);
+            pathDist.setEpsilon3Tree2(epsilon3Tree2_);
+            pathDist.setPersistenceThreshold(persistenceThreshold_);
+            pathDist.setPreprocess(false);
+            // pathDist.setSaveTree(true);
+            pathDist.setSaveTree(false);
+            dataType dist = pathDist.execute<dataType>(trees[i], trees[j]);
+            distances[ind] = static_cast<double>(dist);
           }
 #ifdef TTK_ENABLE_OPENMP
         } // end task

@@ -159,6 +159,9 @@ int ttkMergeTreeFeatureTracking::runCompute() {
       metric = "Shifting cost";
     else
       return 1;
+    epsilonTree2_ = epsilonTree1_;
+    epsilon2Tree2_ = epsilon2Tree1_;
+    epsilon3Tree2_ = epsilon3Tree1_;
     printMsg("BranchMetric: " + metric);
   }
   if(baseModule_ == 2) {
@@ -168,6 +171,9 @@ int ttkMergeTreeFeatureTracking::runCompute() {
       metric = "Persistence difference";
     else
       return 1;
+    epsilonTree2_ = epsilonTree1_;
+    epsilon2Tree2_ = epsilon2Tree1_;
+    epsilon3Tree2_ = epsilon3Tree1_;
     printMsg("PathMetric: " + metric);
   }
 

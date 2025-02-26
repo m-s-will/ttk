@@ -1012,7 +1012,8 @@ namespace ttk {
     }
 
     template <class dataType>
-    void postprocessingPipeline(ftm::FTMTree_MT *tree) {
+    void postprocessingPipeline(ftm::FTMTree_MT *tree,
+                                bool branchDecomposition) {
       // if(not branchDecomposition_ or not useMinMaxPair)
       // fixMergedRootOrigin<dataType>(tree);
       if(tree->isFullMerge()) {
@@ -1023,11 +1024,16 @@ namespace ttk {
           printErr(
             "[postprocessingPipeline] mergedRootOrigin inconsistent id.");
       }
-      if(branchDecomposition_) {
+      if(branchDecomposition) {
         if(not isPersistenceDiagram_ and tree->getRealNumberOfNodes() != 0)
           branchDecompositionToTree<dataType>(tree);
       } else
         putBackMergedNodes<dataType>(tree);
+    }
+
+    template <class dataType>
+    void postprocessingPipeline(ftm::FTMTree_MT *tree) {
+      postprocessingPipeline<dataType>(tree, branchDecomposition_);
     }
 
     // ------------------------------------------------------------------------
