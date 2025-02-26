@@ -187,7 +187,8 @@ namespace ttk {
             branchDist.setPreprocess(false);
             // branchDist.setSaveTree(true);
             branchDist.setSaveTree(false);
-            dataType dist = branchDist.execute<dataType>(trees[i], trees[j]);
+            dataType dist = branchDist.execute<dataType>(
+              trees[i], trees[j], &outputMatchings[ind]);
             distances[ind] = static_cast<double>(dist);
           } else if(baseModule_ == 2) {
             PathMappingDistance pathDist;
@@ -205,7 +206,8 @@ namespace ttk {
             pathDist.setPreprocess(false);
             // pathDist.setSaveTree(true);
             pathDist.setSaveTree(false);
-            dataType dist = pathDist.execute<dataType>(trees[i], trees[j]);
+            dataType dist = pathDist.execute<dataType>(
+              trees[i], trees[j], &outputMatchings[ind]);
             distances[ind] = static_cast<double>(dist);
           }
 #ifdef TTK_ENABLE_OPENMP
