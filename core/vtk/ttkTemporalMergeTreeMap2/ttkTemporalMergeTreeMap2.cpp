@@ -360,7 +360,7 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
       mtmb->SetNumberOfBlocks(2);
       mtmb->SetBlock(0,vtkNew<vtkMultiBlockDataSet>());
       mtmb->SetBlock(1,vtkNew<vtkMultiBlockDataSet>());
-      ttk::SimplexId sb = std::max(blockIdx-this->windowSize,0);
+      ttk::SimplexId sb = std::max((int)blockIdx-this->windowSize,0);
       memberIdx = this->windowSize;
       if(blockIdx-this->windowSize<0) memberIdx += blockIdx-this->windowSize;
       ttk::SimplexId eb = std::min(blockIdx+this->windowSize,(ttk::SimplexId)inputNodes->GetNumberOfBlocks()-1);
@@ -434,7 +434,6 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
     //  create tree structure of member tree (children lists)
     std::vector<std::vector<ttk::SimplexId>> memiChildren(memiNodes->GetNumberOfPoints());
     ttk::SimplexId root = -1;
-    int maxDegree = 0;
     ttk::SimplexId maxDegree = 0;
     for(ttk::SimplexId i=0; i<memiParents.size(); i++){
       auto parentId = memiParents[i];
