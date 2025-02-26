@@ -696,8 +696,15 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
   std::vector<std::vector<ttk::SimplexId>> matchings;
 
   if(this->layoutMode==2 && !this->useSlidingWindow) {
-    ttk::Timer clusteringTimer;
-    this->printMsg("Computing global barycenter", 0,0);
+    vtkNew<vtkMultiBlockDataSet> mtmb;
+    mtmb->SetNumberOfBlocks(2);
+    mtmb->SetBlock(0, inputNodes);
+    mtmb->SetBlock(1, inputArcs);
+
+    computeBaryBranchOrdering(
+      mtmb.GetPointer(), members.GetPointer(), ordering_branches);
+  }
+  if(this->layoutMode==1){
     vtkNew<vtkMultiBlockDataSet> mtmb;
     mtmb->SetNumberOfBlocks(2);
     mtmb->SetBlock(0, inputNodes);
@@ -710,7 +717,6 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
     ft->SetEpsilon3Tree1(100);
     ft->SetPlanarLayout(true);
     ft->Update();
-    this->printMsg("Computed barycenter", 0.5,clusteringTimer.getElapsedTime());
     members->DeepCopy(
       vtkMultiBlockDataSet::SafeDownCast(ft->GetOutputDataObject(0)));
 
@@ -939,9 +945,13 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
     std::vector<ttk::SimplexId> branchNodeIDs;
     if(this->layoutMode == 2){
       branchNodeIDs = std::vector<ttk::SimplexId>(memiNodes->GetNumberOfPoints(), -1);
-      for(ttk::SimplexId j=0; j<memiNodes->GetNumberOfPoints(); j++){
-        auto nId = (memiNodes->GetPointData()->GetArray("NodeId"))->GetComponent(j,0);
-        auto bId = (memiNodes->GetPointData()->GetArray("BranchBaryNodeID"))->GetComponent(j,0);
+      for(ttk::SimplexId j = 0; j < memiNodes->GetNumberOfPoints(); j++) {
+        auto nId = vtkIntArray::SafeDownCast(
+                    memiNodes->GetPointData()->GetArray("NodeId"))
+                    ->GetValue(j);
+        auto bId = vtkIntArray::SafeDownCast(
+                    memiNodes->GetPointData()->GetArray("BranchBaryNodeID"))
+                    ->GetValue(j);
         branchNodeIDs[nId] = bId;
       }
     }
@@ -1064,7 +1074,8 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
   outputmb->SetNumberOfBlocks(1);
   vtkNew<vtkImageData> tmtm;
   tmtm->SetDimensions(linearizations.size()+1,maxlen+1,1);
-  tmtm->SetSpacing(std::ceil(maxlen/linearizations.size())*2,1,1);
+  //tmtm->SetSpacing(std::ceil(maxlen/linearizations.size())*2,1,1);
+  tmtm->SetSpacing(1024,1,1);
   tmtm->SetOrigin(0,0,0);
 
   vtkNew<vtkFloatArray> linArray{};
