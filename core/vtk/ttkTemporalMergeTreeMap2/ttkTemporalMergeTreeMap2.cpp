@@ -726,9 +726,7 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
     auto distances_vtk = vtkUnstructuredGrid::SafeDownCast(ft->GetOutputDataObject(2));
     for(ttk::SimplexId i=0; i<distances_vtk->GetNumberOfPoints(); i++){
       distances.push_back(distances_vtk->GetPoint(i)[1]);
-      std::cout << distances.back() << " ";
     }
-    std::cout << std::endl;
 
     auto parents = std::vector<std::vector<ttk::SimplexId>>(inputNodes->GetNumberOfBlocks());
     auto children = std::vector<std::vector<std::vector<ttk::SimplexId>>>(inputNodes->GetNumberOfBlocks());
@@ -1083,7 +1081,7 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
   outputmb->SetNumberOfBlocks(1);
   vtkNew<vtkImageData> tmtm;
   tmtm->SetDimensions(linearizations.size()+1,maxlen+1,1);
-  tmtm->SetSpacing(std::ceil(maxlen/linearizations.size())*2,1,1);
+  tmtm->SetSpacing(std::ceil(maxlen/linearizations.size())*scaling,1,1);
   // tmtm->SetSpacing(1024,1,1);
   tmtm->SetOrigin(0,0,0);
 
@@ -1091,6 +1089,7 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
   vtkNew<vtkIntArray> segArray{};
   vtkNew<vtkIntArray> blockArray{};
   vtkNew<vtkIntArray> barArray{};
+  vtkNew<vtkFloatArray> distArray{};
 
   linArray->SetName("Scalar");
   linArray->SetNumberOfComponents(1);
@@ -1108,6 +1107,9 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
   barArray->SetNumberOfComponents(1);
   barArray->SetNumberOfTuples(linearizations.size() * maxlen);
 
+  distArray->SetName("Distance");
+  distArray->SetNumberOfComponents(1);
+  distArray->SetNumberOfTuples(distances.size());
   ttk::SimplexId k = 0;
   for(ttk::SimplexId j = 0; j < maxlen; j++) {
     for(ttk::SimplexId i = 0; i < linearizations.size(); i++) {
@@ -1121,10 +1123,14 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
       k += 1;
     }
   }
+  for(ttk::SimplexId i = 0; i < distances.size(); i++) {
+    distArray->SetValue(i, distances[i]);
+  }
   tmtm->GetCellData()->AddArray(linArray);
   tmtm->GetCellData()->AddArray(segArray);
   tmtm->GetCellData()->AddArray(blockArray);
   tmtm->GetCellData()->AddArray(barArray);
+  tmtm->GetFieldData()->AddArray(distArray);
 
   outputmb->SetBlock(0,tmtm);
   this->printMsg("Computed temporal merge tree map", 1, completeTimer.getElapsedTime());

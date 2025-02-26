@@ -119,14 +119,26 @@
       number_of_elements="1"
       default_values="2">
         <!-- <Hints>
-        
+
         </Hints> -->
         <Documentation>
           ToDo.
         </Documentation>
       </IntVectorProperty>
 
+      <DoubleVectorProperty
+      name="Scaling"
+      command="SetScaling"
+      label="Set Vertical Scaling"
+      number_of_elements="1"
+      default_values="2.0">
+        <!-- <Hints>
 
+        </Hints> -->
+        <Documentation>
+          ToDo.
+        </Documentation>
+      </DoubleVectorProperty>
       <!-- Create a UI group that contains all input parameter widgets (here only one) -->
       <PropertyGroup panel_widget="Line" label="Input options">
         <Property name="InputArray" />

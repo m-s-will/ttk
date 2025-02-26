@@ -82,6 +82,7 @@ private:
    */
   std::string OutputArrayName{"AveragedScalarField"};
   bool useSlidingWindow = false;
+  double scaling = 2.0;
   ttk::SimplexId windowSize = 5;
   ttk::SimplexId layoutMode = 2; // 1=matchings, 2=barycenter
   int barycenterSize=20;
@@ -135,7 +136,13 @@ public:
     barycenterSize = s;
     Modified();
   }
-  vtkGetMacro(barycenterSize, bool);
+  vtkGetMacro(barycenterSize, int);
+
+  void SetScaling(double s) {
+    scaling = s;
+    Modified();
+  }
+  vtkGetMacro(scaling, double);
 
 
   /**
