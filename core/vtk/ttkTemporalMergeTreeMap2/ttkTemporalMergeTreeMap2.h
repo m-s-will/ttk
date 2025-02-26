@@ -83,6 +83,7 @@ private:
   std::string OutputArrayName{"AveragedScalarField"};
   bool useSlidingWindow = false;
   int windowSize = 5;
+  int barycenterSize=20;
   void dfs_linearization(
       int curr_node,
       std::vector<double> &lin,
@@ -96,7 +97,7 @@ private:
       std::vector<double> &memiScalars,
       std::vector<double> &memiOrdering);
   void computeBaryBranchOrdering(
-    vtkMultiBlockDataSet* mtmb, 
+    vtkMultiBlockDataSet* mtmb,
     vtkMultiBlockDataSet* members,
     std::vector<double> &ordering_branches);
 
@@ -112,13 +113,20 @@ public:
     windowSize = s;
     Modified();
   }
-  vtkGetMacro(windowSize, bool);
+  vtkGetMacro(windowSize, int);
 
   void SetUseSlidingWindow(bool b) {
     useSlidingWindow = b;
     Modified();
   }
   vtkGetMacro(useSlidingWindow, bool);
+
+  void SetMaxBarycenterSize(int s) {
+    barycenterSize = s;
+    Modified();
+  }
+  vtkGetMacro(barycenterSize, bool);
+
 
   /**
    * This static method and the macro below are VTK conventions on how to

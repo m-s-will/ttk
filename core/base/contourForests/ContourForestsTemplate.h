@@ -286,9 +286,6 @@ namespace ttk {
       SimplexId nbPairMerged = 0;
 #endif
 
-#ifdef TTK_ENABLE_OPENMP
-      omp_set_nested(1);
-#endif
 
 // std::cout << "NO PARALLEL DEBUG MODE" << std::endl;
 #ifdef TTK_ENABLE_OPENMP

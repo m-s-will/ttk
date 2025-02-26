@@ -11,6 +11,7 @@
 #include <vtkImageData.h>
 #include <vtkUnstructuredGrid.h>
 #include <vtkFloatArray.h>
+#include <Debug.h>
 #include <vtkCellData.h>
 
 #include <ttkMacros.h>
@@ -127,9 +128,9 @@ void ttkTemporalMergeTreeMap2::dfs_linearization(
           seg.push_back(memiSegs[curr_node]);
           bar.push_back(branchNodeIDs[curr_node]);
         }
-        if(curr_children.size()>2){
-          std::cout << "!! " << curr_children.size() << std::endl;
-        }
+        //if(curr_children.size()>2){
+        //  std::cout << "!! " << curr_children.size() << std::endl;
+        //}
         for(int ci=0; ci<curr_children.size(); ci++){
           auto c = curr_children[ci];
           dfs_linearization(c,lin,seg,bar,memiChildren,memiSegmentScalars,memiSizes,memiSegs,branchNodeIDs,memiScalars,memiOrdering);
@@ -154,11 +155,13 @@ void ttkTemporalMergeTreeMap2::computeBaryBranchOrdering(vtkMultiBlockDataSet* m
   c->SetComputeBarycenter(true);
   c->SetImportantPairs(0);
   c->SetEpsilonTree1(0);
-  c->SetEpsilon2Tree1(1);
-  c->SetEpsilon3Tree1(1);
+  c->SetEpsilon2Tree1(100);
+  c->SetEpsilon3Tree1(100);
   c->SetDeterministic(true);
   c->SetUseFixedInit(true);
   c->SetPlanarLayout(true);
+  c->SetDebugLevel(4);
+  c->SetBarycenterSizeLimitPercent(barycenterSize);
   c->Update();
 
   members->DeepCopy(vtkMultiBlockDataSet::SafeDownCast(c->GetOutputDataObject(0)));
@@ -172,18 +175,19 @@ void ttkTemporalMergeTreeMap2::computeBaryBranchOrdering(vtkMultiBlockDataSet* m
   int baryNumNodes = 0;
   std::vector<int> baryNodeIsDummy(baryNodes->GetNumberOfPoints());
   for(int i=0; i<baryNodes->GetNumberOfPoints(); i++){
-    auto nId = vtkIntArray::SafeDownCast(baryNodes->GetPointData()->GetArray("NodeId"))->GetValue(i);
-    auto isDummy = vtkIntArray::SafeDownCast(baryNodes->GetPointData()->GetArray("isDummyNode"))->GetValue(i);
+    auto nId = baryNodes->GetPointData()->GetArray("NodeId")->GetComponent(i,0);
+    auto isDummy = baryNodes->GetPointData()->GetArray("isDummyNode")->GetComponent(i,0);
     if(!isDummy){
       baryNodeIsDummy[nId] = 1;
       baryNumNodes += 1;
     }
   }
+  //std::cout << "survived the loop" << std::endl;
 
   std::vector<int> baryParents(baryNodes->GetNumberOfPoints(),-1);
   for(int i=0; i<baryArcs->GetNumberOfCells(); i++){
-    auto childId = vtkIntArray::SafeDownCast(baryArcs->GetCellData()->GetArray("downNodeId"))->GetValue(i);
-    auto parentId = vtkIntArray::SafeDownCast(baryArcs->GetCellData()->GetArray("upNodeId"))->GetValue(i);
+    auto childId = (baryArcs->GetCellData()->GetArray("downNodeId"))->GetComponent(i,0);
+    auto parentId = (baryArcs->GetCellData()->GetArray("upNodeId"))->GetComponent(i,0);
     baryParents[childId] = parentId;
   }
 
@@ -221,7 +225,7 @@ void ttkTemporalMergeTreeMap2::computeBaryBranchOrdering(vtkMultiBlockDataSet* m
     int nId = baryNodes->GetPointData()->GetArray("NodeId")->GetComponent(i,0);
     int scalar = baryNodes->GetPointData()->GetArray("Scalar")->GetComponent(i,0);
     // if(!baryChildren[nId].empty()) continue;
-    auto bId = vtkIntArray::SafeDownCast(baryNodes->GetPointData()->GetArray("BranchNodeID"))->GetValue(i);
+    auto bId = (baryNodes->GetPointData()->GetArray("BranchNodeID"))->GetComponent(i,0);
     ordering_branches[bId] = posX; //ordering_baryNodes[nId];
     bary_branches[nId] = bId;
     bary_scalars[nId] = scalar;
@@ -275,7 +279,7 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
   // auto domains = vtkMultiBlockDataSet::GetData(inputVector[2]);
   // if(!domains)
   //   return 0;
-  
+
   // std::vector<ttk::ftm::MergeTree<double>> trees(inputNodes->GetNumberOfBlocks());
   // for(int i = 0; i < inputNodes->GetNumberOfBlocks(); i++) {
   //   auto treeNodes = vtkUnstructuredGrid::SafeDownCast(inputNodes->GetBlock(i));
@@ -301,7 +305,7 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
 
   //------------------------------------------------------------
   // internal vtk filter approach
-
+  ttk::Timer completeTimer;
   auto inputNodes = vtkMultiBlockDataSet::GetData(inputVector[0]);
   if(!inputNodes)
     return 0;
@@ -312,18 +316,29 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
   if(!domains)
     return 0;
 
+  bool isJoinTree = false;
+  std::cout << inputNodes->GetNumberOfBlocks() << std::endl;
+  if(inputNodes->GetNumberOfBlocks()>0){
+    auto inputNodes0 = vtkUnstructuredGrid::SafeDownCast(inputNodes->GetBlock(0));
+    isJoinTree = inputNodes0->GetPointData()->GetArray("Scalar")->GetComponent(0,0) < inputNodes0->GetPointData()->GetArray("Scalar")->GetComponent(1,0);
+  }
+  std::cout << "isJoinTree: " << isJoinTree << std::endl;
+
   // bool sliding_window = true;
   // int windowSize = 5;
   std::vector<double> ordering_branches;
   vtkNew<vtkMultiBlockDataSet> members;
 
-  if(!this->useSlidingWindow){  
+  if(!this->useSlidingWindow){
+    ttk::Timer clusteringTimer;
+    this->printMsg("Computing global barycenter", 0,0);
     vtkNew<vtkMultiBlockDataSet> mtmb;
     mtmb->SetNumberOfBlocks(2);
     mtmb->SetBlock(0,inputNodes);
     mtmb->SetBlock(1,inputArcs);
 
     computeBaryBranchOrdering(mtmb.GetPointer(),members.GetPointer(),ordering_branches);
+    this->printMsg("Computed barycenter", 0.5,clusteringTimer.getElapsedTime());
   }
 
   auto memberNodes = vtkMultiBlockDataSet::SafeDownCast(members->GetBlock(0));
@@ -354,9 +369,9 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
   int maxlen = 0;
 
   for(int blockIdx=0; blockIdx < inputNodes->GetNumberOfBlocks(); blockIdx++){
-
     int memberIdx = blockIdx;
-    if(this->useSlidingWindow){  
+    if(this->useSlidingWindow){
+      ttk::Timer clusteringTimer;
       vtkNew<vtkMultiBlockDataSet> mtmb;
       mtmb->SetNumberOfBlocks(2);
       mtmb->SetBlock(0,vtkNew<vtkMultiBlockDataSet>());
@@ -365,6 +380,7 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
       memberIdx = this->windowSize;
       if(blockIdx-this->windowSize<0) memberIdx += blockIdx-this->windowSize;
       int eb = std::min(blockIdx+this->windowSize,(int)inputNodes->GetNumberOfBlocks()-1);
+      this->printMsg("Computing barycenter from blocks " + std::to_string(sb) + " to " + std::to_string(eb) , 0.5 + 0.5*(blockIdx)/(inputNodes->GetNumberOfBlocks()),0);
       vtkMultiBlockDataSet::SafeDownCast(mtmb->GetBlock(0))->SetNumberOfBlocks(eb-sb+1);
       vtkMultiBlockDataSet::SafeDownCast(mtmb->GetBlock(1))->SetNumberOfBlocks(eb-sb+1);
       int bidx = 0;
@@ -374,6 +390,7 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
         bidx++;
       }
       computeBaryBranchOrdering(mtmb.GetPointer(),members.GetPointer(),ordering_branches);
+      this->printMsg("Computed barycenter from blocks " + std::to_string(sb) + " to " + std::to_string(eb) , 0.5 + 0.5*(blockIdx+1)/(inputNodes->GetNumberOfBlocks()),0);
 
       memberNodes = vtkMultiBlockDataSet::SafeDownCast(members->GetBlock(0));
       memberArcs = vtkMultiBlockDataSet::SafeDownCast(members->GetBlock(1));
@@ -392,12 +409,18 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
     std::vector<std::vector<double>> memiSegmentScalars(memiArcs->GetNumberOfCells());
     for(int j=0; j<memiDomain->GetNumberOfPoints(); j++){
       auto scalar = scalarArrayDomain->GetComponent(j,0);
-      auto segId = vtkIntArray::SafeDownCast(memiDomain->GetPointData()->GetArray("SegmentationId"))->GetValue(j);
+      auto segId = (memiDomain->GetPointData()->GetArray("SegmentationId"))->GetComponent(j,0);
       memiSegmentScalars[segId].push_back(scalar);
     }
     for(int i=0; i<memiSegmentScalars.size(); i++){
       auto l = memiSegmentScalars[i];
-      std::sort(memiSegmentScalars[i].begin(),memiSegmentScalars[i].end());
+      // sort in descending order if we're a join tree, ascending if we're a split tree
+      if(isJoinTree){
+        std::sort(l.begin(),l.end(),std::greater<double>());
+      }
+      else{
+        std::sort(l.begin(),l.end());
+      }
     }
 
     // get node properties of member tree
@@ -406,8 +429,8 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
     std::vector<int> memiNodeIsDummy(memiNodes->GetNumberOfPoints());
     std::vector<double> memiScalars(memiNodes->GetNumberOfPoints());
     for(int i=0; i<memiNodes->GetNumberOfPoints(); i++){
-      auto nId = vtkIntArray::SafeDownCast(memiNodes->GetPointData()->GetArray("NodeId"))->GetValue(i);
-      auto isDummy = vtkIntArray::SafeDownCast(memiNodes->GetPointData()->GetArray("isDummyNode"))->GetValue(i);
+      auto nId = (memiNodes->GetPointData()->GetArray("NodeId"))->GetComponent(i,0);
+      auto isDummy = (memiNodes->GetPointData()->GetArray("isDummyNode"))->GetComponent(i,0);
       auto scalar = memiNodes->GetPointData()->GetArray("Scalar")->GetComponent(i,0);
       if(!isDummy){
         memiNodeIsDummy[nId] = 1;
@@ -419,8 +442,8 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
     // create tree structure of member tree (parent pointers)
     std::vector<int> memiParents(memiNodes->GetNumberOfPoints(),-1);
     for(int i=0; i<memiArcs->GetNumberOfCells(); i++){
-      auto childId = vtkIntArray::SafeDownCast(memiArcs->GetCellData()->GetArray("downNodeId"))->GetValue(i);
-      auto parentId = vtkIntArray::SafeDownCast(memiArcs->GetCellData()->GetArray("upNodeId"))->GetValue(i);
+      auto childId = (memiArcs->GetCellData()->GetArray("downNodeId"))->GetComponent(i,0);
+      auto parentId = (memiArcs->GetCellData()->GetArray("upNodeId"))->GetComponent(i,0);
       memiParents[childId] = parentId;
     }
 
@@ -439,16 +462,16 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
         root = i;
     }
 
-    std::cout << blockIdx << ": " << maxDegree << std::endl;
-    if(maxDegree>2){
-      std::cout << "  !!" << maxDegree << std::endl;
-    }
-    
+    //std::cout << blockIdx << ": " << maxDegree << std::endl;
+    //if(maxDegree>2){
+    //  std::cout << "  !!" << maxDegree << std::endl;
+    //}
+
     // get barycenter branchIDs of member tree nodes
     std::vector<int> branchNodeIDs(memiNodes->GetNumberOfPoints(),-1);
     for(int j=0; j<memiNodes->GetNumberOfPoints(); j++){
-      auto nId = vtkIntArray::SafeDownCast(memiNodes->GetPointData()->GetArray("NodeId"))->GetValue(j);
-      auto bId = vtkIntArray::SafeDownCast(memiNodes->GetPointData()->GetArray("BranchBaryNodeID"))->GetValue(j);
+      auto nId = (memiNodes->GetPointData()->GetArray("NodeId"))->GetComponent(j,0);
+      auto bId = (memiNodes->GetPointData()->GetArray("BranchBaryNodeID"))->GetComponent(j,0);
       branchNodeIDs[nId] = bId;
     }
 
@@ -497,8 +520,8 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
     std::vector<int> memiSegs(memiNodes->GetNumberOfPoints());
     for(int j=0; j<memiArcs->GetNumberOfCells(); j++){
       auto rS = memiArcs->GetCellData()->GetArray("RegionSize")->GetComponent(j,0);
-      auto isDummy = vtkIntArray::SafeDownCast(memiArcs->GetCellData()->GetArray("isDummyArc"))->GetValue(j);
-      auto downNodeId = vtkIntArray::SafeDownCast(memiArcs->GetCellData()->GetArray("downNodeId"))->GetValue(j);
+      auto isDummy = (memiArcs->GetCellData()->GetArray("isDummyArc"))->GetComponent(j,0);
+      auto downNodeId = (memiArcs->GetCellData()->GetArray("downNodeId"))->GetComponent(j,0);
       int segId = memiArcs->GetCellData()->GetArray("SegmentationId")->GetComponent(j,0);
       memiSizes[downNodeId] = int(rS);
       memiSegs[downNodeId] = int(segId);
@@ -543,7 +566,7 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
   outputmb->SetNumberOfBlocks(1);
   vtkNew<vtkImageData> tmtm;
   tmtm->SetDimensions(linearizations.size()+1,maxlen+1,1);
-  tmtm->SetSpacing(1024,1,1);
+  tmtm->SetSpacing(std::ceil(maxlen/linearizations.size())*2,1,1);
   tmtm->SetOrigin(0,0,0);
 
   vtkNew<vtkFloatArray> linArray{};
@@ -586,6 +609,6 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
   tmtm->GetCellData()->AddArray(barArray);
 
   outputmb->SetBlock(0,tmtm);
-
+  this->printMsg("Computed temporal merge tree map", 1, completeTimer.getElapsedTime());
   return 1;
 }

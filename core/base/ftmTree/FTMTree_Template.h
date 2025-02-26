@@ -36,7 +36,6 @@ void ttk::ftm::FTMTree::build(const triangulationType *mesh) {
 
 #ifdef TTK_ENABLE_OPENMP
   ParallelGuard const pg{threadNumber_};
-  omp_set_nested(1);
 #ifdef TTK_ENABLE_OMP_PRIORITY
   if(omp_get_max_task_priority() < 5) {
     this->printWrn("OpenMP max priority is lower than 5");

@@ -287,8 +287,9 @@ int ttk::WebSocketIO::on_message(
   const WSServer::message_ptr &msg) {
 
   const auto &eventData = msg->get_payload();
-  if(eventData.rfind("ttk_WSIO_", 9) != 0)
+  if(eventData.rfind("ttk_WSIO_", 9) != 0){
     this->printMsg("Custom Message Received", 1, 0);
+  }
   this->processEvent("on_message", eventData);
   return 1;
 }
