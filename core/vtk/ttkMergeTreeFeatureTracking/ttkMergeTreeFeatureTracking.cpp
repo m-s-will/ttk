@@ -251,6 +251,8 @@ int ttkMergeTreeFeatureTracking::runOutput(
     visuMaker.setIsPersistenceDiagram(isPersistenceDiagram_);
     visuMaker.setTreesNodes(treesNodes);
     visuMaker.copyPointData(treesNodes[i], treesNodeCorrMesh[i]);
+    if(not isPersistenceDiagram_)
+      visuMaker.copyCellData(treesArcs[i], treesNodeCorrMesh[i]);
     visuMaker.setTreesNodeCorrMesh(treesNodeCorrMesh);
     visuMaker.setTreesSegmentation(treesSegmentation);
     visuMaker.setVtkOutputNode(vtkOutputNode);

@@ -83,18 +83,22 @@ private:
   std::string OutputArrayName{"AveragedScalarField"};
   bool useSlidingWindow = false;
   ttk::SimplexId windowSize = 5;
+  ttk::SimplexId layoutMode = 2; // 1=matchings, 2=barycenter
   void dfs_linearization(
       ttk::SimplexId curr_node,
       std::vector<double> &lin,
       std::vector<ttk::SimplexId> &seg,
       std::vector<ttk::SimplexId> &bar,
+      std::vector<double> &nodePositions,
       std::vector<std::vector<ttk::SimplexId>> &memiChildren,
       std::vector<std::vector<double>> &memiSegmentScalars,
       std::vector<ttk::SimplexId> &memiSizes,
       std::vector<ttk::SimplexId> &memiSegs,
       std::vector<ttk::SimplexId> &branchNodeIDs,
       std::vector<double> &memiScalars,
-      std::vector<double> &memiOrdering);
+      std::vector<double> &memiOrdering,
+      std::vector<ttk::SimplexId> prevMatching,
+      std::vector<double> prevOrdering);
   void computeBaryBranchOrdering(
     vtkMultiBlockDataSet* mtmb, 
     vtkMultiBlockDataSet* members,
@@ -112,7 +116,13 @@ public:
     windowSize = s;
     Modified();
   }
-  vtkGetMacro(windowSize, bool);
+  vtkGetMacro(windowSize, int);
+
+  void SetLayoutMode(int m) {
+    layoutMode = m;
+    Modified();
+  }
+  vtkGetMacro(layoutMode, int);
 
   void SetUseSlidingWindow(bool b) {
     useSlidingWindow = b;

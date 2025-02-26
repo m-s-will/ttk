@@ -8,6 +8,8 @@ DEPENDS
   temporalMergeTreeMap2
   mergeTreeClustering
   ttkMergeTreeClustering
+  ttkMergeTreeFeatureTracking
+  mergeTreeFeatureTracking
   ftmTree
   planarGraphLayout
   ttkPlanarGraphLayout
