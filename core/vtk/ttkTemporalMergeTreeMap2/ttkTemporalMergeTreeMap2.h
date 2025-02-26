@@ -84,6 +84,7 @@ private:
   bool useSlidingWindow = false;
   ttk::SimplexId windowSize = 5;
   ttk::SimplexId layoutMode = 2; // 1=matchings, 2=barycenter
+  int barycenterSize=20;
   void dfs_linearization(
       ttk::SimplexId curr_node,
       std::vector<double> &lin,
@@ -100,7 +101,7 @@ private:
       std::vector<ttk::SimplexId> prevMatching,
       std::vector<double> prevOrdering);
   void computeBaryBranchOrdering(
-    vtkMultiBlockDataSet* mtmb, 
+    vtkMultiBlockDataSet* mtmb,
     vtkMultiBlockDataSet* members,
     std::vector<double> &ordering_branches);
 
@@ -129,6 +130,13 @@ public:
     Modified();
   }
   vtkGetMacro(useSlidingWindow, bool);
+
+  void SetMaxBarycenterSize(int s) {
+    barycenterSize = s;
+    Modified();
+  }
+  vtkGetMacro(barycenterSize, bool);
+
 
   /**
    * This static method and the macro below are VTK conventions on how to

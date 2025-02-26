@@ -9,7 +9,7 @@
       <Documentation long_help="TemporalMergeTreeMap2 Long" short_help="TemporalMergeTreeMap2 Short">This filter is a well documented ttk example filter that computes for each vertex of a vtkDataSet the average scalar value of itself and its neighbors.</Documentation>
 
       <!-- INPUT DATA OBJECTS -->
-      <InputProperty  name="Member Nodes" 
+      <InputProperty  name="Member Nodes"
                       command="SetInputConnection"
                       port_index="0">
         <ProxyGroupDomain name="groups">
@@ -22,7 +22,7 @@
         <InputArrayDomain name="input_array" attribute_type="point" number_of_components="1" />
         <Documentation>A vtkDataSet that has at least one point data scalar array that can be used to compute averages.</Documentation>
       </InputProperty>
-      <InputProperty name="Member Arcs" 
+      <InputProperty name="Member Arcs"
                       command="SetInputConnection"
                       port_index="1">
         <ProxyGroupDomain name="groups">
@@ -35,7 +35,7 @@
         <InputArrayDomain name="input_array" attribute_type="point" number_of_components="1" />
         <Documentation>A vtkDataSet that has at least one point data scalar array that can be used to compute averages.</Documentation>
       </InputProperty>
-      <InputProperty  name="Member Segmentations" 
+      <InputProperty  name="Member Segmentations"
                       command="SetInputConnection"
                       port_index="2">
         <ProxyGroupDomain name="groups">
@@ -53,10 +53,10 @@
 
       <!-- This is the VTK way of selecting arrays for processing by calling the SetInputArrayToProcess method -->
       <!-- (see ttkTemporalMergeTreeMap2.cpp for details) -->
-      <StringVectorProperty name="InputArray" 
-                label="Input Array" 
-                command="SetInputArrayToProcess" 
-                element_types="0 0 0 0 2" 
+      <StringVectorProperty name="InputArray"
+                label="Input Array"
+                command="SetInputArrayToProcess"
+                element_types="0 0 0 0 2"
                 number_of_elements="5"
                 default_values="0 2 0 0 Scalar">
         <ArrayListDomain attribute_type="Scalars" name="array_list">
@@ -66,13 +66,13 @@
         </ArrayListDomain>
         <Documentation>The scalar array that will be used to compute averages.</Documentation>
       </StringVectorProperty>
-                
+
       <IntVectorProperty
       name="UseSlidingWindow"
       command="SetUseSlidingWindow"
       label="Use sliding window"
       number_of_elements="1"
-      default_values="0">
+      default_values="1">
         <!-- <Hints>
         <PropertyWidgetDecorator type="GenericDecorator"
                                   mode="visibility"
@@ -91,8 +91,21 @@
       label="Slidng window size"
       number_of_elements="1"
       default_values="5">
+    <!-- <Hints>
+
+        </Hints> -->
+        <Documentation>
+          ToDo.
+        </Documentation>
+      </IntVectorProperty>
+      <IntVectorProperty
+      name="barycenterSize"
+      command="SetMaxBarycenterSize"
+      label="Max BarycenterSize(%)"
+      number_of_elements="1"
+      default_values="20">
         <!-- <Hints>
-        
+
         </Hints> -->
         <Documentation>
           ToDo.

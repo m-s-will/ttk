@@ -12,6 +12,9 @@
 #include <vtkPointData.h>
 #include <vtkSmartPointer.h>
 #include <vtkUnstructuredGrid.h>
+#include <vtkFloatArray.h>
+#include <Debug.h>
+#include <vtkCellData.h>
 
 #include <FTMTreeUtils.h>
 #include <MergeTreeBarycenter.h>
@@ -189,11 +192,13 @@ void ttkTemporalMergeTreeMap2::computeBaryBranchOrdering(
   c->SetComputeBarycenter(true);
   c->SetImportantPairs(0);
   c->SetEpsilonTree1(0);
-  c->SetEpsilon2Tree1(1);
-  c->SetEpsilon3Tree1(1);
+  c->SetEpsilon2Tree1(100);
+  c->SetEpsilon3Tree1(100);
   c->SetDeterministic(true);
   c->SetUseFixedInit(true);
   c->SetPlanarLayout(true);
+  c->SetDebugLevel(4);
+  c->SetBarycenterSizeLimitPercent(barycenterSize);
   c->Update();
 
   members->DeepCopy(
@@ -220,6 +225,7 @@ void ttkTemporalMergeTreeMap2::computeBaryBranchOrdering(
       baryNumNodes += 1;
     }
   }
+  //std::cout << "survived the loop" << std::endl;
 
   std::vector<ttk::SimplexId> baryParents(baryNodes->GetNumberOfPoints(), -1);
   for(ttk::SimplexId i = 0; i < baryArcs->GetNumberOfCells(); i++) {
@@ -399,7 +405,7 @@ void ttkTemporalMergeTreeMap2::computeBaryBranchOrdering(
 //       = vtkUnstructuredGrid::SafeDownCast(memberNodes->GetBlock(blockIdx));
 //     auto memiArcs
 //       = vtkUnstructuredGrid::SafeDownCast(memberArcs->GetBlock(blockIdx));
-    
+
 //     auto matchingbranchesi = std::vector<ttk::SimplexId>(memiNodes->GetNumberOfPoints(),-1);
 //     if(blockIdx==0){
 //       for(ttk::SimplexId i = 0; i < memiNodes->GetNumberOfPoints(); i++) {
@@ -523,7 +529,7 @@ void ttkTemporalMergeTreeMap2::computeBaryBranchOrdering(
 //           memiOrdering[node] = last_ordering[last_branches[matchingbranchesi[node]]];
 //         }
 //         else{
-//           memiOrdering[node] = 
+//           memiOrdering[node] =
 //         }
 //         // std:: cout << memiOrdering[node] << std::endl;
 //         // return memiOrdering[node];
@@ -628,6 +634,13 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
   // if(!domains)
   //   return 0;
 
+  // std::vector<ttk::ftm::MergeTree<double>> trees(inputNodes->GetNumberOfBlocks());
+  // for(ttk::SimplexId i = 0; i < inputNodes->GetNumberOfBlocks(); i++) {
+  //   auto treeNodes = vtkUnstructuredGrid::SafeDownCast(inputNodes->GetBlock(i));
+  //   auto treeArcs = vtkUnstructuredGrid::SafeDownCast(inputArcs->GetBlock(i));
+  //   trees[i] = ttk::ftm::makeTree<double>(treeNodes, treeArcs);
+  //   std::cout << trees[i].tree.getNumberOfNodes() << std::endl;
+
   // std::vector<ttk::ftm::MergeTree<double>>
   // trees(inputNodes->GetNumberOfBlocks()); for(ttk::SimplexId i = 0; i <
   // inputNodes->GetNumberOfBlocks(); i++) {
@@ -657,7 +670,7 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
 
   //------------------------------------------------------------
   // internal vtk filter approach
-
+  ttk::Timer completeTimer;
   auto inputNodes = vtkMultiBlockDataSet::GetData(inputVector[0]);
   if(!inputNodes)
     return 0;
@@ -667,6 +680,14 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
   auto domains = vtkMultiBlockDataSet::GetData(inputVector[2]);
   if(!domains)
     return 0;
+
+  bool isJoinTree = false;
+  std::cout << inputNodes->GetNumberOfBlocks() << std::endl;
+  if(inputNodes->GetNumberOfBlocks()>0){
+    auto inputNodes0 = vtkUnstructuredGrid::SafeDownCast(inputNodes->GetBlock(0));
+    isJoinTree = inputNodes0->GetPointData()->GetArray("Scalar")->GetComponent(0,0) < inputNodes0->GetPointData()->GetArray("Scalar")->GetComponent(1,0);
+  }
+  std::cout << "isJoinTree: " << isJoinTree << std::endl;
 
   // bool sliding_window = true;
   // ttk::SimplexId windowSize = 5;
@@ -692,11 +713,10 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
     ft->SetInputDataObject(0,mtmb.GetPointer());
     ft->SetImportantPairs(0);
     ft->SetEpsilonTree1(0);
-    ft->SetEpsilon2Tree1(1);
-    ft->SetEpsilon3Tree1(1);
+    ft->SetEpsilon2Tree1(100);
+    ft->SetEpsilon3Tree1(100);
     ft->SetPlanarLayout(true);
     ft->Update();
-
     members->DeepCopy(
       vtkMultiBlockDataSet::SafeDownCast(ft->GetOutputDataObject(0)));
 
@@ -797,17 +817,19 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
 
     ttk::SimplexId memberIdx = blockIdx;
     if(this->layoutMode==2 && this->useSlidingWindow) {
+      ttk::Timer clusteringTimer;
       vtkNew<vtkMultiBlockDataSet> mtmb;
       mtmb->SetNumberOfBlocks(2);
       mtmb->SetBlock(0, vtkNew<vtkMultiBlockDataSet>());
       mtmb->SetBlock(1, vtkNew<vtkMultiBlockDataSet>());
-      ttk::SimplexId sb = std::max(blockIdx - this->windowSize, 0);
+      ttk::SimplexId sb = std::max((int)(blockIdx - this->windowSize), 0);
       memberIdx = this->windowSize;
       if(blockIdx - this->windowSize < 0)
         memberIdx += blockIdx - this->windowSize;
       ttk::SimplexId eb
         = std::min(blockIdx + this->windowSize,
                    (ttk::SimplexId)inputNodes->GetNumberOfBlocks() - 1);
+      this->printMsg("Computing barycenter from blocks " + std::to_string(sb) + " to " + std::to_string(eb) , 0.5 + 0.5*(blockIdx)/(inputNodes->GetNumberOfBlocks()),0);
       vtkMultiBlockDataSet::SafeDownCast(mtmb->GetBlock(0))
         ->SetNumberOfBlocks(eb - sb + 1);
       vtkMultiBlockDataSet::SafeDownCast(mtmb->GetBlock(1))
@@ -822,6 +844,7 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
       }
       computeBaryBranchOrdering(
         mtmb.GetPointer(), members.GetPointer(), ordering_branches);
+      this->printMsg("Computed barycenter from blocks " + std::to_string(sb) + " to " + std::to_string(eb) , 0.5 + 0.5*(blockIdx+1)/(inputNodes->GetNumberOfBlocks()),0);
 
       memberNodes = vtkMultiBlockDataSet::SafeDownCast(members->GetBlock(0));
       memberArcs = vtkMultiBlockDataSet::SafeDownCast(members->GetBlock(1));
@@ -855,7 +878,13 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
     }
     for(ttk::SimplexId i = 0; i < memiSegmentScalars.size(); i++) {
       auto l = memiSegmentScalars[i];
-      std::sort(memiSegmentScalars[i].begin(), memiSegmentScalars[i].end());
+      // sort in descending order if we're a join tree, ascending if we're a split tree
+      if(isJoinTree){
+        std::sort(l.begin(),l.end(),std::greater<double>());
+      }
+      else{
+        std::sort(l.begin(),l.end());
+      }
     }
 
     // get node properties of member tree
@@ -906,14 +935,11 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
           = std::max(maxDegree, (ttk::SimplexId)memiChildren[parentId].size());
         // std::cout << i << "/" << memiChildren[parentId].size() << " ; ";
       }
+
       if(parentId == -1 && memiNodeIsDummy[i])
         root = i;
     }
 
-    std::cout << blockIdx << ": " << maxDegree << std::endl;
-    if(maxDegree > 2) {
-      std::cout << "  !!" << maxDegree << std::endl;
-    }
 
     // get barycenter branchIDs of member tree nodes
     std::vector<ttk::SimplexId> branchNodeIDs;
@@ -1047,9 +1073,10 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
   auto outputmb = vtkMultiBlockDataSet::GetData(outputVector, 0);
   outputmb->SetNumberOfBlocks(1);
   vtkNew<vtkImageData> tmtm;
-  tmtm->SetDimensions(linearizations.size() + 1, maxlen + 1, 1);
-  tmtm->SetSpacing(1024, 1, 1);
-  tmtm->SetOrigin(0, 0, 0);
+  tmtm->SetDimensions(linearizations.size()+1,maxlen+1,1);
+  //tmtm->SetSpacing(std::ceil(maxlen/linearizations.size())*2,1,1);
+  tmtm->SetSpacing(1024,1,1);
+  tmtm->SetOrigin(0,0,0);
 
   vtkNew<vtkFloatArray> linArray{};
   vtkNew<vtkIntArray> segArray{};
@@ -1090,7 +1117,7 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
   tmtm->GetCellData()->AddArray(blockArray);
   tmtm->GetCellData()->AddArray(barArray);
 
-  outputmb->SetBlock(0, tmtm);
-
+  outputmb->SetBlock(0,tmtm);
+  this->printMsg("Computed temporal merge tree map", 1, completeTimer.getElapsedTime());
   return 1;
 }
