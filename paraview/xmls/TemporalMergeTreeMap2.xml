@@ -112,6 +112,20 @@
         </Documentation>
       </IntVectorProperty>
 
+      <IntVectorProperty
+      name="LayoutMode"
+      command="SetLayoutMode"
+      label="Layout Mode (1 or 2)"
+      number_of_elements="1"
+      default_values="2">
+        <!-- <Hints>
+        
+        </Hints> -->
+        <Documentation>
+          ToDo.
+        </Documentation>
+      </IntVectorProperty>
+
 
       <!-- Create a UI group that contains all input parameter widgets (here only one) -->
       <PropertyGroup panel_widget="Line" label="Input options">

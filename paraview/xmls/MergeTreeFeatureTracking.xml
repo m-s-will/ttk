@@ -1,0 +1,308 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- NOTE: Unfortunately the widget types and their properties are not well documented. -->
+<!--       The best thing you can do is to look at filters that have similar widgets you require and copy their source code. -->
+<!--       Good resources are: IcoSphere.xml, PersistenceDiagram.xml, and ArrayEditor.xml -->
+
+<ServerManagerConfiguration>
+    <ProxyGroup name="filters">
+        <SourceProxy name="MergeTreeFeatureTracking" class="ttkMergeTreeFeatureTracking" label="TTK MergeTreeFeatureTracking">
+           <Documentation long_help="MergeTreeFeatureTracking Long" short_help="MergeTreeFeatureTracking Short">
+Online examples:
+
+- https://topology-tool-kit.github.io/examples/mergeTreeClustering/
+
+- https://topology-tool-kit.github.io/examples/mergeTreePGA/
+
+- https://topology-tool-kit.github.io/examples/persistenceDiagramPGA/
+           </Documentation>
+
+            <!-- INPUT -->
+                <InputProperty
+                    name="Input"
+                    command="SetInputConnection">
+                  <ProxyGroupDomain name="groups">
+                    <Group name="sources"/>
+                    <Group name="filters"/> 
+                  </ProxyGroupDomain>
+                  <DataTypeDomain name="input_type">
+                    <DataType value="vtkMultiBlockDataSet"/>
+                  </DataTypeDomain>
+                  <InputArrayDomain name="input_scalars" number_of_components="1">
+                    <Property name="Input" function="FieldDataSelection" />
+                  </InputArrayDomain>
+                  <Documentation>
+                    Data-set to process.
+                  </Documentation>
+                </InputProperty>
+
+                <InputProperty
+                    name="Optional Input"
+                    port_index="1"
+                    command="SetInputConnection">
+                  <ProxyGroupDomain name="groups">
+                    <Group name="sources"/>
+                    <Group name="filters"/>
+                  </ProxyGroupDomain>
+                  <DataTypeDomain name="input_type">
+                    <DataType value="vtkMultiBlockDataSet"/>
+                  </DataTypeDomain>
+                  <InputArrayDomain name="input_scalars" number_of_components="1">
+                    <Property name="Input" function="FieldDataSelection" />
+                  </InputArrayDomain>
+                  <Documentation>
+                    If input are merge trees, then this input can be used to process join and split trees together (only for clustering). Pass as input either join or split trees in the first input and the other type of trees in the second input.
+                    If input are persistence diagrams, then this has no effect to use this input.
+                  </Documentation>
+                </InputProperty>
+
+            <!-- INPUT PARAMETER WIDGETS -->
+                <IntVectorProperty
+                name="UseFieldDataParameters"
+                command="SetUseFieldDataParameters"
+                label="Use Field Data Parameters"
+                number_of_elements="1"
+                default_values="0"
+                panel_visibility="advanced">
+                  <Documentation>
+
+                  </Documentation>
+                  <BooleanDomain name="bool"/>
+                </IntVectorProperty>
+                
+                <DoubleVectorProperty
+                name="MixtureCoefficient"
+                command="SetmixtureCoefficient_"
+                label="Mixture Coefficient"
+                number_of_elements="1"
+                default_values="0.5"
+                panel_visibility="advanced">
+                  <Documentation>
+                    If input are merge trees, this parameter allows to weight between the first input and the second input, typically join and split trees (0 for only the second input and 1 for only the first one).
+                    If input are persistence diagrams, this parameter allows to weight between min-sad and sad-max pairs (0 for only sad-max and 1 for only min-sad).
+                  </Documentation>
+                  <DoubleRangeDomain name="range" min="0" max="1" />
+                </DoubleVectorProperty>
+                ${MERGE_TREE_INPUT_WIDGETS}
+
+                <IntVectorProperty
+                name="DistanceSquaredRoot"
+                command="SetDistanceSquaredRoot"
+                label="Distance Square Root"
+                number_of_elements="1"
+                default_values="1"
+                panel_visibility="advanced">
+                  <Documentation>
+                    The distance will be squared root.
+                  </Documentation>
+                  <BooleanDomain name="bool"/>
+                </IntVectorProperty>
+                
+                <!-- Output options -->
+                
+                <IntVectorProperty
+                name="OutputTrees"
+                command="SetOutputTrees"
+                label="Output Trees"
+                number_of_elements="1"
+                  default_values="1"
+                  panel_visibility="advanced">
+                  <Documentation>
+                    Display output trees. 
+                  </Documentation>
+                  <BooleanDomain name="bool"/>
+                </IntVectorProperty>
+                
+                <DoubleVectorProperty
+                name="DimensionSpacing"
+                command="SetDimensionSpacing"
+                label="Dimension Spacing"
+                number_of_elements="1"
+                default_values="1.0">
+                  <Hints>
+                  <PropertyWidgetDecorator type="GenericDecorator"
+                                           mode="visibility"
+                                           property="OutputTrees"
+                                           value="1" />
+                  </Hints>
+                  <Documentation>
+                    
+                  </Documentation>
+                </DoubleVectorProperty>
+                
+                <IntVectorProperty
+                name="DimensionToShift"
+                label="Dimension To shift"
+                command="SetDimensionToShift"
+                number_of_elements="1"
+                default_values="0"
+                panel_visibility="advanced">
+                  <Hints>
+                  <PropertyWidgetDecorator type="GenericDecorator"
+                                           mode="visibility"
+                                           property="OutputTrees"
+                                           value="1" />
+                  </Hints>
+                <EnumerationDomain name="enum">
+                    <Entry value="0" text="X"/>
+                    <Entry value="1" text="Y"/>
+                    <Entry value="2" text="Z"/>
+                    <Entry value="3" text="Custom"/>
+                </EnumerationDomain>
+                  <Documentation>
+                  </Documentation>
+                </IntVectorProperty>
+                
+                <DoubleVectorProperty
+                name="XShift"
+                command="SetXShift"
+                label="X Shift"
+                number_of_elements="1"
+                default_values="1"
+                panel_visibility="advanced">
+                  <Hints>
+                  <PropertyWidgetDecorator type="GenericDecorator"
+                                           mode="visibility"
+                                           property="DimensionToShift"
+                                           value="3" />
+                  </Hints>
+                  <Documentation>
+                    
+                  </Documentation>
+                  <DoubleRangeDomain name="range" min="0" max="1" />
+                </DoubleVectorProperty>
+                
+                <DoubleVectorProperty
+                name="YShift"
+                command="SetYShift"
+                label="Y Shift"
+                number_of_elements="1"
+                default_values="0"
+                panel_visibility="advanced">
+                  <Hints>
+                  <PropertyWidgetDecorator type="GenericDecorator"
+                                           mode="visibility"
+                                           property="DimensionToShift"
+                                           value="3" />
+                  </Hints>
+                  <Documentation>
+                    
+                  </Documentation>
+                  <DoubleRangeDomain name="range" min="0" max="1" />
+                </DoubleVectorProperty>
+                
+                <DoubleVectorProperty
+                name="ZShift"
+                command="SetZShift"
+                label="Z Shift"
+                number_of_elements="1"
+                default_values="0"
+                panel_visibility="advanced">
+                  <Hints>
+                  <PropertyWidgetDecorator type="GenericDecorator"
+                                           mode="visibility"
+                                           property="DimensionToShift"
+                                           value="3" />
+                  </Hints>
+                  <Documentation>
+                    
+                  </Documentation>
+                  <DoubleRangeDomain name="range" min="0" max="1" />
+                </DoubleVectorProperty>
+                
+                <IntVectorProperty
+                name="MergeTreePlanarLayout"
+                command="SetPlanarLayout"
+                label="Planar Layout"
+                number_of_elements="1"
+                default_values="1">
+                  <Hints>
+                  <PropertyWidgetDecorator type="GenericDecorator"
+                                           mode="visibility"
+                                           property="OutputTrees"
+                                           value="1" />
+                  </Hints>
+                  <Documentation>
+                    Display trees in a plane or in the original domain.
+                  </Documentation>
+                  <BooleanDomain name="bool"/>
+                </IntVectorProperty>
+                
+                <IntVectorProperty
+                name="RescaleTreesIndividually"
+                command="SetRescaleTreesIndividually"
+                label="Rescale Trees Individually"
+                number_of_elements="1"
+                default_values="0"
+                panel_visibility="advanced">
+                  <Hints>
+                  <PropertyWidgetDecorator type="GenericDecorator"
+                                           mode="visibility"
+                                           property="MergeTreePlanarLayout"
+                                           value="1" />
+                  </Hints>
+                  <Documentation>
+                    Rescale trees individually. If enabled, the trees will have the same size, it can be interesting to use to individually analyze trees but the comparison between trees given their size will be biased.
+                  </Documentation>
+                  <BooleanDomain name="bool"/>
+                </IntVectorProperty>
+                
+                <IntVectorProperty
+                name="OutputSegmentation"
+                command="SetOutputSegmentation"
+                label="Output Segmentation"
+                number_of_elements="1"
+                default_values="0">
+                  <Hints>
+                  <PropertyWidgetDecorator type="GenericDecorator"
+                                           mode="visibility"
+                                           property="OutputTrees"
+                                           value="1" />
+                  <PropertyWidgetDecorator type="GenericDecorator"
+                                           mode="visibility"
+                                           property="MergeTreePlanarLayout"
+                                           value="0" />
+                  </Hints>
+                  <Documentation>
+                    Display output segmentation. Be careful, it can consume a lot of memory since some segmentations must be copied (to shift them).
+                  </Documentation>
+                  <BooleanDomain name="bool"/>
+                </IntVectorProperty> 
+                
+            <PropertyGroup panel_widget="Line" label="Input options">
+              <Property name="UseFieldDataParameters"/>
+              <Property name="MixtureCoefficient"/>
+              <Property name="DistanceSquaredRoot"/>
+            </PropertyGroup>
+            ${MERGE_TREE_PREPROCESS_WIDGETS}
+            
+            <PropertyGroup panel_widget="Line" label="Output options">
+              <Property name="OutputTrees"/>
+              <Property name="DimensionSpacing"/>
+              <Property name="DimensionToShift"/>
+              <Property name="XShift"/>
+              <Property name="YShift"/>
+              <Property name="ZShift"/>
+              <Property name="MergeTreePlanarLayout"/>
+            </PropertyGroup>
+            ${MERGE_TREE_PLANAR_LAYOUT_WIDGETS}
+            <PropertyGroup panel_widget="Line" label="Output options">
+              <Property name="RescaleTreesIndividually"/>
+              <Property name="OutputSegmentation"/>
+            </PropertyGroup>
+
+            <!-- OUTPUT PARAMETER WIDGETS -->
+            <OutputPort name="Input Trees" index="0" id="port0" />
+            <OutputPort name="Matchings" index="1" id="port1" />
+            <OutputPort name="Curves" index="2" id="port2" />
+
+            <!-- DEBUG -->
+            ${DEBUG_WIDGETS}
+
+            <!-- MENU CATEGORY -->
+                <Hints>
+                    <ShowInMenu category="TTK - Ensemble Scalar Data" />
+                </Hints>
+        </SourceProxy>
+    </ProxyGroup>
+</ServerManagerConfiguration>
