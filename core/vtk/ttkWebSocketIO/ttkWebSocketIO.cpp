@@ -8,6 +8,8 @@
 #include <vtkSmartPointer.h>
 #include <vtkStringArray.h>
 #include <vtkUnstructuredGrid.h>
+#include <ttkExtract.h>
+
 
 #include <vtkCellData.h>
 #include <vtkDoubleArray.h>
@@ -100,7 +102,20 @@ int ttkWebSocketIO::processEvent(const std::string &eventName,
   } else if(eventData.rfind("{\"vtkDataSet", 12) == 0) {
     if(!this->ParseVtkDataObjectFromJSON(eventData))
       return 0;
-  }
+  } else if (eventData.find("ExtractBlock")!= std::string::npos) {
+    this->printMsg("ExtractBlock", 1, 0);
+    auto block = eventData.substr(eventData.find("ExtractBlock") + 12);
+    this->printMsg(block,1,0);
+    vtkNew<ttkExtract> extractor;
+    extractor->SetInputDataObject(0, vtkMultiBlockDataSet::SafeDownCast(this->LastInput.GetPointer()));
+    extractor->SetExtractionMode(ttkExtract::EXTRACTION_MODE::BLOCKS);
+    extractor->SetOutputType(VTK_IMAGE_DATA);
+    extractor->SetExpressionString(block);
+    extractor->Update();
+
+    if(!this->SendVtkDataObject(extractor->GetOutput()))
+      return 0;
+    }
 
   return WebSocketIO::processEvent(eventName, eventData);
 }
@@ -123,6 +138,7 @@ void jsonArrayToArray(const boost::property_tree::ptree &pt,
     result[i] = (T)values[i];
   }
 }
+
 
 static bool jsonHasChild(const boost::property_tree::ptree &pt,
                          const boost::property_tree::ptree::key_type &key) {

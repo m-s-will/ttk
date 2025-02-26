@@ -65,9 +65,7 @@ namespace ttk {
       // inherited from Debug: prefix will be printed at the beginning of every
       // msg
       this->setDebugMsgPrefix("MergeTreePrincipalGeodesics");
-#ifdef TTK_ENABLE_OPENMP
-      omp_set_nested(1);
-#endif
+
     }
 
     unsigned int getGeodesicNumber() {

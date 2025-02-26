@@ -8,3 +8,4 @@ DEPENDS
   webSocketIO
   Boost::boost
   ttkAlgorithm
+  ttkExtract

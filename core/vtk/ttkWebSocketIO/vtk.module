@@ -2,3 +2,4 @@ NAME
   ttkWebSocketIO
 DEPENDS
   ttkAlgorithm
+  ttkExtract

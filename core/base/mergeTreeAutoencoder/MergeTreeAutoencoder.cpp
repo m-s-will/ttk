@@ -2607,10 +2607,6 @@ void ttk::MergeTreeAutoencoder::execute(
   TTK_FORCE_USE(trees2);
   printErr("This module requires Torch.");
 #else
-#ifdef TTK_ENABLE_OPENMP
-  int ompNested = omp_get_nested();
-  omp_set_nested(1);
-#endif
   // --- Preprocessing
   Timer t_preprocess;
   preprocessingTrees<float>(trees, treesNodeCorr_);
@@ -2695,8 +2691,5 @@ void ttk::MergeTreeAutoencoder::execute(
                                                 reconstMatchings_[i]);
     }
   }
-#ifdef TTK_ENABLE_OPENMP
-  omp_set_nested(ompNested);
-#endif
 #endif
 }
