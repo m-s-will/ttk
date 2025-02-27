@@ -158,7 +158,7 @@ void ttkTemporalMergeTreeMap2::dfs_linearization(
       bar.push_back(branchNodeIDs.empty() ? -1 : branchNodeIDs[curr_node]);
     }
     if(curr_children.size() > 2) {
-      this->printWrn(std::to_str(curr_children.size())+" children in a node, multisaddle at step " + std::to_string(timeStep) + "!!");
+      this->printWrn(std::to_string(curr_children.size())+" children in a node, multisaddle at step " + std::to_string(timeStep) + "!!");
     }
     for(ttk::SimplexId ci = 0; ci < curr_children.size(); ci++) {
       auto c = curr_children[ci];
@@ -285,6 +285,7 @@ void ttkTemporalMergeTreeMap2::computeBaryBranchOrdering(
     bary_branches[nId] = bId;
     bary_scalars[nId] = scalar;
   }
+  }
 
 
 /**
@@ -349,14 +350,18 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
     mtmb->SetBlock(0, inputNodes);
     mtmb->SetBlock(1, inputArcs);
     vtkNew<ttkMergeTreeFeatureTracking> ft;
-    ft->SetBackend(2);
+    ft->SetBackend(backend);
+    if(this->backend==3){
+      ft->SetBranchMetric(branchMetric);
+    }
+
     ft->SetInputDataObject(0,mtmb.GetPointer());
     ft->SetImportantPairs(0);
     ft->SetEpsilonTree1(0);
     ft->SetEpsilon2Tree1(100);
     ft->SetEpsilon3Tree1(100);
-    ft->SetPlanarLayout(true);
-    ft->SetNormalizedWasserstein(false);
+    //ft->SetPlanarLayout(true);
+    //ft->SetNormalizedWasserstein(false);
     ft->Update();
     members->DeepCopy(
       vtkMultiBlockDataSet::SafeDownCast(ft->GetOutputDataObject(0)));
@@ -462,7 +467,6 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
 
     ttk::SimplexId memberIdx = blockIdx;
     if(this->layoutMode==2 && this->useSlidingWindow) {
-      ttk::Timer clusteringTimer;
       vtkNew<vtkMultiBlockDataSet> mtmb;
       mtmb->SetNumberOfBlocks(2);
       mtmb->SetBlock(0, vtkNew<vtkMultiBlockDataSet>());
@@ -489,8 +493,6 @@ int ttkTemporalMergeTreeMap2::RequestData(vtkInformation *ttkNotUsed(request),
       }
       computeBaryBranchOrdering(
         mtmb.GetPointer(), members.GetPointer(), ordering_branches);
-      this->printMsg("Computed barycenter from blocks " + std::to_string(sb) + " to " + std::to_string(eb) , 0.5 + 0.5*(blockIdx+1)/(inputNodes->GetNumberOfBlocks()),0);
-
       memberNodes = vtkMultiBlockDataSet::SafeDownCast(members->GetBlock(0));
       memberArcs = vtkMultiBlockDataSet::SafeDownCast(members->GetBlock(1));
     }

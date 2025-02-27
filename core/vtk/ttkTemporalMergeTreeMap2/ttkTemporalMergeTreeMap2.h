@@ -83,6 +83,8 @@ private:
   std::string OutputArrayName{"AveragedScalarField"};
   bool useSlidingWindow = false;
   double scaling = 2.0;
+  int backend = 0;
+  int branchMetric = 0;
   ttk::SimplexId windowSize = 5;
   ttk::SimplexId layoutMode = 2; // 1=matchings, 2=barycenter
   int barycenterSize=20;
@@ -100,7 +102,8 @@ private:
       std::vector<double> &memiScalars,
       std::vector<double> &memiOrdering,
       std::vector<ttk::SimplexId> prevMatching,
-      std::vector<double> prevOrdering);
+      std::vector<double> prevOrdering,
+      ttk::SimplexId timeStep);
   void computeBaryBranchOrdering(
     vtkMultiBlockDataSet* mtmb,
     vtkMultiBlockDataSet* members,
@@ -119,6 +122,18 @@ public:
     Modified();
   }
   vtkGetMacro(windowSize, int);
+
+  void SetBackend(int b) {
+    backend = b;
+    Modified();
+  }
+  vtkGetMacro(backend, int);
+
+  void SetBranchMetric(int b) {
+    branchMetric = b;
+    Modified();
+  }
+  vtkGetMacro(branchMetric, int);
 
   void SetLayoutMode(int m) {
     layoutMode = m;

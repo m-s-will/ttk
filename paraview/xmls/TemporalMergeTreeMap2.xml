@@ -67,18 +67,29 @@
         <Documentation>The scalar array that will be used to compute averages.</Documentation>
       </StringVectorProperty>
 
+    <IntVectorProperty name="LayoutMode" command="SetLayoutMode" label="Layout Mode"
+          number_of_elements="1" default_values="2">
+          <EnumerationDomain name="enum">
+              <Entry value="1" text="Pairwise Distance"/>
+              <Entry value="2" text="Barycenter"/>
+          </EnumerationDomain>
+          <Documentation>
+
+          </Documentation>
+      </IntVectorProperty>
+
       <IntVectorProperty
       name="UseSlidingWindow"
       command="SetUseSlidingWindow"
       label="Use sliding window"
       number_of_elements="1"
-      default_values="1">
-        <!-- <Hints>
+      default_values="0">
+        <Hints>
         <PropertyWidgetDecorator type="GenericDecorator"
                                   mode="visibility"
-                                  property="OutputTrees"
-                                  value="1" />
-        </Hints> -->
+                                  property="LayoutMode"
+                                  value="2" />
+        </Hints>
         <Documentation>
           ToDo.
         </Documentation>
@@ -88,12 +99,16 @@
       <IntVectorProperty
       name="SlidingWindowSize"
       command="SetWindowSize"
-      label="Slidng window size"
+      label="Sliding window size"
       number_of_elements="1"
       default_values="5">
-    <!-- <Hints>
+    <Hints>
+        <PropertyWidgetDecorator type="GenericDecorator"
+                                  mode="visibility"
+                                  property="UseSlidingWindow"
+                                  value="1" />
 
-        </Hints> -->
+        </Hints>
         <Documentation>
           ToDo.
         </Documentation>
@@ -104,28 +119,61 @@
       label="Max BarycenterSize(%)"
       number_of_elements="1"
       default_values="20">
-        <!-- <Hints>
-
-        </Hints> -->
+      <Hints>
+        <PropertyWidgetDecorator type="GenericDecorator"
+                                  mode="visibility"
+                                  property="LayoutMode"
+                                  value="2" />
+        </Hints>
         <Documentation>
           ToDo.
         </Documentation>
+      </IntVectorProperty>
+
+
+      <IntVectorProperty name="Backend" command="SetBackend" label="Backend"
+          number_of_elements="1" default_values="0"
+          panel_visibility="advanced">
+          <EnumerationDomain name="enum">
+            <Entry value="0" text="Wasserstein Distance (IEEE TVCG 2021)"/>
+            <Entry value="1" text="Edit Distance (IEEE TVCG 2019)"/>
+            <Entry value="3" text="Branch Mapping Distance (EuroVis 2022)"/>
+            <Entry value="4" text="Path Mapping Distance (TopoInVis 2022)"/>
+          </EnumerationDomain>
+          <Hints>
+            <PropertyWidgetDecorator type="GenericDecorator"
+                           mode="visibility"
+                           property="LayoutMode"
+                           value="1" />
+          </Hints>
+
+          <Documentation>
+
+          </Documentation>
       </IntVectorProperty>
 
       <IntVectorProperty
-      name="LayoutMode"
-      command="SetLayoutMode"
-      label="Layout Mode (1 or 2)"
-      number_of_elements="1"
-      default_values="2">
-        <!-- <Hints>
-
-        </Hints> -->
-        <Documentation>
-          ToDo.
-        </Documentation>
-      </IntVectorProperty>
-
+        name="BranchMetric"
+        label="Branch Metric"
+        command="SetBranchMetric"
+        number_of_elements="1"
+        default_values="0">
+        <EnumerationDomain name="enum">
+            <Entry value="0" text="Wasserstein first degree"/>
+            <Entry value="1" text="Wasserstein second degree"/>
+            <Entry value="2" text="Persistence"/>
+            <Entry value="3" text="Shifting"/>
+        </EnumerationDomain>
+        <Hints>
+          <PropertyWidgetDecorator type="GenericDecorator"
+                                  mode="visibility"
+                                  property="Backend"
+                                  value="3" />
+          </Hints>
+          <Documentation>
+            The metric used to compare branches in the algorithm.
+          </Documentation>
+        </IntVectorProperty>
       <DoubleVectorProperty
       name="Scaling"
       command="SetScaling"
